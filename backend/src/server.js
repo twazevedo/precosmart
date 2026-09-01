@@ -185,7 +185,13 @@ app.get('/api/comparison', (req, res) => {
           FROM price_quotes
         ) WHERE rn = 1
       )
-    `).all();
+    `).all().map((q) => {
+      let finalUrl = q.url;
+      if (finalUrl && finalUrl.includes('amazon.com.br') && !finalUrl.includes('tag=')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'tag=precosmartapp-20';
+      }
+      return { ...q, url: finalUrl };
+    });
 
     const comparisonList = products.map((product) => {
       const quotesForProduct = latestQuotes.filter((q) => q.product_id === product.id && q.in_stock === 1);
