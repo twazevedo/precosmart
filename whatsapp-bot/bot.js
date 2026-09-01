@@ -28,7 +28,10 @@ const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashS
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
 const TARGET_GROUP     = process.env.WA_GROUP_NAME || 'PreçoSmart Ofertas 🔥';
-const SESSION_DIR      = path.join(__dirname, 'session');
+// No Render.com o disco persistente é montado em /opt/render/project/src/session
+const SESSION_DIR      = process.env.RENDER_DISK_MOUNT_PATH
+                          ? path.join(process.env.RENDER_DISK_MOUNT_PATH)
+                          : path.join(__dirname, 'session');
 const MAX_LOG_ENTRIES  = 100;
 
 /**
