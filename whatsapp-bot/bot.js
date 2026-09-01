@@ -22,7 +22,7 @@ const path       = require('path');
 const fs         = require('fs');
 const cron       = require('node-cron');
 
-const { getDailyProduct, getRandomProduct, getTopDeals } = require('./catalog');
+const { getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories } = require('./catalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 
 // ── Configurações ────────────────────────────────────────────────────────────
@@ -87,8 +87,8 @@ app.post('/api/send-now', async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
     const product = getRandomProduct();
-    const msg     = buildOfferMessage(product);
-    await waSocket.sendMessage(groupJid, { text: msg });
+    const caption = buildOfferMessage(product);
+    await sendProductMessage(product, caption);
     logEntry('MANUAL', `Oferta manual enviada: ${product.title}`);
     res.json({ ok: true, product: product.title });
   } catch (err) {
@@ -111,7 +111,8 @@ app.post('/api/send-flash', async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
   try {
     const [top] = getTopDeals(1);
-    await waSocket.sendMessage(groupJid, { text: buildFlashSaleMessage(top) });
+    const caption = buildFlashSaleMessage(top);
+    await sendProductMessage(top, caption);
     logEntry('FLASH', `Flash sale enviado: ${top.title}`);
     res.json({ ok: true, product: top.title });
   } catch (err) {
@@ -151,6 +152,25 @@ async function findGroupJid(sock) {
   }
 }
 
+/**
+ * Envia produto como imagem + legenda. Fallback para texto se a imagem falhar.
+ */
+async function sendProductMessage(product, caption) {
+  if (product.imageUrl) {
+    try {
+      await waSocket.sendMessage(groupJid, {
+        image:    { url: product.imageUrl },
+        caption:  caption,
+        mimetype: 'image/jpeg'
+      });
+      return;
+    } catch (imgErr) {
+      logEntry('WARN', `Imagem falhou, enviando só texto: ${imgErr.message}`);
+    }
+  }
+  await waSocket.sendMessage(groupJid, { text: caption });
+}
+
 async function sendScheduledOffer(label, productFn) {
   if (!isConnected || !groupJid) {
     logEntry('SKIP', `[${label}] Bot offline ou grupo não encontrado`);
@@ -158,8 +178,8 @@ async function sendScheduledOffer(label, productFn) {
   }
   try {
     const product = productFn();
-    const msg     = buildOfferMessage(product);
-    await waSocket.sendMessage(groupJid, { text: msg });
+    const caption = buildOfferMessage(product);
+    await sendProductMessage(product, caption);
     logEntry('SENT', `[${label}] ${product.title}`);
   } catch (err) {
     logEntry('ERROR', `[${label}] ${err.message}`);
@@ -167,33 +187,44 @@ async function sendScheduledOffer(label, productFn) {
 }
 
 function setupCronJobs() {
-  // 09:55 — Resumo matinal
-  cron.schedule('55 9 * * *', async () => {
+  // 09:00 — Resumo matinal (O que esperar do dia)
+  cron.schedule('0 9 * * *', async () => {
     if (!isConnected || !groupJid) return;
     try {
       await waSocket.sendMessage(groupJid, { text: buildMorningMessage() });
-      logEntry('SENT', '[09:55] Resumo matinal enviado');
+      logEntry('SENT', '[09:00] Resumo matinal enviado');
     } catch (err) { logEntry('ERROR', err.message); }
   }, { timezone: 'America/Sao_Paulo' });
 
-  // 10:00 — Oferta #1 (produto do dia)
-  cron.schedule('0 10 * * *', () => sendScheduledOffer('10h', getDailyProduct),          { timezone: 'America/Sao_Paulo' });
+  // 12:00 — Horário de almoço (Compras rápidas no celular)
+  cron.schedule('0 12 * * *', () => {
+    sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets']));
+  }, { timezone: 'America/Sao_Paulo' });
 
-  // 18:00 — Oferta #2 (pico do varejo)
-  cron.schedule('0 18 * * *', () => sendScheduledOffer('18h', () => getRandomProduct(getDailyProduct().id)), { timezone: 'America/Sao_Paulo' });
+  // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)
+  cron.schedule('0 16 * * *', () => {
+    sendScheduledOffer('16h', () => getProductByCategories(['Notebooks', 'Monitores']));
+  }, { timezone: 'America/Sao_Paulo' });
 
-  // 21:00 — Oferta #3 + Flash Sale se top desconto >= 15%
-  cron.schedule('0 21 * * *', async () => {
+  // 19:30 — Chegada em casa / Lazer (TV, Áudio, Entretenimento)
+  cron.schedule('30 19 * * *', () => {
+    sendScheduledOffer('19h30', () => getProductByCategories(['TV & Vídeo', 'Áudio', 'Câmeras & Drones']));
+  }, { timezone: 'America/Sao_Paulo' });
+
+  // 22:00 — Gamers e Hardware (Pico de compras tech pesadas)
+  cron.schedule('0 22 * * *', async () => {
     const [top] = getTopDeals(1);
     if (top.discPct >= 15 && isConnected && groupJid) {
-      await waSocket.sendMessage(groupJid, { text: buildFlashSaleMessage(top) });
-      logEntry('FLASH', `[21h] Flash Sale: ${top.title}`);
+      // Se tiver uma oferta muuuito boa, solta como Flash Sale
+      const caption = buildFlashSaleMessage(top);
+      await sendProductMessage(top, caption);
+      logEntry('FLASH', `[22h] Flash Sale: ${top.title}`);
     } else {
-      await sendScheduledOffer('21h', () => getRandomProduct(getDailyProduct().id));
+      sendScheduledOffer('22h', () => getProductByCategories(['Games & Consoles', 'Hardware & PC']));
     }
   }, { timezone: 'America/Sao_Paulo' });
 
-  logEntry('CRON', 'Agendamentos: 09:55 resumo • 10h • 18h • 21h ofertas');
+  logEntry('CRON', 'Horários de pico ativos: 09h(Resumo) • 12h(Celulares) • 16h(PCs) • 19:30(TV/Áudio) • 22h(Gamers)');
 }
 
 async function startBot() {
