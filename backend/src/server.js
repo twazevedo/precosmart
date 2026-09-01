@@ -191,6 +191,8 @@ app.get('/api/comparison', (req, res) => {
         finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'tag=precosmartapp-20';
       } else if (finalUrl && finalUrl.includes('shopee.com.br') && !finalUrl.includes('aff_id=')) {
         finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'aff_id=18361251220';
+      } else if (finalUrl && finalUrl.includes('mercadolivre.com.br') && !finalUrl.includes('matt_tool=')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'matt_tool=azs5603820';
       }
       return { ...q, url: finalUrl };
     });
