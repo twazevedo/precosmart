@@ -1,10 +1,7 @@
 /**
- * @file formatter.js — PreçoSmart Bot v2.0
- * @description Templates de mensagens ricas para WhatsApp:
- *  - Oferta completa com análise anti-fraude
- *  - Resumo matinal Top 3
- *  - Mensagem de boas-vindas
- *  - Flash sale urgente
+ * @file formatter.js — PreçoSmart Bot v2.1
+ * @description Mensagens limpas, sem assinatura de IA, sem menção à extensão.
+ * As ofertas são enviadas como imagem + legenda pelo bot.js.
  */
 'use strict';
 
@@ -14,60 +11,42 @@ const brl = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', curren
 const now  = ()  => new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 const pct  = (v) => `${Math.round(v)}%`;
 
-/** ── Oferta completa ──────────────────────────────────────────────────────── */
-function buildOfferMessage(product) {
+/** ── Legenda da oferta (vai junto à foto do produto) ───────────────────────── */
+function buildOfferCaption(product) {
   const sorted   = [...product.quotes].sort((a, b) => a.pix - b.pix);
   const cheapest = sorted[0];
-  const pricier  = sorted[sorted.length - 1];
   const coupon   = getBestCoupon(cheapest.store, cheapest.pix);
   const final    = coupon ? coupon.finalPrice : cheapest.pix;
-  const saving30 = product.history30dAvg - cheapest.pix;
-  const savPct   = saving30 > 0 ? ((saving30 / product.history30dAvg) * 100) : 0;
-  const isReal   = cheapest.pix < product.history30dAvg * 0.97;
-  const isFlash  = savPct >= 15;
-  const badge    = isReal ? '✅ *Promoção Autêntica*' : '⚠️ *Verifique o histórico*';
+  const oldPrice = product.history30dAvg;
   const url      = getAffiliateUrl(cheapest.store, product.title);
 
-  const otherStores = sorted.slice(1, 4).map((q) =>
-    `  • ${q.store}: ${brl(q.pix)} → ${getAffiliateUrl(q.store, product.title)}`
-  ).join('\n');
+  // Frases de efeito curtas
+  const catchphrases = [
+    '🔥 OFERTA IMPERDÍVEL',
+    '🚨 PREÇO CAIU',
+    '⚡ CORRE QUE TÁ BARATO',
+    '🎯 ACHADO DO DIA',
+    '💣 EXPLOSÃO DE OFERTA'
+  ];
+  const catchphrase = catchphrases[Math.floor(Math.random() * catchphrases.length)];
 
-  const couponBlock = coupon
-    ? `\n🎟️ *CUPOM:* \`${coupon.code}\` — ${coupon.desc}\n💰 *PREÇO FINAL: ${brl(final)}* (economia de ${brl(coupon.saving)})`
-    : '';
+  let instructions = '';
+  if (coupon) {
+    instructions = `\n↪️ Aplique o cupom "${coupon.code}" no carrinho.`;
+  } else if (cheapest.store === 'KaBuM!' || cheapest.store === 'Mercado Livre') {
+     instructions = `\n↪️ Menor preço no Pix.`;
+  }
 
-  const flashBanner = isFlash ? '\n🚨 *FLASH DEAL — ESTOQUE LIMITADO!* 🚨' : '';
+  return `${catchphrase}
 
-  return `${isFlash ? '🔥🔥🔥' : '⚡'} *PreçoSmart — Oferta do Dia!* ${isFlash ? '🔥🔥🔥' : '⚡'}${flashBanner}
+${product.emoji} ${product.title}
 
-${product.emoji} *${product.title}*
-📂 _${product.category}_
+🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
 
-━━━━━━━━━━━━━━━━━━━━━━
-🏆 *MENOR PREÇO AGORA:*
-🏪 *${cheapest.store}* → *${brl(cheapest.pix)}* no Pix
-📦 ${product.shipping[cheapest.store] || 'Consultar frete'}
-🔗 ${url}${couponBlock}
-
-━━━━━━━━━━━━━━━━━━━━━━
-🔍 *Compare nas 5 lojas:*
-${otherStores}
-  • ${pricier.store}: ${brl(pricier.pix)} (mais caro)
-
-━━━━━━━━━━━━━━━━━━━━━━
-📊 *Análise PreçoSmart:*
-${badge}
-${savPct > 0 ? `📉 ${pct(savPct)} abaixo da média dos últimos 30 dias` : '📊 Preço estável — sem variação relevante'}
-💡 Diferença entre lojas: *${brl(pricier.pix - cheapest.pix)}*
-💳 No cartão: *${brl(cheapest.card)}* em até ${cheapest.installments || 10}x sem juros
-
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 _PreçoSmart Bot • Eletrônicos 24h_
-⏰ _${now()}_
-📲 _Encaminhe para quem precisa economizar!_`;
+🔗 ${url}`;
 }
 
-/** ── Resumo matinal Top 3 ─────────────────────────────────────────────────── */
+/** ── Resumo matinal (texto simples, sem foto) ─────────────────────────────── */
 function buildMorningMessage() {
   const top3 = getTopDeals(3);
   const dateStr = new Date().toLocaleString('pt-BR', {
@@ -88,14 +67,12 @@ function buildMorningMessage() {
 ${items}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-💡 *Dica do dia:* Sempre use o cupom destacado!
-📲 *Compartilhe* com amigos que curtem economizar!
-🔔 Próxima oferta completa às *10h*
-
-🤖 _PreçoSmart Bot — Eletrônicos com Preço Justo_`;
+💡 Use o cupom destacado para economizar ainda mais!
+📲 Compartilhe com quem também quer economizar!
+🔔 Próxima oferta às *10h*`;
 }
 
-/** ── Boas-vindas para novos membros ──────────────────────────────────────── */
+/** ── Boas-vindas (sem menção à extensão) ─────────────────────────────────── */
 function buildWelcomeMessage() {
   return `👋 *Bem-vindo ao PreçoSmart Ofertas!* 🔥
 
@@ -105,39 +82,42 @@ Aqui você recebe automaticamente:
 ✅ *Comparativo em tempo real* nas 5 maiores lojas:
    Amazon • Shopee • Mercado Livre • KaBuM! • AliExpress
 ✅ *Anti-Fraude "Metade do Dobro"* — nunca pague errado
-✅ *Flash Deals* — alertas de estoque limitado 🚨
+✅ *Flash Deals* quando o estoque está acabando 🚨
 
 ⏰ *Horários de envio automático:*
-   🌅 09:55 — Resumo Top 3 do Dia
+   🌅 09:55 — Top 3 melhores do dia
    🔔 10:00 — Oferta #1
-   🔔 18:00 — Oferta #2 (pico do varejo)
-   🌙 21:00 — Oferta #3 (horário nobre)
+   🔔 18:00 — Oferta #2
+   🌙 21:00 — Oferta #3 ou Flash Sale
 
-━━━━━━━━━━━━━━━━━━━━━━
-🔗 *Extensão Grátis para Chrome:*
-github.com/twazevedo/precosmart-extensao
-_Compara preços enquanto você navega nas lojas!_
-
-🤖 _Bot PreçoSmart — 100% Automático & Gratuito_`;
+Divulgue o grupo para seus amigos! 💚`;
 }
 
-/** ── Alerta Flash Sale ───────────────────────────────────────────────────── */
-function buildFlashSaleMessage(product) {
+/** ── Flash Sale (vai junto à foto do produto) ─────────────────────────────── */
+function buildFlashCaption(product) {
   const sorted   = [...product.quotes].sort((a, b) => a.pix - b.pix);
   const cheapest = sorted[0];
   const coupon   = getBestCoupon(cheapest.store, cheapest.pix);
   const final    = coupon ? coupon.finalPrice : cheapest.pix;
+  const oldPrice = product.history30dAvg;
   const url      = getAffiliateUrl(cheapest.store, product.title);
 
-  return `🚨🚨🚨 *FLASH SALE — TEMPO LIMITADO!* 🚨🚨🚨
+  let instructions = '';
+  if (coupon) {
+    instructions = `\n↪️ Aplique o cupom "${coupon.code}" no carrinho.`;
+  }
 
-${product.emoji} *${product.title}*
+  return `🚨 FLASH SALE — ESTOQUE LIMITADO
 
-⚡ *${brl(final)}* na ${cheapest.store}${coupon ? ` com \`${coupon.code}\`` : ''}
-🔗 *Garanta agora →* ${url}
+${product.emoji} ${product.title}
 
-⏳ _Oferta pode acabar a qualquer momento!_
-🤖 _PreçoSmart Bot • ${now()}_`;
+🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
+
+🔗 ${url}`;
 }
 
-module.exports = { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage };
+// Mantém compatibilidade com chamadas existentes no bot.js
+const buildOfferMessage    = buildOfferCaption;
+const buildFlashSaleMessage = (p) => buildFlashCaption(p);
+
+module.exports = { buildOfferCaption, buildFlashCaption, buildMorningMessage, buildWelcomeMessage, buildOfferMessage, buildFlashSaleMessage };
