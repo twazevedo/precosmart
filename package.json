@@ -4,7 +4,9 @@
   "description": "PreçoSmart - Sistema de Comparação de Preços de Eletrônicos",
   "main": "backend/src/server.js",
   "type": "module",
+  "license": "MIT",
   "scripts": {
+    "postinstall": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
     "build": "npm --prefix frontend install && npm --prefix frontend run build && npm --prefix backend install",
     "start": "node backend/src/server.js",
     "dev": "node --watch backend/src/server.js"
