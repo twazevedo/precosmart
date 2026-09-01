@@ -50,6 +50,10 @@ const client = new Client({
   }),
   puppeteer: {
     headless: true,
+    // Usa o Chrome instalado no sistema em vez do bundled do puppeteer
+    executablePath:
+      process.env.CHROME_PATH ||
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
