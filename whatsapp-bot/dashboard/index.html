@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PreçoSmart Bot — Painel de Controle</title>
+  <style>
+    :root {
+      --bg:       #0a0e1a;
+      --surface:  #111827;
+      --card:     #1a2234;
+      --border:   #2a3750;
+      --accent:   #6366f1;
+      --green:    #10b981;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --radius:   14px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Header */
+    header {
+      background: linear-gradient(135deg, #1e1b4b 0%, #111827 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-icon { font-size: 36px; }
+    .logo-text h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .logo-text p  { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+    .status-pill {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 999px; padding: 8px 18px;
+      font-size: 0.85rem; font-weight: 600;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); animation: pulse 2s infinite; }
+    .dot.green  { background: var(--green); }
+    .dot.yellow { background: var(--yellow); animation: none; }
+    @keyframes pulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+
+    /* Layout */
+    main { max-width: 1200px; margin: 0 auto; padding: 32px 20px; }
+
+    /* Grid */
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+
+    /* Card */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+    .card h2 { font-size: 0.9rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+    .card.glow { box-shadow: 0 0 30px rgba(99,102,241,.15); border-color: rgba(99,102,241,.4); }
+
+    /* Stat cards */
+    .stat-card { text-align: center; padding: 20px; }
+    .stat-icon { font-size: 2rem; margin-bottom: 8px; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; color: #fff; }
+    .stat-label { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+
+    /* QR Section */
+    #qr-wrapper {
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      min-height: 260px; justify-content: center;
+    }
+    #qr-img { border-radius: 12px; max-width: 220px; border: 4px solid var(--accent); }
+    .qr-instruction { text-align: center; color: var(--muted); font-size: 0.9rem; line-height: 1.6; }
+    .qr-instruction strong { color: var(--text); }
+    .connected-badge {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .connected-badge .icon { font-size: 4rem; }
+    .connected-badge p { color: var(--green); font-weight: 600; font-size: 1.1rem; }
+    .connected-badge small { color: var(--muted); font-size: 0.8rem; }
+
+    /* Buttons */
+    .btn-group { display: flex; flex-direction: column; gap: 10px; }
+    .btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px 20px; border-radius: 10px; border: none; cursor: pointer;
+      font-size: 0.95rem; font-weight: 600; transition: all .2s; text-decoration: none;
+    }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary  { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #4f46e5; transform: translateY(-1px); }
+    .btn-green    { background: var(--green); color: #fff; }
+    .btn-green:hover:not(:disabled) { background: #059669; transform: translateY(-1px); }
+    .btn-yellow   { background: var(--yellow); color: #000; }
+    .btn-yellow:hover:not(:disabled) { background: #d97706; transform: translateY(-1px); }
+    .btn-red      { background: var(--red); color: #fff; }
+    .btn-red:hover:not(:disabled) { background: #dc2626; transform: translateY(-1px); }
+    .btn-outline  { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+
+    /* Log */
+    #log-list { max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    .log-item {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px; border-radius: 8px; background: var(--surface);
+      border-left: 3px solid var(--border); font-size: 0.85rem;
+    }
+    .log-item.SENT    { border-color: var(--green); }
+    .log-item.ERROR   { border-color: var(--red); }
+    .log-item.FLASH   { border-color: var(--yellow); }
+    .log-item.MANUAL  { border-color: var(--accent); }
+    .log-item.QR      { border-color: #06b6d4; }
+    .log-time  { color: var(--muted); font-size: 0.75rem; white-space: nowrap; margin-top: 2px; }
+    .log-badge { font-size: 0.7rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; background: var(--border); }
+    .log-text  { color: var(--text); flex: 1; }
+
+    /* Schedule */
+    .schedule-list { display: flex; flex-direction: column; gap: 10px; }
+    .schedule-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--surface); border-radius: 8px; }
+    .schedule-time { font-weight: 700; color: var(--accent); min-width: 50px; font-size: 1rem; }
+    .schedule-desc { font-size: 0.88rem; color: var(--muted); }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--card); border: 1px solid var(--border);
+      color: var(--text); padding: 14px 20px; border-radius: 12px;
+      font-size: 0.9rem; opacity: 0; transform: translateY(16px);
+      transition: all .3s; pointer-events: none; max-width: 320px; z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    /* Uptime bar */
+    .uptime { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); margin-top: 8px; }
+    .uptime span { color: var(--text); font-weight: 600; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: var(--surface); } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">🤖</div>
+  <div class="logo-text">
+    <h1>PreçoSmart Bot</h1>
+    <p>Painel de Controle — WhatsApp Automático</p>
+  </div>
+  <div class="status-pill">
+    <div class="dot" id="status-dot"></div>
+    <span id="status-text">Conectando...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Stat Cards -->
+  <div class="grid-4">
+    <div class="card stat-card">
+      <div class="stat-icon">📤</div>
+      <div class="stat-value" id="stat-sent">–</div>
+      <div class="stat-label">Mensagens Enviadas</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon">🛍️</div>
+      <div class="stat-value">15</div>
+      <div class="stat-label">Produtos no Catálogo</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon">🎟️</div>
+      <div class="stat-value">8</div>
+      <div class="stat-label">Cupons Ativos</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-value" id="stat-uptime">–</div>
+      <div class="stat-label">Uptime</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <!-- QR / Status de Conexão -->
+    <div class="card glow">
+      <h2>📱 Conexão WhatsApp</h2>
+      <div id="qr-wrapper">
+        <div style="color:var(--muted); font-size: 2rem;">⏳</div>
+        <p style="color:var(--muted)">Aguardando dados do servidor...</p>
+      </div>
+    </div>
+
+    <!-- Controles -->
+    <div class="card">
+      <h2>🎛️ Controles</h2>
+      <div class="btn-group">
+        <button class="btn btn-green" id="btn-send-now" disabled onclick="sendNow()">
+          ⚡ Enviar Oferta Agora
+        </button>
+        <button class="btn btn-yellow" id="btn-send-flash" disabled onclick="sendFlash()">
+          🚨 Disparar Flash Sale
+        </button>
+        <button class="btn btn-primary" id="btn-send-welcome" disabled onclick="sendWelcome()">
+          👋 Enviar Boas-Vindas
+        </button>
+        <hr style="border-color:var(--border); margin:4px 0">
+        <div class="schedule-list">
+          <div class="schedule-item"><span class="schedule-time">09:55</span><span class="schedule-desc">☀️ Resumo Top 3 do Dia</span></div>
+          <div class="schedule-item"><span class="schedule-time">10:00</span><span class="schedule-desc">🔔 Oferta #1 — Produto do Dia</span></div>
+          <div class="schedule-item"><span class="schedule-time">18:00</span><span class="schedule-desc">🔔 Oferta #2 — Pico do Varejo</span></div>
+          <div class="schedule-item"><span class="schedule-time">21:00</span><span class="schedule-desc">🌙 Oferta #3 / Flash Sale</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Log de Atividade -->
+  <div class="card">
+    <h2>📋 Log de Atividade <small style="color:var(--muted); font-size:0.75rem; text-transform:none; font-weight:normal">(atualiza automaticamente)</small></h2>
+    <div id="log-list">
+      <p style="color:var(--muted); text-align:center; padding:20px">Carregando logs...</p>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let lastLogTime = null;
+
+  function fmtUptime(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  function fmtTime(iso) {
+    return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  function toast(msg, color = '#6366f1') {
+    const el = $('toast');
+    el.textContent = msg;
+    el.style.borderColor = color;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  async function fetchStatus() {
+    try {
+      const r = await fetch('/api/status');
+      const d = await r.json();
+
+      // Status pill
+      const dot  = $('status-dot');
+      const text = $('status-text');
+      if (d.connected) {
+        dot.className  = 'dot green';
+        text.textContent = '🟢 Conectado';
+      } else if (d.qrReady) {
+        dot.className  = 'dot yellow';
+        text.textContent = '📱 Aguardando QR Scan';
+      } else {
+        dot.className  = 'dot';
+        text.textContent = '🔴 Desconectado';
+      }
+
+      // Stat uptime
+      $('stat-uptime').textContent = fmtUptime(d.uptime);
+      $('stat-sent').textContent   = d.logCount;
+
+      // Buttons
+      const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome'];
+      btns.forEach((id) => $(id).disabled = !d.connected);
+
+      // QR Section
+      await fetchQR(d);
+    } catch(e) { console.error(e); }
+  }
+
+  async function fetchQR(statusData) {
+    const wrapper = $('qr-wrapper');
+    if (statusData.connected) {
+      wrapper.innerHTML = `
+        <div class="connected-badge">
+          <div class="icon">✅</div>
+          <p>WhatsApp Conectado!</p>
+          <small>Grupo: <strong>${statusData.groupName}</strong></small>
+          <small style="margin-top:8px; color:var(--muted)">Ofertas sendo enviadas automaticamente 🎉</small>
+        </div>`;
+      return;
+    }
+    const r = await fetch('/api/qr');
+    const d = await r.json();
+    if (d.status === 'qr_ready' && d.qr) {
+      wrapper.innerHTML = `
+        <img id="qr-img" src="${d.qr}" alt="QR Code WhatsApp">
+        <div class="qr-instruction">
+          <strong>Escaneie com seu WhatsApp</strong><br>
+          Configurações → <em>Dispositivos Vinculados</em> → <em>Vincular Dispositivo</em><br>
+          <small>A sessão fica salva — só escaneia 1 vez!</small>
+        </div>`;
+    } else {
+      wrapper.innerHTML = `
+        <div style="text-align:center; color:var(--muted)">
+          <div style="font-size:3rem; margin-bottom:12px">⏳</div>
+          <p>Aguardando geração do QR Code...</p>
+          <small>O servidor está iniciando a conexão</small>
+        </div>`;
+    }
+  }
+
+  async function fetchLogs() {
+    try {
+      const r = await fetch('/api/logs');
+      const logs = await r.json();
+      if (!logs.length) return;
+
+      const badgeColors = {
+        SENT: '#10b981', ERROR: '#ef4444', FLASH: '#f59e0b',
+        MANUAL: '#6366f1', QR: '#06b6d4', CRON: '#8b5cf6',
+        CONNECTED: '#10b981', WARN: '#f59e0b', BOOT: '#64748b',
+        SERVER: '#64748b', GROUP: '#10b981'
+      };
+
+      const html = logs.slice(0, 30).map((l) => {
+        const color = badgeColors[l.type] || '#64748b';
+        return `<div class="log-item ${l.type}">
+          <span class="log-time">${fmtTime(l.time)}</span>
+          <span class="log-badge" style="background:${color}22; color:${color}">${l.type}</span>
+          <span class="log-text">${l.text}</span>
+        </div>`;
+      }).join('');
+
+      $('log-list').innerHTML = html;
+    } catch(e) {}
+  }
+
+  async function sendNow() {
+    const btn = $('btn-send-now');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const r = await fetch('/api/send-now', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) toast(`✅ Oferta enviada: ${d.product}`, '#10b981');
+      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+    } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
+    btn.disabled = false; btn.textContent = '⚡ Enviar Oferta Agora';
+    fetchLogs();
+  }
+
+  async function sendFlash() {
+    const btn = $('btn-send-flash');
+    btn.disabled = true; btn.textContent = 'Disparando...';
+    try {
+      const r = await fetch('/api/send-flash', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) toast(`🚨 Flash Sale: ${d.product}`, '#f59e0b');
+      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+    } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
+    btn.disabled = false; btn.textContent = '🚨 Disparar Flash Sale';
+    fetchLogs();
+  }
+
+  async function sendWelcome() {
+    const btn = $('btn-send-welcome');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const r = await fetch('/api/send-welcome', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) toast('👋 Boas-vindas enviadas!', '#6366f1');
+      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+    } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
+    btn.disabled = false; btn.textContent = '👋 Enviar Boas-Vindas';
+    fetchLogs();
+  }
+
+  // Poll a cada 3 segundos
+  fetchStatus(); fetchLogs();
+  setInterval(fetchStatus, 3000);
+  setInterval(fetchLogs, 5000);
+</script>
+
+</body>
+</html>

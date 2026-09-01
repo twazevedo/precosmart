@@ -1,10 +1,24 @@
+# render.yaml — Deploy automático do Bot WhatsApp PreçoSmart no Render.com
+# Docs: https://render.com/docs/render-yaml
+
 services:
   - type: web
-    name: precosmart-app
-    env: node
+    name: precosmart-whatsapp-bot
+    runtime: node
+    rootDir: whatsapp-bot
+    buildCommand: npm install
+    startCommand: node bot.js
     plan: free
-    buildCommand: npm run build
-    startCommand: npm run start
     envVars:
-      - key: NODE_VERSION
-        value: 22.12.0
+      - key: PORT
+        value: "3002"
+      - key: WA_GROUP_NAME
+        value: "PreçoSmart Ofertas 🔥"
+      - key: WA_GROUP_INVITE_CODE
+        value: "CtvhryCwxWVGx0DCud42XO"
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: whatsapp-session
+      mountPath: /opt/render/project/src/whatsapp-bot/session
+      sizeGB: 1

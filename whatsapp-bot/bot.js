@@ -1,227 +1,253 @@
 /**
- * @file bot.js
- * @description Motor principal do Bot de Ofertas PreçoSmart para WhatsApp.
- * Autentica via QR Code, agendador node-cron 3x ao dia,
- * envia mensagens formatadas com links de afiliado para um grupo/canal.
+ * @file bot.js — PreçoSmart WhatsApp Bot v2.0
+ * @description Serviço web oficial com:
+ *   • Baileys (WhatsApp via WebSocket puro — sem Chrome)
+ *   • Dashboard web acessível via navegador
+ *   • Agendador node-cron 4x ao dia
+ *   • QR Code servido como imagem no navegador
+ *   • Log de mensagens em memória
  *
- * COMO USAR:
- *   node whatsapp-bot/bot.js
- *
- *   1. Escaneie o QR Code com seu WhatsApp (Configurações > Dispositivos Vinculados)
- *   2. A sessão fica salva em ./whatsapp-bot/session/ — não precisa escanear novamente
- *   3. O bot envia ofertas automaticamente às 10h, 18h e 21h (horário de Brasília)
- *
- * CONFIGURAR O GRUPO:
- *   - Crie manualmente um grupo/canal no WhatsApp
- *   - Coloque o nome exato em TARGET_GROUP_NAME abaixo
+ * DEPLOY no Render.com:
+ *   Build Command: npm install
+ *   Start Command: node bot.js
+ *   Root Directory: whatsapp-bot
  */
-
 'use strict';
 
-const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
-const cron = require('node-cron');
-const path = require('path');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const pino       = require('pino');
+const QRCode     = require('qrcode');
+const express    = require('express');
+const path       = require('path');
+const fs         = require('fs');
+const cron       = require('node-cron');
 
-const { PRODUCTS, getDailyProduct, getRandomProduct } = require('./catalog');
-const {
-  buildOfferMessage,
-  buildDailySummaryMessage,
-  buildWelcomeMessage
-} = require('./formatter');
+const { getDailyProduct, getRandomProduct, getTopDeals } = require('./catalog');
+const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 
-// ============================================================================
-// ⚙️  CONFIGURAÇÃO — EDITE AQUI
-// ============================================================================
-
-/** Nome EXATO do grupo ou canal no WhatsApp (case-sensitive) */
-const TARGET_GROUP_NAME = 'PreçoSmart Ofertas 🔥';
-
-/** Se true, envia uma mensagem de teste imediatamente ao iniciar */
-const SEND_TEST_ON_START = true;
-
-// ============================================================================
-// CLIENTE WHATSAPP
-// ============================================================================
-
-const client = new Client({
-  authStrategy: new LocalAuth({
-    dataPath: path.join(__dirname, 'session')
-  }),
-  puppeteer: {
-    headless: true,
-    // Usa o Chrome instalado no sistema em vez do bundled do puppeteer
-    executablePath:
-      process.env.CHROME_PATH ||
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--disable-gpu'
-    ]
-  }
-});
-
-// ============================================================================
-// EVENTOS DO CLIENTE
-// ============================================================================
-
-client.on('qr', (qr) => {
-  console.log('\n════════════════════════════════════════════════');
-  console.log('  📱 ESCANEIE O QR CODE ABAIXO COM SEU WHATSAPP');
-  console.log('  Configurações → Dispositivos Vinculados → Vincular Dispositivo');
-  console.log('════════════════════════════════════════════════\n');
-  qrcode.generate(qr, { small: true });
-});
-
-client.on('authenticated', () => {
-  console.log('✅ WhatsApp autenticado com sucesso! Sessão salva.');
-});
-
-client.on('auth_failure', (msg) => {
-  console.error('❌ Falha na autenticação:', msg);
-  console.log('💡 Tente apagar a pasta session/ e rodar novamente.');
-});
-
-client.on('ready', async () => {
-  console.log('\n════════════════════════════════════════════════');
-  console.log('  🤖 BOT PREÇOSMART ATIVO E PRONTO!');
-  console.log(`  🎯 Grupo alvo: "${TARGET_GROUP_NAME}"`);
-  console.log('  ⏰ Agendamentos: 10h • 18h • 21h (Brasília)');
-  console.log('════════════════════════════════════════════════\n');
-
-  if (SEND_TEST_ON_START) {
-    console.log('🔍 Enviando mensagem de teste...');
-    await sendOffer();
-  }
-
-  setupSchedules();
-});
-
-client.on('disconnected', (reason) => {
-  console.warn('⚠️ Bot desconectado:', reason);
-  console.log('🔄 Reconectando em 10 segundos...');
-  setTimeout(() => client.initialize(), 10000);
-});
-
-// ============================================================================
-// FUNÇÕES AUXILIARES
-// ============================================================================
+// ── Configurações ────────────────────────────────────────────────────────────
+const PORT             = process.env.PORT || 3002;
+const TARGET_GROUP     = process.env.WA_GROUP_NAME || 'PreçoSmart Ofertas 🔥';
+const SESSION_DIR      = path.join(__dirname, 'session');
+const MAX_LOG_ENTRIES  = 100;
 
 /**
- * Encontra o chat do grupo configurado.
- * @returns {Promise<Chat|null>}
+ * Código de convite do grupo WhatsApp (extraído do link fornecido pelo dono).
+ * Link completo: https://chat.whatsapp.com/CtvhryCwxWVGx0DCud42XO
  */
-async function findTargetGroup() {
-  const chats = await client.getChats();
-  const group = chats.find((c) => c.name === TARGET_GROUP_NAME);
+const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'CtvhryCwxWVGx0DCud42XO';
 
-  if (!group) {
-    console.error(`❌ Grupo "${TARGET_GROUP_NAME}" não encontrado.`);
-    console.log('💡 Verifique o nome do grupo em TARGET_GROUP_NAME (linha 33 do bot.js)');
-    console.log('💡 Grupos disponíveis:', chats.filter((c) => c.isGroup).map((c) => c.name).join(', '));
-  }
+// ── Estado Global ────────────────────────────────────────────────────────────
+let waSocket       = null;
+let qrCodeDataUrl  = null;
+let isConnected    = false;
+let groupJid       = null;
+const messageLog   = [];
 
-  return group || null;
+function logEntry(type, text) {
+  const entry = { time: new Date().toISOString(), type, text };
+  messageLog.unshift(entry);
+  if (messageLog.length > MAX_LOG_ENTRIES) messageLog.pop();
+  console.log(`[${entry.type}] ${entry.text}`);
 }
 
-/**
- * Envia oferta do produto do dia (ou aleatório) para o grupo.
- */
-async function sendOffer() {
+// ── Dashboard HTML ───────────────────────────────────────────────────────────
+const dashboardHtml = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.html'), 'utf8');
+
+// ── Express Dashboard ────────────────────────────────────────────────────────
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'dashboard')));
+
+app.get('/', (req, res) => res.send(dashboardHtml));
+
+app.get('/api/status', (req, res) => res.json({
+  connected:   isConnected,
+  groupName:   TARGET_GROUP,
+  groupJid,
+  qrReady:     !!qrCodeDataUrl && !isConnected,
+  uptime:      Math.floor(process.uptime()),
+  logCount:    messageLog.length,
+  lastMessage: messageLog[0] || null,
+  version:     '2.0.0'
+}));
+
+app.get('/api/qr', (req, res) => {
+  if (isConnected)      return res.json({ status: 'connected', qr: null });
+  if (!qrCodeDataUrl)   return res.json({ status: 'waiting',   qr: null });
+  res.json({ status: 'qr_ready', qr: qrCodeDataUrl });
+});
+
+app.get('/api/logs', (req, res) => res.json(messageLog));
+
+app.post('/api/send-now', async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
-    const group = await findTargetGroup();
-    if (!group) return;
+    const product = getRandomProduct();
+    const msg     = buildOfferMessage(product);
+    await waSocket.sendMessage(groupJid, { text: msg });
+    logEntry('MANUAL', `Oferta manual enviada: ${product.title}`);
+    res.json({ ok: true, product: product.title });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    const hour = new Date().toLocaleString('pt-BR', {
-      timeZone: 'America/Sao_Paulo',
-      hour: 'numeric'
-    });
-    const h = parseInt(hour);
+app.post('/api/send-welcome', async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
+  try {
+    await waSocket.sendMessage(groupJid, { text: buildWelcomeMessage() });
+    logEntry('MANUAL', 'Mensagem de boas-vindas enviada');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    let product;
-    // Manhã: produto do dia (fixo) | Tarde/Noite: produto aleatório diferente
-    if (h < 14) {
-      product = getDailyProduct();
+app.post('/api/send-flash', async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
+  try {
+    const [top] = getTopDeals(1);
+    await waSocket.sendMessage(groupJid, { text: buildFlashSaleMessage(top) });
+    logEntry('FLASH', `Flash sale enviado: ${top.title}`);
+    res.json({ ok: true, product: top.title });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost:${PORT}`));
+
+// ── Baileys WhatsApp ─────────────────────────────────────────────────────────
+async function findGroupJid(sock) {
+  // 1. Tenta encontrar o grupo pelo nome entre os grupos que já participa
+  const groups = await sock.groupFetchAllParticipating();
+  const match  = Object.values(groups).find((g) => g.subject === TARGET_GROUP);
+
+  if (match) {
+    groupJid = match.id;
+    logEntry('GROUP', `Grupo encontrado: "${TARGET_GROUP}" (${groupJid})`);
+    return;
+  }
+
+  // 2. Grupo não encontrado — tenta entrar via código de convite
+  logEntry('GROUP', `Grupo "${TARGET_GROUP}" não encontrado. Tentando entrar via convite...`);
+  try {
+    const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
+    logEntry('GROUP', `Convite válido: "${inviteInfo.subject}" — entrando no grupo...`);
+    groupJid = await sock.groupAcceptInvite(GROUP_INVITE_CODE);
+    logEntry('GROUP', `✅ Entrou no grupo com sucesso! JID: ${groupJid}`);
+
+    // Envia mensagem de apresentação ao grupo após entrar
+    await new Promise((r) => setTimeout(r, 3000)); // aguarda 3s para o WhatsApp processar
+    await sock.sendMessage(groupJid, { text: buildWelcomeMessage() });
+    logEntry('SENT', 'Mensagem de boas-vindas enviada ao grupo');
+  } catch (err) {
+    logEntry('ERROR', `Falha ao entrar no grupo via convite: ${err.message}`);
+    logEntry('WARN', `Grupos disponíveis: ${Object.values(groups).map((g) => g.subject).join(' | ')}`);
+  }
+}
+
+async function sendScheduledOffer(label, productFn) {
+  if (!isConnected || !groupJid) {
+    logEntry('SKIP', `[${label}] Bot offline ou grupo não encontrado`);
+    return;
+  }
+  try {
+    const product = productFn();
+    const msg     = buildOfferMessage(product);
+    await waSocket.sendMessage(groupJid, { text: msg });
+    logEntry('SENT', `[${label}] ${product.title}`);
+  } catch (err) {
+    logEntry('ERROR', `[${label}] ${err.message}`);
+  }
+}
+
+function setupCronJobs() {
+  // 09:55 — Resumo matinal
+  cron.schedule('55 9 * * *', async () => {
+    if (!isConnected || !groupJid) return;
+    try {
+      await waSocket.sendMessage(groupJid, { text: buildMorningMessage() });
+      logEntry('SENT', '[09:55] Resumo matinal enviado');
+    } catch (err) { logEntry('ERROR', err.message); }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  // 10:00 — Oferta #1 (produto do dia)
+  cron.schedule('0 10 * * *', () => sendScheduledOffer('10h', getDailyProduct),          { timezone: 'America/Sao_Paulo' });
+
+  // 18:00 — Oferta #2 (pico do varejo)
+  cron.schedule('0 18 * * *', () => sendScheduledOffer('18h', () => getRandomProduct(getDailyProduct().id)), { timezone: 'America/Sao_Paulo' });
+
+  // 21:00 — Oferta #3 + Flash Sale se top desconto >= 15%
+  cron.schedule('0 21 * * *', async () => {
+    const [top] = getTopDeals(1);
+    if (top.discPct >= 15 && isConnected && groupJid) {
+      await waSocket.sendMessage(groupJid, { text: buildFlashSaleMessage(top) });
+      logEntry('FLASH', `[21h] Flash Sale: ${top.title}`);
     } else {
-      // Garante que o produto da tarde/noite seja diferente do produto do dia
-      const daily = getDailyProduct();
-      do {
-        product = getRandomProduct();
-      } while (product.id === daily.id);
+      await sendScheduledOffer('21h', () => getRandomProduct(getDailyProduct().id));
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  logEntry('CRON', 'Agendamentos: 09:55 resumo • 10h • 18h • 21h ofertas');
+}
+
+async function startBot() {
+  if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+
+  const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
+  const { version }          = await fetchLatestBaileysVersion();
+
+  const sock = makeWASocket({
+    version,
+    auth:         state,
+    logger:       pino({ level: 'silent' }),
+    printQRInTerminal: true,
+    browser:      ['PreçoSmart Bot', 'Chrome', '120.0.0'],
+    syncFullHistory: false
+  });
+
+  waSocket = sock;
+
+  sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
+    if (qr) {
+      qrCodeDataUrl = await QRCode.toDataURL(qr);
+      isConnected   = false;
+      logEntry('QR', 'Novo QR Code gerado — acesse /qr no dashboard para escanear');
     }
 
-    const message = buildOfferMessage(product);
-    await group.sendMessage(message);
+    if (connection === 'open') {
+      isConnected   = true;
+      qrCodeDataUrl = null;
+      logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
+      await findGroupJid(sock);
+      setupCronJobs();
+    }
 
-    console.log(`✅ [${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}] Oferta enviada: ${product.title}`);
-  } catch (err) {
-    console.error('❌ Erro ao enviar oferta:', err.message);
-  }
+    if (connection === 'close') {
+      isConnected = false;
+      groupJid    = null;
+      const code  = lastDisconnect?.error?.output?.statusCode;
+      const shouldReconnect = code !== DisconnectReason.loggedOut;
+      logEntry('DISCONNECTED', `Desconectado (código ${code}). Reconectando: ${shouldReconnect}`);
+      if (shouldReconnect) setTimeout(startBot, 5000);
+    }
+  });
+
+  sock.ev.on('messages.upsert', async ({ messages }) => {
+    const msg = messages[0];
+    if (!msg?.message || msg.key.fromMe) return;
+    const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
+    if (body.toLowerCase().includes('oi') || body.toLowerCase().includes('olá')) {
+      await sock.sendMessage(msg.key.remoteJid, { text: buildWelcomeMessage() });
+    }
+  });
 }
 
-/**
- * Envia resumo matinal com Top 3 ofertas.
- */
-async function sendMorningSummary() {
-  try {
-    const group = await findTargetGroup();
-    if (!group) return;
-
-    // Seleciona 3 produtos com melhores descontos relativos ao histórico
-    const highlights = [...PRODUCTS]
-      .sort((a, b) => {
-        const discA = (a.history30dAvg - a.quotes[0].pix) / a.history30dAvg;
-        const discB = (b.history30dAvg - b.quotes[0].pix) / b.history30dAvg;
-        return discB - discA;
-      })
-      .slice(0, 3);
-
-    const message = buildDailySummaryMessage(highlights);
-    await group.sendMessage(message);
-
-    console.log(`☀️ [${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}] Resumo matinal enviado`);
-  } catch (err) {
-    console.error('❌ Erro ao enviar resumo:', err.message);
-  }
-}
-
-// ============================================================================
-// AGENDAMENTOS (node-cron)
-// ============================================================================
-
-function setupSchedules() {
-  // 09:55 - Resumo matinal com Top 3 (Brasília = UTC-3 → hora cron em UTC)
-  cron.schedule('55 12 * * *', sendMorningSummary, { timezone: 'America/Sao_Paulo' });
-
-  // 10:00 - Oferta #1 do dia
-  cron.schedule('0 10 * * *', sendOffer, { timezone: 'America/Sao_Paulo' });
-
-  // 18:00 - Oferta #2 do dia (horário de pico do varejo)
-  cron.schedule('0 18 * * *', sendOffer, { timezone: 'America/Sao_Paulo' });
-
-  // 21:00 - Oferta #3 do dia (horário nobre / mais engajamento)
-  cron.schedule('0 21 * * *', sendOffer, { timezone: 'America/Sao_Paulo' });
-
-  console.log('⏰ Agendamentos configurados:');
-  console.log('   📅 09:55 — Resumo Top 3 do Dia');
-  console.log('   🔔 10:00 — Oferta #1');
-  console.log('   🔔 18:00 — Oferta #2 (pico do varejo)');
-  console.log('   🔔 21:00 — Oferta #3 (horário nobre)');
-}
-
-// ============================================================================
-// INICIALIZAÇÃO
-// ============================================================================
-
-console.log('\n════════════════════════════════════════════════');
-console.log('  🤖 BOT DE OFERTAS PREÇOSMART — INICIANDO...');
-console.log('════════════════════════════════════════════════');
-console.log(`  Grupo alvo: "${TARGET_GROUP_NAME}"`);
-console.log('  Aguarde o QR Code aparecer abaixo...\n');
-
-client.initialize();
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+logEntry('BOOT', '🚀 PreçoSmart WhatsApp Bot v2.0 iniciando...');
+logEntry('BOOT', `Dashboard: http://localhost:${PORT}`);
+startBot().catch((err) => logEntry('FATAL', err.message));

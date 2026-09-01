@@ -1,16 +1,21 @@
 {
   "name": "precosmart-whatsapp-bot",
-  "version": "1.0.0",
-  "description": "Bot de Ofertas PreçoSmart para WhatsApp",
+  "version": "2.0.0",
+  "description": "Bot de Ofertas PreçoSmart para WhatsApp — Serviço Web Oficial",
   "main": "bot.js",
   "type": "commonjs",
   "scripts": {
     "start": "node bot.js",
-    "install-deps": "npm install whatsapp-web.js qrcode-terminal node-cron"
+    "dev": "node --watch bot.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.18",
+    "express": "^4.21.2",
     "node-cron": "^3.0.3",
-    "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "^1.34.7"
+    "pino": "^9.7.0",
+    "qrcode": "^1.5.4"
   }
 }
