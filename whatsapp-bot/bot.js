@@ -231,7 +231,7 @@ const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
 const { processMessageText } = require('./mirror');
-const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7'];
+const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7', 'Hfe7u2cfTlv1Nm8UBvKX6N'];
 let sourceGroupJids = [];
 
 async function startBot() {
