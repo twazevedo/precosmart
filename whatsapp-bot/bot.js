@@ -227,11 +227,30 @@ function setupCronJobs() {
   logEntry('CRON', 'Horários de pico ativos: 09h(Resumo) • 12h(Celulares) • 16h(PCs) • 19:30(TV/Áudio) • 22h(Gamers)');
 }
 
-async function startBot() {
-  if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+const { MongoClient } = require('mongodb');
+const { useMongoDBAuthState } = require('./mongoAuth');
 
-  const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
-  const { version }          = await fetchLatestBaileysVersion();
+async function startBot() {
+  let state, saveCreds;
+
+  if (process.env.MONGO_URI) {
+    logEntry('BOOT', 'Conectando ao MongoDB...');
+    const mongoClient = new MongoClient(process.env.MONGO_URI);
+    await mongoClient.connect();
+    const collection = mongoClient.db('precosmart').collection('auth_info');
+    const auth = await useMongoDBAuthState(collection);
+    state = auth.state;
+    saveCreds = auth.saveCreds;
+    logEntry('BOOT', 'Sessão carregada do MongoDB com sucesso!');
+  } else {
+    logEntry('BOOT', 'Atenção: Rodando com sessão local (arquivos). QR Code será resetado em reboots.');
+    if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+    const auth = await useMultiFileAuthState(SESSION_DIR);
+    state = auth.state;
+    saveCreds = auth.saveCreds;
+  }
+
+  const { version } = await fetchLatestBaileysVersion();
 
   const sock = makeWASocket({
     version,
