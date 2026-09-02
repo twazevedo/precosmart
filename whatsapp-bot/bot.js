@@ -323,7 +323,7 @@ async function startBot() {
         logEntry('MIRROR', 'Nova mensagem detectada no grupo espelho. Trocando links...');
         
         // Pega o texto da legenda ou texto normal
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || '';
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
         
         // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
         const newText = await processMessageText(text);
@@ -339,6 +339,15 @@ async function startBot() {
            await sock.sendMessage(groupJid, { image: buffer, caption: newText });
            logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
         } 
+        // Se a mensagem original tinha vídeo, baixa o vídeo e manda
+        else if (msg.message.videoMessage && groupJid) {
+           const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+           const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
+           let buffer = Buffer.from([]);
+           for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+           await sock.sendMessage(groupJid, { video: buffer, caption: newText });
+           logEntry('MIRROR', 'Oferta clonada com sucesso (VÍDEO + LINK SUBSTITUÍDO)!');
+        }
         // Se era só texto com link, manda só o texto
         else if (groupJid) {
            await sock.sendMessage(groupJid, { text: newText });
