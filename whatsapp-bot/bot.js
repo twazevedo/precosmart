@@ -234,14 +234,22 @@ async function startBot() {
   let state, saveCreds;
 
   if (process.env.MONGO_URI) {
-    logEntry('BOOT', 'Conectando ao MongoDB...');
-    const mongoClient = new MongoClient(process.env.MONGO_URI);
-    await mongoClient.connect();
-    const collection = mongoClient.db('precosmart').collection('auth_info');
-    const auth = await useMongoDBAuthState(collection);
-    state = auth.state;
-    saveCreds = auth.saveCreds;
-    logEntry('BOOT', 'Sessão carregada do MongoDB com sucesso!');
+    try {
+      logEntry('BOOT', 'Conectando ao MongoDB...');
+      const mongoClient = new MongoClient(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+      await mongoClient.connect();
+      const collection = mongoClient.db('precosmart').collection('auth_info');
+      const auth = await useMongoDBAuthState(collection);
+      state = auth.state;
+      saveCreds = auth.saveCreds;
+      logEntry('BOOT', 'Sessão carregada do MongoDB com sucesso!');
+    } catch (dbErr) {
+      logEntry('FATAL', 'Falha ao conectar no MongoDB. Usando fallback local: ' + dbErr.message);
+      if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+      const auth = await useMultiFileAuthState(SESSION_DIR);
+      state = auth.state;
+      saveCreds = auth.saveCreds;
+    }
   } else {
     logEntry('BOOT', 'Atenção: Rodando com sessão local (arquivos). QR Code será resetado em reboots.');
     if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
