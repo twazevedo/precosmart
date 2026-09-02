@@ -36,9 +36,9 @@ const MAX_LOG_ENTRIES  = 100;
 
 /**
  * Código de convite do grupo WhatsApp (extraído do link fornecido pelo dono).
- * Link completo: https://chat.whatsapp.com/CtvhryCwxWVGx0DCud42XO
+ * Link completo: https://chat.whatsapp.com/Ht6rc4aPeBxHkXQChS4ADJ
  */
-const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'CtvhryCwxWVGx0DCud42XO';
+const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'Ht6rc4aPeBxHkXQChS4ADJ';
 
 // ── Estado Global ────────────────────────────────────────────────────────────
 let waSocket       = null;
