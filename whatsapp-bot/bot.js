@@ -231,7 +231,7 @@ const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
 const { processMessageText } = require('./mirror');
-const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7', 'Hfe7u2cfTlv1Nm8UBvKX6N', 'FvqlT4jcOGc1z5qlezaVEH', 'K5YnbdXfy7w7r9y7Awjd1b', 'F2ASYImwMi0I1Ka4HJyrW8', 'LNRhciUCYyQ2mz5W9ZenIL'];
+const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7', 'Hfe7u2cfTlv1Nm8UBvKX6N', 'FvqlT4jcOGc1z5qlezaVEH', 'K5YnbdXfy7w7r9y7Awjd1b', 'F2ASYImwMi0I1Ka4HJyrW8', 'LNRhciUCYyQ2mz5W9ZenIL', 'B78psnhjpZW0MwrENmuVe8', 'JWh6YjN6vKfFLJcUWEddm7', 'EryWWJiMxfF0Cw3Oqcm7ip', 'J8xrwaVtPyH22gDnAPLkyW', 'FFBXlHiIPsaCJsV3VMUz0v', 'CV55f0uEOSnFu5GfQpOyQF', 'HFWO1yF8qTMA7WzNR3MiPs'];
 let sourceGroupJids = [];
 
 async function startBot() {
