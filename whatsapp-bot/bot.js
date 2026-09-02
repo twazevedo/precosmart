@@ -198,7 +198,7 @@ function setupCronJobs() {
 
   // 12:00 — Horário de almoço (Compras rápidas no celular)
   cron.schedule('0 12 * * *', () => {
-    sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets', 'Smartwatches']));
+    sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets', 'Smartwatches', 'Saúde & Beleza', 'Supermercado']));
   }, { timezone: 'America/Sao_Paulo' });
 
   // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)
