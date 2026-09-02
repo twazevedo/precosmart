@@ -331,17 +331,17 @@ async function startBot() {
         if (!newText.trim()) return;
         
         // Se a mensagem original tinha foto, baixa a foto e manda com seu texto
-        if (msg.message.imageMessage && precosmartGroupJid) {
+        if (msg.message.imageMessage && groupJid) {
            const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
            const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
            let buffer = Buffer.from([]);
            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-           await sock.sendMessage(precosmartGroupJid, { image: buffer, caption: newText });
+           await sock.sendMessage(groupJid, { image: buffer, caption: newText });
            logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
         } 
         // Se era só texto com link, manda só o texto
-        else if (precosmartGroupJid) {
-           await sock.sendMessage(precosmartGroupJid, { text: newText });
+        else if (groupJid) {
+           await sock.sendMessage(groupJid, { text: newText });
            logEntry('MIRROR', 'Oferta clonada com sucesso (TEXTO + LINK SUBSTITUÍDO)!');
         }
       } catch (err) {
