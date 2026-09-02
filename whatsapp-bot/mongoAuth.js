@@ -1,5 +1,4 @@
-const { proto } = require('@whiskeysockets/baileys/lib/WAProto');
-const { initAuthCreds, BufferJSON } = require('@whiskeysockets/baileys');
+const { proto, initAuthCreds, BufferJSON } = require('@whiskeysockets/baileys');
 
 async function useMongoDBAuthState(collection) {
     const writeData = async (data, id) => {
