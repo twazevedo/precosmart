@@ -213,6 +213,71 @@ const PRODUCTS = [
       { store: 'Shopee',        pix: 2599.00, card: 2799.00, installments: 10 }
     ],
     shipping: { 'Amazon': 'Prime Grátis', 'Mercado Livre': 'Full ML (Amanhã)', 'Shopee': 'Frete Grátis' }
+  },
+  {
+    id: 'apple-watch-se', emoji: '⌚',
+    title: 'Apple Watch SE 2ª Geração GPS 40mm',
+    category: 'Smartwatches',
+    history30dAvg: 1999, history30dMin: 1899,
+    imageUrl: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?q=80&w=600',
+    quotes: [
+      { store: 'Amazon',        pix: 1899.00, card: 1999.00, installments: 10 },
+      { store: 'Mercado Livre', pix: 1949.00, card: 2049.00, installments: 10 },
+      { store: 'Shopee',        pix: 1999.00, card: 2099.00, installments: 10 }
+    ],
+    shipping: { 'Amazon': 'Prime Grátis', 'Mercado Livre': 'Full ML (Amanhã)', 'Shopee': 'Frete Grátis' }
+  },
+  {
+    id: 'robo-aspirador', emoji: '🧹',
+    title: 'Robô Aspirador de Pó Inteligente Smart 700',
+    category: 'Eletrodomésticos',
+    history30dAvg: 1299, history30dMin: 1199,
+    imageUrl: 'https://images.unsplash.com/photo-1518605368461-1ee51a70014b?q=80&w=600',
+    quotes: [
+      { store: 'Mercado Livre', pix: 1199.00, card: 1299.00, installments: 10 },
+      { store: 'Amazon',        pix: 1249.00, card: 1349.00, installments: 10 },
+      { store: 'Shopee',        pix: 1299.00, card: 1399.00, installments: 10 }
+    ],
+    shipping: { 'Mercado Livre': 'Full ML (Amanhã)', 'Amazon': 'Prime Grátis', 'Shopee': 'Frete Grátis' }
+  },
+  {
+    id: 'echo-dot-5', emoji: '🔊',
+    title: 'Echo Dot 5ª Geração com Alexa',
+    category: 'Casa Inteligente',
+    history30dAvg: 349, history30dMin: 299,
+    imageUrl: 'https://images.unsplash.com/photo-1543512214-318c7553f230?q=80&w=600',
+    quotes: [
+      { store: 'Amazon',        pix: 299.00, card: 319.00, installments: 12 },
+      { store: 'Mercado Livre', pix: 329.00, card: 349.00, installments: 10 },
+      { store: 'Shopee',        pix: 349.00, card: 369.00, installments: 10 }
+    ],
+    shipping: { 'Amazon': 'Prime Grátis', 'Mercado Livre': 'Full ML (Amanhã)', 'Shopee': 'Frete Grátis' }
+  },
+  {
+    id: 'logitech-mx', emoji: '🖱️',
+    title: 'Mouse Sem Fio Logitech MX Master 3S',
+    category: 'Periféricos',
+    history30dAvg: 649, history30dMin: 599,
+    imageUrl: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?q=80&w=600',
+    quotes: [
+      { store: 'Amazon',        pix: 599.00, card: 629.00, installments: 10 },
+      { store: 'Mercado Livre', pix: 619.00, card: 649.00, installments: 10 },
+      { store: 'Shopee',        pix: 649.00, card: 699.00, installments: 10 }
+    ],
+    shipping: { 'Amazon': 'Prime Grátis', 'Mercado Livre': 'Full ML (Amanhã)', 'Shopee': 'Frete Grátis' }
+  },
+  {
+    id: 'air-fryer', emoji: '🍟',
+    title: 'Fritadeira Airfryer Philips Walita Essential',
+    category: 'Eletrodomésticos',
+    history30dAvg: 499, history30dMin: 449,
+    imageUrl: 'https://images.unsplash.com/photo-1621217030807-6c84138a39a7?q=80&w=600',
+    quotes: [
+      { store: 'Mercado Livre', pix: 449.00, card: 499.00, installments: 10 },
+      { store: 'Amazon',        pix: 479.00, card: 499.00, installments: 10 },
+      { store: 'Shopee',        pix: 499.00, card: 549.00, installments: 10 }
+    ],
+    shipping: { 'Mercado Livre': 'Full ML (Amanhã)', 'Amazon': 'Prime Grátis', 'Shopee': 'Frete Grátis' }
   }
 ];
 

@@ -198,17 +198,17 @@ function setupCronJobs() {
 
   // 12:00 — Horário de almoço (Compras rápidas no celular)
   cron.schedule('0 12 * * *', () => {
-    sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets']));
+    sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets', 'Smartwatches']));
   }, { timezone: 'America/Sao_Paulo' });
 
   // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)
   cron.schedule('0 16 * * *', () => {
-    sendScheduledOffer('16h', () => getProductByCategories(['Notebooks', 'Monitores']));
+    sendScheduledOffer('16h', () => getProductByCategories(['Notebooks', 'Monitores', 'Periféricos']));
   }, { timezone: 'America/Sao_Paulo' });
 
   // 19:30 — Chegada em casa / Lazer (TV, Áudio, Entretenimento)
   cron.schedule('30 19 * * *', () => {
-    sendScheduledOffer('19h30', () => getProductByCategories(['TV & Vídeo', 'Áudio', 'Câmeras & Drones']));
+    sendScheduledOffer('19h30', () => getProductByCategories(['TV & Vídeo', 'Áudio', 'Câmeras & Drones', 'Casa Inteligente', 'Eletrodomésticos']));
   }, { timezone: 'America/Sao_Paulo' });
 
   // 22:00 — Gamers e Hardware (Pico de compras tech pesadas)
