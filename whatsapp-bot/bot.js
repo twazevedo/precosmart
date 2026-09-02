@@ -230,6 +230,10 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
+const { processMessageText } = require('./mirror');
+const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7'];
+let sourceGroupJids = [];
+
 async function startBot() {
   let state, saveCreds;
 
@@ -285,6 +289,17 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
+      // Entrar nos grupos espelho
+      for (const code of SOURCE_INVITE_CODES) {
+        try {
+          const jid = await sock.groupAcceptInvite(code);
+          sourceGroupJids.push(jid);
+          logEntry('GROUP', '✅ Entrou no grupo ESPELHO! JID: ' + jid);
+        } catch (err) {
+          logEntry('GROUP', 'Falha ao entrar no grupo ESPELHO: ' + err.message);
+        }
+      }
+      
       setupCronJobs();
     }
 
@@ -301,6 +316,41 @@ async function startBot() {
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message || msg.key.fromMe) return;
+
+    // Se veio de um grupo espelho, ROUBE A OFERTA
+    if (sourceGroupJids.includes(msg.key.remoteJid)) {
+      try {
+        logEntry('MIRROR', 'Nova mensagem detectada no grupo espelho. Trocando links...');
+        
+        // Pega o texto da legenda ou texto normal
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || '';
+        
+        // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
+        const newText = await processMessageText(text);
+        
+        if (!newText.trim()) return;
+        
+        // Se a mensagem original tinha foto, baixa a foto e manda com seu texto
+        if (msg.message.imageMessage && precosmartGroupJid) {
+           const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+           const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+           let buffer = Buffer.from([]);
+           for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+           await sock.sendMessage(precosmartGroupJid, { image: buffer, caption: newText });
+           logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
+        } 
+        // Se era só texto com link, manda só o texto
+        else if (precosmartGroupJid) {
+           await sock.sendMessage(precosmartGroupJid, { text: newText });
+           logEntry('MIRROR', 'Oferta clonada com sucesso (TEXTO + LINK SUBSTITUÍDO)!');
+        }
+      } catch (err) {
+        logEntry('MIRROR', 'Erro ao clonar: ' + err.message);
+      }
+      return; // Sai da função para não dar boas-vindas no grupo dos outros
+    }
+
+    // Se foi no SEU grupo e alguém deu "oi", dá boas-vindas
     const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
     if (body.toLowerCase().includes('oi') || body.toLowerCase().includes('olá')) {
       await sock.sendMessage(msg.key.remoteJid, { text: buildWelcomeMessage() });
