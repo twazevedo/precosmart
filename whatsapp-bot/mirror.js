@@ -121,7 +121,28 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return urlObj.toString();
     }
     
-    // 4. Domínios externos e intermediários:
+    // 4. Magazine Luiza (magazinevoce.com.br, magazineluiza.com.br, maga.lu)
+    if (
+      urlObj.hostname.includes('magazinevoce.') || 
+      urlObj.hostname.includes('magazineluiza.') || 
+      urlObj.hostname.includes('maga.lu')
+    ) {
+      if (AFFILIATE.magalu) {
+        const storeSlug = 'magazine' + AFFILIATE.magalu.toLowerCase().replace('magazine', '');
+        if (urlObj.hostname.includes('magazinevoce.')) {
+          const pathParts = urlObj.pathname.split('/').filter(Boolean);
+          if (pathParts.length > 0) {
+            pathParts[0] = storeSlug;
+            urlObj.pathname = '/' + pathParts.join('/');
+            return urlObj.toString();
+          }
+        }
+        return `https://www.magazinevoce.com.br/${storeSlug}${urlObj.pathname}`;
+      }
+      return urlObj.toString();
+    }
+    
+    // 5. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;

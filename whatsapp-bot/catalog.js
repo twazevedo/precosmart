@@ -9,7 +9,8 @@ require('./envLoader');
 const AFFILIATE = {
   amazon:  process.env.AFFILIATE_AMAZON || '',
   shopee:  process.env.AFFILIATE_SHOPEE || '',
-  ml:      process.env.AFFILIATE_ML     || ''
+  ml:      process.env.AFFILIATE_ML     || '',
+  magalu:  process.env.AFFILIATE_MAGALU  || ''
 };
 
 const COUPONS = [
