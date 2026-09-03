@@ -1,4 +1,4 @@
-﻿const axios = require('axios');
+const axios = require('axios');
 const { AFFILIATE } = require('./catalog');
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -83,8 +83,12 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return urlObj.toString();
     }
     
-    // 2. Shopee
-    if (urlObj.hostname.includes('shopee.')) {
+    // 2. Shopee (shopee.com.br, shope.ee, s.shopee.com.br, shp.ee)
+    if (
+      urlObj.hostname.includes('shopee.') || 
+      urlObj.hostname.includes('shope.ee') || 
+      urlObj.hostname.includes('shp.ee')
+    ) {
       urlObj.searchParams.delete('uls_trackid');
       urlObj.searchParams.delete('utm_campaign');
       urlObj.searchParams.delete('utm_content');
