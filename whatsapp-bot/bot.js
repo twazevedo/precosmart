@@ -91,7 +91,10 @@ async function dispatchToInstagram(deal) {
       !l.includes('Acesse aqui')
     ).join('\n').trim();
 
-    const igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #amazonbrasil #tecnologia`;
+    let igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #magalu #amazonbrasil #mercadolivre #shopee`;
+
+    // Remove caracteres corrompidos ou sequências de interrogação estranhas
+    igCaption = igCaption.replace(/\uFFFD+/g, '').replace(/(\?{3,})/g, '');
 
     const fallbackImage = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1080';
     const resolvedImageUrl = deal.imageUrl || fallbackImage;
