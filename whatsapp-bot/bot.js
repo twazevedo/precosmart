@@ -314,21 +314,10 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
-const { processMessageText } = require('./mirror');
-const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7', 'Hfe7u2cfTlv1Nm8UBvKX6N', 'FvqlT4jcOGc1z5qlezaVEH', 'K5YnbdXfy7w7r9y7Awjd1b', 'F2ASYImwMi0I1Ka4HJyrW8', 'LNRhciUCYyQ2mz5W9ZenIL', 'B78psnhjpZW0MwrENmuVe8', 'JWh6YjN6vKfFLJcUWEddm7', 'EryWWJiMxfF0Cw3Oqcm7ip', 'J8xrwaVtPyH22gDnAPLkyW', 'FFBXlHiIPsaCJsV3VMUz0v', 'CV55f0uEOSnFu5GfQpOyQF', 'HFWO1yF8qTMA7WzNR3MiPs'];
-const KNOWN_SPY_JIDS = [
-  '120363426055112444@g.us',
-  '120363422185523476@g.us',
-  '120363022227006770@g.us',
-  '120363361632968871@g.us',
-  '558894177629-1589320377@g.us',
-  '120363040345848018@g.us',
-  '120363425265838837@g.us',
-  '120363419645080011@g.us',
-  '120363333962668123@g.us',
-  '120363406543355604@g.us'
-];
-let sourceGroupJids = [...KNOWN_SPY_JIDS];
+const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
+  ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
+  : [];
+let sourceGroupJids = [];
 
 async function startBot() {
   let state, saveCreds;
@@ -385,19 +374,27 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
-      // Garante que o grupo VIP não esteja na lista de espelhos
-      sourceGroupJids = sourceGroupJids.filter((id) => id !== groupJid);
 
-      // Entrar nos grupos espelho novos (se ainda não estiver neles)
+      // Carrega dinamicamente todos os canais conectados do WhatsApp,
+      // excluindo apenas o grupo VIP oficial. NENHUMA fonte fica exposta no código!
+      try {
+        const participating = await sock.groupFetchAllParticipating();
+        sourceGroupJids = Object.keys(participating).filter((id) => id !== groupJid);
+        logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais ativos)`);
+      } catch (gErr) {
+        logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
+      }
+
+      // Entrar em novos grupos se fornecidos via variável de ambiente (oculto no GitHub)
       for (const code of SOURCE_INVITE_CODES) {
         try {
           const jid = await sock.groupAcceptInvite(code);
           if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
             sourceGroupJids.push(jid);
-            logEntry('GROUP', '✅ Entrou no grupo ESPELHO! JID: ' + jid);
+            logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
           }
         } catch (err) {
-          // Já participa ou limite temporário — silencioso
+          // Silencioso
         }
       }
       
