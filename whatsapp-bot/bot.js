@@ -528,8 +528,8 @@ async function startBot() {
           // 3. !postar <link ou texto>
           if (command === '!postar') {
             const content = args.join(' ');
-            if (!content && !msg.message.imageMessage) {
-              await waSocket.sendMessage(remoteJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto com a legenda `!postar <link>`.' });
+            if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
+              await waSocket.sendMessage(remoteJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
               return;
             }
 
@@ -541,6 +541,12 @@ async function startBot() {
                 mediaType = 'image';
                 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
                 const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+                buffer = Buffer.from([]);
+                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+              } else if (msg.message.videoMessage) {
+                mediaType = 'video';
+                const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+                const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
                 buffer = Buffer.from([]);
                 for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
               }
@@ -555,6 +561,8 @@ async function startBot() {
               // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
               if (mediaType === 'image' && buffer) {
                 await waSocket.sendMessage(groupJid, { image: buffer, caption: newText });
+              } else if (mediaType === 'video' && buffer) {
+                await waSocket.sendMessage(groupJid, { video: buffer, caption: newText });
               } else {
                 await waSocket.sendMessage(groupJid, { text: newText });
               }
