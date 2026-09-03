@@ -184,6 +184,21 @@ app.get('/api/qr', (req, res) => {
 
 app.get('/api/logs', (req, res) => res.json(messageLog));
 
+app.post('/api/send-magalu', async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
+  try {
+    const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
+    if (magaluProducts.length === 0) return res.status(404).json({ error: 'Nenhum produto do Magazine Luiza encontrado' });
+    const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
+    const caption = buildOfferMessage(product);
+    await sendProductMessage(product, caption);
+    logEntry('MANUAL', `Oferta Magalu enviada: ${product.title}`);
+    res.json({ ok: true, product: product.title, store: 'Magazine Luiza' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/send-now', async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
@@ -292,12 +307,14 @@ async function sendProductMessage(product, caption) {
         caption:  caption,
         mimetype: 'image/jpeg'
       });
+      dispatchToInstagram({ type: 'image', imageUrl: product.imageUrl, text: caption }).catch(() => {});
       return;
     } catch (imgErr) {
       logEntry('WARN', `Imagem falhou, enviando só texto: ${imgErr.message}`);
     }
   }
   await waSocket.sendMessage(groupJid, { text: caption });
+  dispatchToInstagram({ type: 'text', imageUrl: product.imageUrl, text: caption }).catch(() => {});
 }
 
 async function sendScheduledOffer(label, productFn) {
@@ -619,9 +636,30 @@ async function startBot() {
             }
           }
 
-          // 4. !ajuda
+          // 4. !magalu
+          if (command === '!magalu') {
+            try {
+              const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
+              if (magaluProducts.length === 0) {
+                await waSocket.sendMessage(remoteJid, { text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
+                return;
+              }
+              const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
+              const caption = buildOfferMessage(product);
+              await sendProductMessage(product, caption);
+              await waSocket.sendMessage(remoteJid, { text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+              logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
+              return;
+            } catch (magErr) {
+              await waSocket.sendMessage(remoteJid, { text: `❌ Erro ao postar Magalu: ${magErr.message}` });
+              return;
+            }
+          }
+
+          // 5. !ajuda
           if (command === '!ajuda' || command === '!comandos') {
             const helpMsg = `👑 *Comandos do Administrador (PreçoSmart)*\n\n` +
+              `👉 *!magalu*\nDispara uma oferta imediata do Magazine Luiza no Grupo VIP e no Instagram.\n\n` +
               `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
               `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
               `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
