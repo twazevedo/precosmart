@@ -124,31 +124,29 @@ app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost
 
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
 async function findGroupJid(sock) {
-  // 1. Tenta encontrar o grupo pelo nome entre os grupos que já participa
+  const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '120363428098199018@g.us';
   const groups = await sock.groupFetchAllParticipating();
-  const match  = Object.values(groups).find((g) => g.subject === TARGET_GROUP);
 
+  if (groups[TARGET_GROUP_JID]) {
+    groupJid = TARGET_GROUP_JID;
+    logEntry('GROUP', `Grupo oficial confirmado: "${groups[TARGET_GROUP_JID].subject}" (${groupJid})`);
+    return;
+  }
+
+  const match = Object.values(groups).find((g) => g.subject === TARGET_GROUP || g.subject === 'PROMOÇÕES');
   if (match) {
     groupJid = match.id;
-    logEntry('GROUP', `Grupo encontrado: "${TARGET_GROUP}" (${groupJid})`);
+    logEntry('GROUP', `Grupo encontrado: "${match.subject}" (${groupJid})`);
     return;
   }
 
   // 2. Grupo não encontrado — tenta entrar via código de convite
-  logEntry('GROUP', `Grupo "${TARGET_GROUP}" não encontrado. Tentando entrar via convite...`);
+  logEntry('GROUP', `Tentando entrar no grupo via convite...`);
   try {
-    const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
-    logEntry('GROUP', `Convite válido: "${inviteInfo.subject}" — entrando no grupo...`);
     groupJid = await sock.groupAcceptInvite(GROUP_INVITE_CODE);
     logEntry('GROUP', `✅ Entrou no grupo com sucesso! JID: ${groupJid}`);
-
-    // Envia mensagem de apresentação ao grupo após entrar
-    await new Promise((r) => setTimeout(r, 3000)); // aguarda 3s para o WhatsApp processar
-    await sock.sendMessage(groupJid, { text: buildWelcomeMessage() });
-    logEntry('SENT', 'Mensagem de boas-vindas enviada ao grupo');
   } catch (err) {
     logEntry('ERROR', `Falha ao entrar no grupo via convite: ${err.message}`);
-    logEntry('WARN', `Grupos disponíveis: ${Object.values(groups).map((g) => g.subject).join(' | ')}`);
   }
 }
 
@@ -232,7 +230,19 @@ const { useMongoDBAuthState } = require('./mongoAuth');
 
 const { processMessageText } = require('./mirror');
 const SOURCE_INVITE_CODES = ['LVQeM8ke7aiAMKrert3tXn', 'DQrfjMHM3t52YY8oRuQoQi', 'H8V7Ilmsntr8hPbM8kQ6Wq', 'GBONHRtFDTB8xsWyT9roj7', 'Hfe7u2cfTlv1Nm8UBvKX6N', 'FvqlT4jcOGc1z5qlezaVEH', 'K5YnbdXfy7w7r9y7Awjd1b', 'F2ASYImwMi0I1Ka4HJyrW8', 'LNRhciUCYyQ2mz5W9ZenIL', 'B78psnhjpZW0MwrENmuVe8', 'JWh6YjN6vKfFLJcUWEddm7', 'EryWWJiMxfF0Cw3Oqcm7ip', 'J8xrwaVtPyH22gDnAPLkyW', 'FFBXlHiIPsaCJsV3VMUz0v', 'CV55f0uEOSnFu5GfQpOyQF', 'HFWO1yF8qTMA7WzNR3MiPs'];
-let sourceGroupJids = [];
+const KNOWN_SPY_JIDS = [
+  '120363426055112444@g.us',
+  '120363422185523476@g.us',
+  '120363022227006770@g.us',
+  '120363361632968871@g.us',
+  '558894177629-1589320377@g.us',
+  '120363040345848018@g.us',
+  '120363425265838837@g.us',
+  '120363419645080011@g.us',
+  '120363333962668123@g.us',
+  '120363406543355604@g.us'
+];
+let sourceGroupJids = [...KNOWN_SPY_JIDS];
 
 async function startBot() {
   let state, saveCreds;
@@ -289,14 +299,19 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
-      // Entrar nos grupos espelho
+      // Garante que o grupo VIP não esteja na lista de espelhos
+      sourceGroupJids = sourceGroupJids.filter((id) => id !== groupJid);
+
+      // Entrar nos grupos espelho novos (se ainda não estiver neles)
       for (const code of SOURCE_INVITE_CODES) {
         try {
           const jid = await sock.groupAcceptInvite(code);
-          sourceGroupJids.push(jid);
-          logEntry('GROUP', '✅ Entrou no grupo ESPELHO! JID: ' + jid);
+          if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
+            sourceGroupJids.push(jid);
+            logEntry('GROUP', '✅ Entrou no grupo ESPELHO! JID: ' + jid);
+          }
         } catch (err) {
-          logEntry('GROUP', 'Falha ao entrar no grupo ESPELHO: ' + err.message);
+          // Já participa ou limite temporário — silencioso
         }
       }
       
@@ -317,52 +332,50 @@ async function startBot() {
     const msg = messages[0];
     if (!msg?.message || msg.key.fromMe) return;
 
-    // Se veio de um grupo espelho, ROUBE A OFERTA
-    if (sourceGroupJids.includes(msg.key.remoteJid)) {
-      try {
-        logEntry('MIRROR', 'Nova mensagem detectada no grupo espelho. Trocando links...');
-        
-        // Pega o texto da legenda ou texto normal
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
-        
-        // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
-        const newText = await processMessageText(text);
-        
-        if (!newText.trim()) return;
-        
-        // Se a mensagem original tinha foto, baixa a foto e manda com seu texto
-        if (msg.message.imageMessage && groupJid) {
-           const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-           const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-           let buffer = Buffer.from([]);
-           for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-           await sock.sendMessage(groupJid, { image: buffer, caption: newText });
-           logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
-        } 
-        // Se a mensagem original tinha vídeo, baixa o vídeo e manda
-        else if (msg.message.videoMessage && groupJid) {
-           const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-           const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-           let buffer = Buffer.from([]);
-           for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-           await sock.sendMessage(groupJid, { video: buffer, caption: newText });
-           logEntry('MIRROR', 'Oferta clonada com sucesso (VÍDEO + LINK SUBSTITUÍDO)!');
-        }
-        // Se era só texto com link, manda só o texto
-        else if (groupJid) {
-           await sock.sendMessage(groupJid, { text: newText });
-           logEntry('MIRROR', 'Oferta clonada com sucesso (TEXTO + LINK SUBSTITUÍDO)!');
-        }
-      } catch (err) {
-        logEntry('MIRROR', 'Erro ao clonar: ' + err.message);
-      }
-      return; // Sai da função para não dar boas-vindas no grupo dos outros
-    }
+    // NUNCA processe ou responda mensagens do próprio grupo VIP de destino
+    if (msg.key.remoteJid === groupJid) return;
 
-    // Se foi no SEU grupo e alguém deu "oi", dá boas-vindas
-    const body = msg.message?.conversation || msg.message?.extendedTextMessage?.text || '';
-    if (body.toLowerCase().includes('oi') || body.toLowerCase().includes('olá')) {
-      await sock.sendMessage(msg.key.remoteJid, { text: buildWelcomeMessage() });
+    // Se NÃO for um grupo espelho cadastrado, IGNORE TOTALMENTE!
+    // (Impede qualquer ação em conversas privadas, grupos de amigos, família, trabalho, etc.)
+    if (!sourceGroupJids.includes(msg.key.remoteJid)) return;
+
+    // Se veio de um grupo espelho, ROUBE A OFERTA
+    try {
+      logEntry('MIRROR', 'Nova mensagem detectada no grupo espelho. Trocando links...');
+      
+      // Pega o texto da legenda ou texto normal
+      const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
+      
+      // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
+      const newText = await processMessageText(text);
+      
+      if (!newText.trim()) return;
+      
+      // Se a mensagem original tinha foto, baixa a foto e manda com seu texto
+      if (msg.message.imageMessage && groupJid) {
+         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+         const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+         let buffer = Buffer.from([]);
+         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+         await sock.sendMessage(groupJid, { image: buffer, caption: newText });
+         logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
+      } 
+      // Se a mensagem original tinha vídeo, baixa o vídeo e manda
+      else if (msg.message.videoMessage && groupJid) {
+         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+         const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
+         let buffer = Buffer.from([]);
+         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+         await sock.sendMessage(groupJid, { video: buffer, caption: newText });
+         logEntry('MIRROR', 'Oferta clonada com sucesso (VÍDEO + LINK SUBSTITUÍDO)!');
+      }
+      // Se era só texto com link, manda só o texto
+      else if (groupJid) {
+         await sock.sendMessage(groupJid, { text: newText });
+         logEntry('MIRROR', 'Oferta clonada com sucesso (TEXTO + LINK SUBSTITUÍDO)!');
+      }
+    } catch (err) {
+      logEntry('MIRROR', 'Erro ao clonar: ' + err.message);
     }
   });
 }
