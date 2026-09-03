@@ -37,13 +37,17 @@ function buildOfferCaption(product) {
      instructions = `\n↪️ Menor preço no Pix.`;
   }
 
+  const storeBadge = cheapest.store === 'Magazine Luiza'
+    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*'
+    : '';
+
   return `${catchphrase}
 
 ${product.emoji} ${product.title}
 
 🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
 
-🔗 ${url}`;
+🔗 ${url}${storeBadge}`;
 }
 
 /** ── Resumo matinal (texto simples, sem foto) ─────────────────────────────── */
@@ -79,8 +83,8 @@ function buildWelcomeMessage() {
 Aqui você recebe automaticamente:
 ✅ *Melhores ofertas* em eletrônicos todos os dias
 ✅ *Cupons ativos* com o maior desconto disponível
-✅ *Comparativo em tempo real* nas 5 maiores lojas:
-   Amazon • Shopee • Mercado Livre • KaBuM! • AliExpress
+✅ *Comparativo em tempo real* nas maiores lojas:
+   Magazine Luiza • Amazon • Mercado Livre • Shopee • KaBuM!
 ✅ *Anti-Fraude "Metade do Dobro"* — nunca pague errado
 ✅ *Flash Deals* quando o estoque está acabando 🚨
 
