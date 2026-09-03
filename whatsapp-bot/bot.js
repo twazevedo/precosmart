@@ -319,6 +319,8 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
+const { processMessageText } = require('./mirror');
+
 const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
