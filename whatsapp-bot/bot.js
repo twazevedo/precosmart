@@ -54,6 +54,36 @@ const recentDealHashes    = new Set();
 let isWorkerActive        = false;
 let lastDealSentAt        = 0;
 
+// ── Modo Noturno e Integração Instagram ───────────────────────────────────────
+let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || null;
+
+function isNightQuietHours() {
+  try {
+    const spTimeStr = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
+    const [hour, minute] = spTimeStr.split(':').map(Number);
+    // Modo Noturno: das 23:30 até as 07:30 da manhã (Horário de Brasília)
+    if (hour === 23 && minute >= 30) return true;
+    if (hour >= 0 && hour < 7) return true;
+    if (hour === 7 && minute < 30) return true;
+  } catch (e) {}
+  return false;
+}
+
+async function dispatchToInstagram(deal) {
+  if (!instagramWebhookUrl) return;
+  try {
+    const axios = require('axios');
+    await axios.post(instagramWebhookUrl, {
+      text: deal.text,
+      type: deal.type,
+      timestamp: new Date().toISOString()
+    }, { timeout: 8000 });
+    logEntry('INSTAGRAM', 'Oferta disparada para o Webhook do Instagram com sucesso!');
+  } catch (e) {
+    logEntry('WARN', 'Falha ao notificar Webhook do Instagram: ' + e.message);
+  }
+}
+
 function logEntry(type, text) {
   const entry = { time: new Date().toISOString(), type, text };
   messageLog.unshift(entry);
@@ -79,6 +109,8 @@ app.get('/api/status', (req, res) => res.json({
   uptime:      Math.floor(process.uptime()),
   logCount:    messageLog.length,
   queueLength: dealQueue.length,
+  nightMode:   isNightQuietHours(),
+  hasInstagramWebhook: !!instagramWebhookUrl,
   lastMessage: messageLog[0] || null,
   version:     '2.0.0'
 }));
@@ -146,6 +178,16 @@ app.post('/api/send-custom', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post('/api/set-instagram-webhook', (req, res) => {
+  const { webhookUrl } = req.body;
+  if (webhookUrl) {
+    instagramWebhookUrl = webhookUrl;
+    logEntry('INSTAGRAM', `Webhook do Instagram configurado: ${webhookUrl}`);
+    return res.json({ ok: true, webhookUrl });
+  }
+  res.status(400).json({ error: 'URL do webhook ausente' });
 });
 
 app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost:${PORT}`));
@@ -362,6 +404,13 @@ async function startBot() {
     isWorkerActive = true;
 
     while (dealQueue.length > 0) {
+      // Se estiver no Horário de Silêncio Noturno (23:30 às 07:30 de Brasília), não acorda ninguém
+      if (isNightQuietHours()) {
+        logEntry('NIGHT', `🌙 Modo Noturno Ativo (23:30 - 07:30): envios pausados para proteger os membros (Fila: ${dealQueue.length})`);
+        await new Promise((r) => setTimeout(r, 10 * 60 * 1000)); // Dorme por 10 min e reavalia
+        continue;
+      }
+
       const now = Date.now();
       const elapsed = now - lastDealSentAt;
 
@@ -387,6 +436,8 @@ async function startBot() {
           logEntry('MIRROR', `Oferta postada via Anti-Flood (TEXTO)! Restam na fila: ${dealQueue.length}`);
         }
         lastDealSentAt = Date.now();
+        // Dispara simultaneamente para o Instagram se webhook estiver conectado
+        dispatchToInstagram(deal).catch(() => {});
       } catch (err) {
         logEntry('ERROR', 'Falha ao enviar oferta da fila: ' + err.message);
       }
@@ -447,13 +498,14 @@ async function startBot() {
         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
       }
 
-      // Limite de segurança de 25 ofertas na fila para não postar promoções vencidas
-      if (dealQueue.length < 25) {
+      // Limite de fila: 8 durante a noite (para não acumular) e 25 durante o dia
+      const maxQueueLimit = isNightQuietHours() ? 8 : 25;
+      if (dealQueue.length < maxQueueLimit) {
         dealQueue.push({ type: mediaType, buffer, text: newText });
         logEntry('QUEUE', `Oferta adicionada à fila Anti-Flood (Posição: ${dealQueue.length})`);
         runDealQueueWorker();
       } else {
-        logEntry('SKIP', 'Fila cheia (25 ofertas), descartando item para evitar atrasos excessivos');
+        logEntry('SKIP', 'Fila cheia, descartando item para evitar atrasos excessivos');
       }
     } catch (err) {
       logEntry('MIRROR', 'Erro ao processar oferta espelho: ' + err.message);

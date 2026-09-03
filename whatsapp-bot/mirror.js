@@ -125,6 +125,23 @@ function replaceAffiliateTags(longUrl, productKeyword) {
   }
 }
 
+function detectUrgencyBadge(text) {
+  const l = text.toLowerCase();
+  if (l.includes('cupom') || l.includes('voucher') || l.includes('código')) {
+    return '🏷️ *ALERTA DE CUPOM ATIVO* 🏷️\n\n';
+  }
+  if (l.includes('menor preço') || l.includes('menor preco') || l.includes('menor valor') || l.includes('histórico') || l.includes('historico')) {
+    return '📉 *MENOR PREÇO HISTÓRICO* 📉\n\n';
+  }
+  if (l.includes('bug') || l.includes('relâmpago') || l.includes('relampago') || l.includes('imperdível') || l.includes('imperdivel') || l.includes('corra')) {
+    return '⚡ *OFERTA RELÂMPAGO / ESTOQUE LIMITADO* ⚡\n\n';
+  }
+  if (l.includes('frete grátis') || l.includes('frete gratis')) {
+    return '🚚 *FRETE GRÁTIS DISPONÍVEL* 🚚\n\n';
+  }
+  return '';
+}
+
 async function processMessageText(text) {
   if (!text) return text;
 
@@ -160,7 +177,8 @@ async function processMessageText(text) {
     newText = newText.replace(url, afUrl);
   }
 
-  newText = newText.trim() + '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
+  const badge = detectUrgencyBadge(newText);
+  newText = badge + newText.trim() + '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
   return newText;
 }
 
