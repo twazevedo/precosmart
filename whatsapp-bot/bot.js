@@ -47,6 +47,13 @@ let isConnected    = false;
 let groupJid       = null;
 const messageLog   = [];
 
+// ── Sistema Anti-Flood e Deduplicação ─────────────────────────────────────────
+const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
+const dealQueue           = [];
+const recentDealHashes    = new Set();
+let isWorkerActive        = false;
+let lastDealSentAt        = 0;
+
 function logEntry(type, text) {
   const entry = { time: new Date().toISOString(), type, text };
   messageLog.unshift(entry);
@@ -71,6 +78,7 @@ app.get('/api/status', (req, res) => res.json({
   qrReady:     !!qrCodeDataUrl && !isConnected,
   uptime:      Math.floor(process.uptime()),
   logCount:    messageLog.length,
+  queueLength: dealQueue.length,
   lastMessage: messageLog[0] || null,
   version:     '2.0.0'
 }));
@@ -348,6 +356,45 @@ async function startBot() {
     }
   });
 
+  // ── Worker da Fila Anti-Flood ──────────────────────────────────────────────
+  async function runDealQueueWorker() {
+    if (isWorkerActive) return;
+    isWorkerActive = true;
+
+    while (dealQueue.length > 0) {
+      const now = Date.now();
+      const elapsed = now - lastDealSentAt;
+
+      // Se enviou uma oferta recentemente, aguarda o intervalo anti-flood
+      if (lastDealSentAt > 0 && elapsed < ANTI_FLOOD_DELAY_MS) {
+        const waitMs = ANTI_FLOOD_DELAY_MS - elapsed;
+        logEntry('QUEUE', `Anti-Flood: aguardando ${Math.ceil(waitMs / 1000)}s antes de postar a próxima oferta (Fila: ${dealQueue.length})`);
+        await new Promise((r) => setTimeout(r, waitMs));
+      }
+
+      const deal = dealQueue.shift();
+      if (!deal || !groupJid || !waSocket) continue;
+
+      try {
+        if (deal.type === 'image' && deal.buffer) {
+          await waSocket.sendMessage(groupJid, { image: deal.buffer, caption: deal.text });
+          logEntry('MIRROR', `Oferta postada via Anti-Flood (FOTO)! Restam na fila: ${dealQueue.length}`);
+        } else if (deal.type === 'video' && deal.buffer) {
+          await waSocket.sendMessage(groupJid, { video: deal.buffer, caption: deal.text });
+          logEntry('MIRROR', `Oferta postada via Anti-Flood (VÍDEO)! Restam na fila: ${dealQueue.length}`);
+        } else {
+          await waSocket.sendMessage(groupJid, { text: deal.text });
+          logEntry('MIRROR', `Oferta postada via Anti-Flood (TEXTO)! Restam na fila: ${dealQueue.length}`);
+        }
+        lastDealSentAt = Date.now();
+      } catch (err) {
+        logEntry('ERROR', 'Falha ao enviar oferta da fila: ' + err.message);
+      }
+    }
+
+    isWorkerActive = false;
+  }
+
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg?.message || msg.key.fromMe) return;
@@ -361,8 +408,6 @@ async function startBot() {
 
     // Se veio de um grupo espelho, ROUBE A OFERTA
     try {
-      logEntry('MIRROR', 'Nova mensagem detectada no grupo espelho. Trocando links...');
-      
       // Pega o texto da legenda ou texto normal
       const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
       
@@ -370,32 +415,48 @@ async function startBot() {
       const newText = await processMessageText(text);
       
       if (!newText.trim()) return;
-      
-      // Se a mensagem original tinha foto, baixa a foto e manda com seu texto
-      if (msg.message.imageMessage && groupJid) {
-         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-         const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-         let buffer = Buffer.from([]);
-         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-         await sock.sendMessage(groupJid, { image: buffer, caption: newText });
-         logEntry('MIRROR', 'Oferta clonada com sucesso (FOTO + LINK SUBSTITUÍDO)!');
-      } 
-      // Se a mensagem original tinha vídeo, baixa o vídeo e manda
-      else if (msg.message.videoMessage && groupJid) {
-         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-         const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-         let buffer = Buffer.from([]);
-         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-         await sock.sendMessage(groupJid, { video: buffer, caption: newText });
-         logEntry('MIRROR', 'Oferta clonada com sucesso (VÍDEO + LINK SUBSTITUÍDO)!');
+
+      // ── Deduplicação Inteligente ──
+      // Cria um hash baseado nos primeiros 60 caracteres sem espaço
+      const fingerprint = newText.substring(0, 60).toLowerCase().replace(/\s+/g, '');
+      if (recentDealHashes.has(fingerprint)) {
+        logEntry('SKIP', 'Anti-Flood: oferta duplicada ignorada (já postada recentemente)');
+        return;
       }
-      // Se era só texto com link, manda só o texto
-      else if (groupJid) {
-         await sock.sendMessage(groupJid, { text: newText });
-         logEntry('MIRROR', 'Oferta clonada com sucesso (TEXTO + LINK SUBSTITUÍDO)!');
+      recentDealHashes.add(fingerprint);
+      if (recentDealHashes.size > 80) {
+        const first = recentDealHashes.values().next().value;
+        recentDealHashes.delete(first);
+      }
+
+      // ── Baixa mídia para memória antes de colocar na fila ──
+      let mediaType = 'text';
+      let buffer = null;
+
+      if (msg.message.imageMessage) {
+        mediaType = 'image';
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+        buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+      } else if (msg.message.videoMessage) {
+        mediaType = 'video';
+        const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+        const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
+        buffer = Buffer.from([]);
+        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+      }
+
+      // Limite de segurança de 25 ofertas na fila para não postar promoções vencidas
+      if (dealQueue.length < 25) {
+        dealQueue.push({ type: mediaType, buffer, text: newText });
+        logEntry('QUEUE', `Oferta adicionada à fila Anti-Flood (Posição: ${dealQueue.length})`);
+        runDealQueueWorker();
+      } else {
+        logEntry('SKIP', 'Fila cheia (25 ofertas), descartando item para evitar atrasos excessivos');
       }
     } catch (err) {
-      logEntry('MIRROR', 'Erro ao clonar: ' + err.message);
+      logEntry('MIRROR', 'Erro ao processar oferta espelho: ' + err.message);
     }
   });
 }
