@@ -4,10 +4,12 @@
  */
 'use strict';
 
+require('./envLoader');
+
 const AFFILIATE = {
-  amazon:  'precosmartapp-20',
-  shopee:  '18361251220',
-  ml:      'azs5603820'
+  amazon:  process.env.AFFILIATE_AMAZON || '',
+  shopee:  process.env.AFFILIATE_SHOPEE || '',
+  ml:      process.env.AFFILIATE_ML     || ''
 };
 
 const COUPONS = [

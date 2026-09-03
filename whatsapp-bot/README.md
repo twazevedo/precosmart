@@ -42,11 +42,11 @@ const TARGET_GROUP_NAME = 'PreçoSmart Ofertas 🔥';
 | 18:00 | 🔔 Oferta completa #2 (horário de pico) |
 | 21:00 | 🔔 Oferta completa #3 (horário nobre) |
 
-## 💰 Afiliados Configurados
-
-- **Amazon:** `precosmartapp-20` (embutido automaticamente)
-- **Shopee:** `18361251220` (embutido automaticamente)
-- **Mercado Livre:** `azs5603820` (embutido automaticamente)
+## 💰 Afiliados Suportados
+Configurados com segurança via variáveis de ambiente (`.env`):
+- **Amazon:** `AFFILIATE_AMAZON`
+- **Shopee:** `AFFILIATE_SHOPEE`
+- **Mercado Livre:** `AFFILIATE_ML`
 
 ## 🛑 Parar o Bot
 

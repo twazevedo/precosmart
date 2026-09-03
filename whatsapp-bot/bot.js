@@ -14,13 +14,19 @@
  */
 'use strict';
 
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
-const pino       = require('pino');
-const QRCode     = require('qrcode');
-const express    = require('express');
-const path       = require('path');
-const fs         = require('fs');
-const cron       = require('node-cron');
+require('./envLoader');
+const path             = require('path');
+const fs               = require('fs');
+const QRCode           = require('qrcode');
+const cron             = require('node-cron');
+const express          = require('express');
+const pino             = require('pino');
+const {
+  default: makeWASocket,
+  DisconnectReason,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 
 const { getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories } = require('./catalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
@@ -36,9 +42,8 @@ const MAX_LOG_ENTRIES  = 100;
 
 /**
  * Código de convite do grupo WhatsApp (extraído do link fornecido pelo dono).
- * Link completo: https://chat.whatsapp.com/Ht6rc4aPeBxHkXQChS4ADJ
  */
-const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'Ht6rc4aPeBxHkXQChS4ADJ';
+const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || '';
 
 // ── Estado Global ────────────────────────────────────────────────────────────
 let waSocket       = null;
@@ -55,7 +60,7 @@ let isWorkerActive        = false;
 let lastDealSentAt        = 0;
 
 // ── Modo Noturno e Integração Instagram ───────────────────────────────────────
-let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || 'https://hook.us2.make.com/m4ofe3ag7teo1y5r6qgmxcl7y2igs2le';
+let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || null;
 
 function isNightQuietHours() {
   try {
@@ -210,7 +215,7 @@ app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost
 
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
 async function findGroupJid(sock) {
-  const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '120363428098199018@g.us';
+  const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '';
   const groups = await sock.groupFetchAllParticipating();
 
   if (groups[TARGET_GROUP_JID]) {

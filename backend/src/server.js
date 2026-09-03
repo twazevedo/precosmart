@@ -187,12 +187,16 @@ app.get('/api/comparison', (req, res) => {
       )
     `).all().map((q) => {
       let finalUrl = q.url;
-      if (finalUrl && finalUrl.includes('amazon.com.br') && !finalUrl.includes('tag=')) {
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'tag=precosmartapp-20';
-      } else if (finalUrl && finalUrl.includes('shopee.com.br') && !finalUrl.includes('aff_id=')) {
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'aff_id=18361251220';
-      } else if (finalUrl && finalUrl.includes('mercadolivre.com.br') && !finalUrl.includes('matt_tool=')) {
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'matt_tool=azs5603820';
+      const amzTag = process.env.AFFILIATE_AMAZON || '';
+      const shpTag = process.env.AFFILIATE_SHOPEE || '';
+      const meliTag = process.env.AFFILIATE_ML || '';
+
+      if (finalUrl && finalUrl.includes('amazon.com.br') && amzTag && !finalUrl.includes('tag=')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'tag=' + amzTag;
+      } else if (finalUrl && finalUrl.includes('shopee.com.br') && shpTag && !finalUrl.includes('aff_id=')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'aff_id=' + shpTag;
+      } else if (finalUrl && finalUrl.includes('mercadolivre.com.br') && meliTag && !finalUrl.includes('matt_tool=')) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + 'matt_tool=' + meliTag;
       }
       return { ...q, url: finalUrl };
     });
