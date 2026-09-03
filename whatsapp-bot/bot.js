@@ -558,9 +558,28 @@ async function startBot() {
       logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
 
       if (isAuthorized) {
-        const cleanReplyJid = remoteJid.includes('@g.us') 
-          ? remoteJid 
-          : (remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net');
+        let cleanReplyJid = remoteJid;
+        if (remoteJid.includes('@s.whatsapp.net')) {
+          cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+        }
+
+        async function replyToUser(content) {
+          try {
+            await waSocket.sendMessage(cleanReplyJid, content);
+            logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
+          } catch (replyErr) {
+            logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
+            if (msg.key.fromMe && sock.user?.id) {
+              const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+              try {
+                await waSocket.sendMessage(myPhoneJid, content);
+                logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
+              } catch (e2) {
+                logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
+              }
+            }
+          }
+        }
 
         const [cmd, ...args] = text.split(' ');
         const command = cmd.toLowerCase();
@@ -576,104 +595,104 @@ async function startBot() {
             `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
             `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
             `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
-          await waSocket.sendMessage(cleanReplyJid, { text: statusMsg });
+          await replyToUser({ text: statusMsg });
           return;
         }
 
-          // 2. !limpar
-          if (command === '!limpar') {
-            const count = dealQueue.length;
-            dealQueue.length = 0;
-            await waSocket.sendMessage(cleanReplyJid, { text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+        // 2. !limpar
+        if (command === '!limpar') {
+          const count = dealQueue.length;
+          dealQueue.length = 0;
+          await replyToUser({ text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+          return;
+        }
+
+        // 3. !postar <link ou texto>
+        if (command === '!postar') {
+          const content = args.join(' ');
+          if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
+            await replyToUser({ text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
             return;
           }
 
-          // 3. !postar <link ou texto>
-          if (command === '!postar') {
-            const content = args.join(' ');
-            if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
-              await waSocket.sendMessage(cleanReplyJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
+          try {
+            let mediaType = 'text';
+            let buffer = null;
+
+            if (msg.message.imageMessage) {
+              mediaType = 'image';
+              const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+              const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+              buffer = Buffer.from([]);
+              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            } else if (msg.message.videoMessage) {
+              mediaType = 'video';
+              const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+              const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
+              buffer = Buffer.from([]);
+              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            }
+
+            const newText = await processMessageText(content);
+            
+            if (!groupJid) {
+              await replyToUser({ text: '❌ Grupo VIP oficial não encontrado para postar.' });
               return;
             }
 
-            try {
-              let mediaType = 'text';
-              let buffer = null;
-
-              if (msg.message.imageMessage) {
-                mediaType = 'image';
-                const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-                const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-                buffer = Buffer.from([]);
-                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-              } else if (msg.message.videoMessage) {
-                mediaType = 'video';
-                const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-                const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-                buffer = Buffer.from([]);
-                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-              }
-
-              const newText = await processMessageText(content);
-              
-              if (!groupJid) {
-                await waSocket.sendMessage(cleanReplyJid, { text: '❌ Grupo VIP oficial não encontrado para postar.' });
-                return;
-              }
-
-              // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
-              if (mediaType === 'image' && buffer) {
-                await waSocket.sendMessage(groupJid, { image: buffer, caption: newText });
-              } else if (mediaType === 'video' && buffer) {
-                await waSocket.sendMessage(groupJid, { video: buffer, caption: newText });
-              } else {
-                await waSocket.sendMessage(groupJid, { text: newText });
-              }
-
-              // Dispara também para o Instagram com a foto real
-              dispatchToInstagram({ type: mediaType, buffer, text: newText }).catch(() => {});
-
-              await waSocket.sendMessage(cleanReplyJid, { text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
-              logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
-              return;
-            } catch (postErr) {
-              await waSocket.sendMessage(cleanReplyJid, { text: `❌ Erro ao postar: ${postErr.message}` });
-              return;
+            // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
+            if (mediaType === 'image' && buffer) {
+              await waSocket.sendMessage(groupJid, { image: buffer, caption: newText });
+            } else if (mediaType === 'video' && buffer) {
+              await waSocket.sendMessage(groupJid, { video: buffer, caption: newText });
+            } else {
+              await waSocket.sendMessage(groupJid, { text: newText });
             }
-          }
 
-          // 4. !magalu
-          if (command === '!magalu') {
-            try {
-              const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
-              if (magaluProducts.length === 0) {
-                await waSocket.sendMessage(cleanReplyJid, { text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
-                return;
-              }
-              const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
-              const caption = buildOfferMessage(product);
-              await sendProductMessage(product, caption);
-              await waSocket.sendMessage(cleanReplyJid, { text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
-              logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
-              return;
-            } catch (magErr) {
-              await waSocket.sendMessage(cleanReplyJid, { text: `❌ Erro ao postar Magalu: ${magErr.message}` });
-              return;
-            }
-          }
+            // Dispara também para o Instagram com a foto real
+            dispatchToInstagram({ type: mediaType, buffer, text: newText }).catch(() => {});
 
-          // 5. !ajuda
-          if (command === '!ajuda' || command === '!comandos') {
-            const helpMsg = `👑 *Comandos do Administrador (PreçoSmart)*\n\n` +
-              `👉 *!magalu*\nDispara uma oferta imediata do Magazine Luiza no Grupo VIP e no Instagram.\n\n` +
-              `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
-              `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
-              `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
-              `_Envie qualquer um desses comandos aqui ou no grupo VIP!_`;
-            await waSocket.sendMessage(cleanReplyJid, { text: helpMsg });
+            await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
+            logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
+            return;
+          } catch (postErr) {
+            await replyToUser({ text: `❌ Erro ao postar: ${postErr.message}` });
             return;
           }
         }
+
+        // 4. !magalu
+        if (command === '!magalu') {
+          try {
+            const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
+            if (magaluProducts.length === 0) {
+              await replyToUser({ text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
+              return;
+            }
+            const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
+            const caption = buildOfferMessage(product);
+            await sendProductMessage(product, caption);
+            await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+            logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
+            return;
+          } catch (magErr) {
+            await replyToUser({ text: `❌ Erro ao postar Magalu: ${magErr.message}` });
+            return;
+          }
+        }
+
+        // 5. !ajuda
+        if (command === '!ajuda' || command === '!comandos') {
+          const helpMsg = `👑 *Comandos do Administrador (PreçoSmart)*\n\n` +
+            `👉 *!magalu*\nDispara uma oferta imediata do Magazine Luiza no Grupo VIP e no Instagram.\n\n` +
+            `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
+            `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
+            `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
+            `_Envie qualquer um desses comandos aqui ou no grupo VIP!_`;
+          await replyToUser({ text: helpMsg });
+          return;
+        }
+      }
       }
 
       // Se for chat privado mas não for comando de admin, não faz nada
