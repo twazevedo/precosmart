@@ -211,7 +211,12 @@ async function processMessageText(text) {
   }
 
   const badge = detectUrgencyBadge(newText);
-  newText = badge + newText.trim() + '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
+  const isMagalu = newText.includes('magazinevoce.com.br') || newText.includes('magazineluiza.com.br');
+  const footer = isMagalu
+    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*'
+    : '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
+
+  newText = badge + newText.trim() + footer;
   return newText;
 }
 
