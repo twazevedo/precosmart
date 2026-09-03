@@ -75,13 +75,26 @@ async function dispatchToInstagram(deal) {
     const axios = require('axios');
     const urlMatch = deal.text ? deal.text.match(/(https?:\/\/[^\s]+)/i) : null;
     const link = urlMatch ? urlMatch[1] : '';
+
+    // Formata legenda magnética de engajamento para o Instagram
+    const lines = deal.text ? deal.text.split('\n') : [];
+    const titleLine = lines[0] || '🔥 Super Oferta';
+    const bodyLines = lines.slice(1).filter((l) => 
+      !l.includes('Oferta Exclusiva') && 
+      !l.includes('Compre') && 
+      !l.includes('http') &&
+      !l.includes('Acesse aqui')
+    ).join('\n').trim();
+
+    const igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #amazonbrasil #tecnologia`;
+
     await axios.post(instagramWebhookUrl, {
-      text: deal.text,
+      text: igCaption,
       link: link,
       type: deal.type,
       timestamp: new Date().toISOString()
     }, { timeout: 8000 });
-    logEntry('INSTAGRAM', 'Oferta disparada para o Webhook do Instagram com sucesso!');
+    logEntry('INSTAGRAM', 'Oferta disparada para o Webhook do Instagram com chamada EU QUERO!');
   } catch (e) {
     logEntry('WARN', 'Falha ao notificar Webhook do Instagram: ' + e.message);
   }
