@@ -487,8 +487,14 @@ async function startBot() {
         const configuredOwner = (process.env.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
         const senderPhone = remoteJid.replace(/[^0-9]/g, '');
 
-        // Autorizado se enviado do próprio número (fromMe) OU se bater com OWNER_NUMBER OU se ainda não configurou
-        const isAuthorized = msg.key.fromMe || !configuredOwner || senderPhone.includes(configuredOwner);
+        // Autorizado se enviado do próprio número (fromMe) OU se bater com OWNER_NUMBER
+        // Usa os últimos 8 dígitos para compatibilidade total com o 9º dígito brasileiro
+        const ownerLast8 = configuredOwner.length >= 8 ? configuredOwner.slice(-8) : configuredOwner;
+        const isAuthorized = msg.key.fromMe || 
+                             !configuredOwner || 
+                             (ownerLast8 && senderPhone.includes(ownerLast8)) ||
+                             senderPhone.includes(configuredOwner) ||
+                             configuredOwner.includes(senderPhone);
 
         if (isAuthorized) {
           const [cmd, ...args] = text.split(' ');
