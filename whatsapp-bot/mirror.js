@@ -213,7 +213,7 @@ async function processMessageText(text) {
   const badge = detectUrgencyBadge(newText);
   const isMagalu = newText.includes('magazinevoce.com.br') || newText.includes('magazineluiza.com.br');
   const footer = isMagalu
-    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*'
+    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
     : '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
 
   newText = badge + newText.trim() + footer;

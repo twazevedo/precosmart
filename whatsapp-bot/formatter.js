@@ -15,7 +15,7 @@ const pct  = (v) => `${Math.round(v)}%`;
 function buildOfferCaption(product) {
   const sorted   = [...product.quotes].sort((a, b) => a.pix - b.pix);
   const cheapest = sorted[0];
-  const coupon   = getBestCoupon(cheapest.store, cheapest.pix);
+  const coupon   = getBestCoupon(cheapest.store, cheapest.pix, product);
   const final    = coupon ? coupon.finalPrice : cheapest.pix;
   const oldPrice = product.history30dAvg;
   const url      = getAffiliateUrl(cheapest.store, product.title);
@@ -32,13 +32,13 @@ function buildOfferCaption(product) {
 
   let instructions = '';
   if (coupon) {
-    instructions = `\n↪️ Aplique o cupom "${coupon.code}" no carrinho.`;
+    instructions = `\n↪️ Cupom: *${coupon.code}* (${coupon.desc})`;
   } else if (cheapest.store === 'KaBuM!' || cheapest.store === 'Mercado Livre') {
      instructions = `\n↪️ Menor preço no Pix.`;
   }
 
   const storeBadge = cheapest.store === 'Magazine Luiza'
-    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*'
+    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
     : '';
 
   return `${catchphrase}
