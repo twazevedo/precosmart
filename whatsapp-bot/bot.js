@@ -120,6 +120,26 @@ app.post('/api/send-flash', async (req, res) => {
   }
 });
 
+app.post('/api/send-custom', async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
+  const { text, imageUrl } = req.body;
+  try {
+    if (imageUrl) {
+      await waSocket.sendMessage(groupJid, {
+        image: { url: imageUrl },
+        caption: text,
+        mimetype: 'image/jpeg'
+      });
+    } else {
+      await waSocket.sendMessage(groupJid, { text });
+    }
+    logEntry('MANUAL', 'Oferta personalizada enviada com sucesso');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost:${PORT}`));
 
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
