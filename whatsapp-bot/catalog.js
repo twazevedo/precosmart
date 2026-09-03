@@ -13,12 +13,19 @@ const AFFILIATE = {
   magalu:  process.env.AFFILIATE_MAGALU  || ''
 };
 
+const magTag = (process.env.AFFILIATE_MAGALU || '').toUpperCase();
+
 const COUPONS = [
   { code: 'PRIME15',     store: 'Amazon',        discount: 15,   type: 'fixed',   desc: '-R$\u00a015 para membros Prime'              },
   { code: 'SHOPEE20',    store: 'Shopee',        discount: 20,   type: 'fixed',   desc: '-R$\u00a020 em tech acima de R$\u00a0150'        },
   { code: 'MELI10',      store: 'Mercado Livre', discount: 0.10, type: 'percent', desc: '-10% em lojas oficiais'                 },
   { code: 'SHOPEE50',    store: 'Shopee',        discount: 50,   type: 'fixed',   desc: '-R$\u00a050 acima de R$\u00a0300'               },
-  { code: 'AMZNWELCOME', store: 'Amazon',        discount: 0.05, type: 'percent', desc: '-5% extra para novos clientes Prime'    }
+  { code: 'AMZNWELCOME', store: 'Amazon',        discount: 0.05, type: 'percent', desc: '-5% extra para novos clientes Prime'    },
+  ...(magTag ? [
+    { code: `20${magTag}`,  store: 'Magazine Luiza', discount: 20,  type: 'fixed', desc: '-R$\u00a020 exclusivo na nossa loja Magalu' },
+    { code: `50${magTag}`,  store: 'Magazine Luiza', discount: 50,  type: 'fixed', desc: '-R$\u00a050 exclusivo na nossa loja Magalu' },
+    { code: `100${magTag}`, store: 'Magazine Luiza', discount: 100, type: 'fixed', desc: '-R$\u00a0100 exclusivo na nossa loja Magalu' }
+  ] : [])
 ];
 
 const PRODUCTS = [
