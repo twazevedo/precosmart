@@ -28,7 +28,7 @@ const {
   fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 
-const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories } = require('./catalog');
+const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 
 // ── Configurações ────────────────────────────────────────────────────────────
@@ -39,6 +39,58 @@ const SESSION_DIR      = process.env.RENDER_DISK_MOUNT_PATH
                           ? path.join(process.env.RENDER_DISK_MOUNT_PATH)
                           : path.join(__dirname, 'session');
 const MAX_LOG_ENTRIES  = 100;
+
+// Anti-duplicação de comandos
+const processedCommandIds = new Set();
+const lastCommandExecution = new Map(); // key: senderPhone+command -> timestamp
+
+// Cache com TTL de 6 horas para impedir qualquer oferta duplicada no grupo VIP
+const recentDealCache = new Map(); // key -> timestamp
+const DEDUP_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
+
+function isDuplicateDeal(canonicalIds, keyword, rawText) {
+  const now = Date.now();
+  for (const [key, ts] of recentDealCache.entries()) {
+    if (now - ts > DEDUP_TTL_MS) recentDealCache.delete(key);
+  }
+
+  for (const id of canonicalIds) {
+    if (id && recentDealCache.has('id:' + id)) return true;
+  }
+
+  if (keyword && keyword.length > 8) {
+    const kwKey = 'kw:' + keyword.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (recentDealCache.has(kwKey)) return true;
+  }
+
+  const clean = (rawText || '')
+    .replace(/(https?:\/\/[^\s]+)/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .toLowerCase()
+    .substring(0, 70);
+  if (clean.length > 15 && recentDealCache.has('txt:' + clean)) return true;
+
+  return false;
+}
+
+function registerSentDeal(canonicalIds, keyword, rawText) {
+  const now = Date.now();
+  for (const id of canonicalIds) {
+    if (id) recentDealCache.set('id:' + id, now);
+  }
+  if (keyword && keyword.length > 8) {
+    const kwKey = 'kw:' + keyword.toLowerCase().replace(/[^a-z0-9]/g, '');
+    recentDealCache.set(kwKey, now);
+  }
+  const clean = (rawText || '')
+    .replace(/(https?:\/\/[^\s]+)/g, '')
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .toLowerCase()
+    .substring(0, 70);
+  if (clean.length > 15) {
+    recentDealCache.set('txt:' + clean, now);
+  }
+}
 
 /**
  * Código de convite do grupo WhatsApp (extraído do link fornecido pelo dono).
@@ -55,7 +107,6 @@ const messageLog   = [];
 // ── Sistema Anti-Flood e Deduplicação ─────────────────────────────────────────
 const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
 const dealQueue           = [];
-const recentDealHashes    = new Set();
 let isWorkerActive        = false;
 let lastDealSentAt        = 0;
 
@@ -187,9 +238,11 @@ app.get('/api/logs', (req, res) => res.json(messageLog));
 app.post('/api/send-magalu', async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
-    const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
-    if (magaluProducts.length === 0) return res.status(404).json({ error: 'Nenhum produto do Magazine Luiza encontrado' });
-    const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
+    const product = getNextMagaluProduct();
+    if (!product) return res.status(404).json({ error: 'Nenhum produto do Magazine Luiza encontrado' });
+
+    registerSentDeal(['mag_' + product.id], product.title, product.title);
+
     const caption = buildOfferMessage(product);
     await sendProductMessage(product, caption);
     logEntry('MANUAL', `Oferta Magalu enviada: ${product.title}`);
@@ -390,7 +443,7 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
-const { processMessageText } = require('./mirror');
+const { processMessageText, extractProductKeyword, extractCanonicalId } = require('./mirror');
 
 const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
@@ -555,6 +608,15 @@ async function startBot() {
 
     // ── 👑 COMANDOS DO DONO (PRIVADO OU GRUPO VIP) ──
     if (text.startsWith('!')) {
+      if (msg.key.id) {
+        if (processedCommandIds.has(msg.key.id)) return;
+        processedCommandIds.add(msg.key.id);
+        if (processedCommandIds.size > 200) {
+          const first = processedCommandIds.values().next().value;
+          processedCommandIds.delete(first);
+        }
+      }
+
       const rawOwners = process.env.OWNER_NUMBER || '';
       const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
       const senderPhone = (msg.key.fromMe ? (sock.user?.id || '') : senderJid).replace(/[^0-9]/g, '');
@@ -597,6 +659,14 @@ async function startBot() {
 
         const [cmd, ...args] = text.split(' ');
         const command = cmd.toLowerCase();
+
+        // Anti-Flood / Debounce para comandos: evita que duplo clique ou lag envie repetido
+        const lastExec = lastCommandExecution.get(`${senderPhone}:${command}`) || 0;
+        if (Date.now() - lastExec < 3500) {
+          logEntry('CMD_SKIP', `Comando ${command} ignorado por debounce de 3.5s`);
+          return;
+        }
+        lastCommandExecution.set(`${senderPhone}:${command}`, Date.now());
 
         // 1. !status
         if (command === '!status') {
@@ -678,15 +748,19 @@ async function startBot() {
         // 4. !magalu
         if (command === '!magalu') {
           try {
-            const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
-            if (magaluProducts.length === 0) {
+            const product = getNextMagaluProduct();
+            if (!product) {
               await replyToUser({ text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
               return;
             }
-            const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
+
+            registerSentDeal(['mag_' + product.id], product.title, product.title);
+
             const caption = buildOfferMessage(product);
             await sendProductMessage(product, caption);
-            await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+            if (!isGroup) {
+              await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+            }
             logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
             return;
           } catch (magErr) {
@@ -730,18 +804,16 @@ async function startBot() {
       
       if (!newText.trim()) return;
 
-      // ── Deduplicação Inteligente ──
-      // Cria um hash baseado nos primeiros 60 caracteres sem espaço
-      const fingerprint = newText.substring(0, 60).toLowerCase().replace(/\s+/g, '');
-      if (recentDealHashes.has(fingerprint)) {
-        logEntry('SKIP', 'Anti-Flood: oferta duplicada ignorada (já postada recentemente)');
+      // ── Deduplicação Inteligente Ultra-Rigorosa ──
+      const productKeyword = extractProductKeyword(text);
+      const allUrls = (text + ' ' + newText).match(/(https?:\/\/[^\s]+)/g) || [];
+      const canonicalIds = allUrls.map(extractCanonicalId).filter(Boolean);
+
+      if (isDuplicateDeal(canonicalIds, productKeyword, text)) {
+        logEntry('SKIP', `Anti-Flood: oferta duplicada ignorada [${productKeyword || 'Produto'}]`);
         return;
       }
-      recentDealHashes.add(fingerprint);
-      if (recentDealHashes.size > 80) {
-        const first = recentDealHashes.values().next().value;
-        recentDealHashes.delete(first);
-      }
+      registerSentDeal(canonicalIds, productKeyword, text);
 
       // ── Baixa mídia para memória antes de colocar na fila ──
       let mediaType = 'text';

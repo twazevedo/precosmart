@@ -293,4 +293,35 @@ function getProductByCategories(categories) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-module.exports = { PRODUCTS, COUPONS, AFFILIATE, getAffiliateUrl, getBestCoupon, getTopDeals, getDailyProduct, getRandomProduct, getProductByCategories };
+let magaluQueue = [];
+let lastMagaluId = null;
+
+function getNextMagaluProduct() {
+  const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
+  if (magaluProducts.length === 0) return null;
+
+  if (magaluQueue.length === 0) {
+    const shuffled = [...magaluProducts].sort(() => Math.random() - 0.5);
+    if (lastMagaluId && shuffled[0].id === lastMagaluId && shuffled.length > 1) {
+      shuffled.push(shuffled.shift());
+    }
+    magaluQueue = shuffled;
+  }
+
+  const product = magaluQueue.shift();
+  lastMagaluId = product.id;
+  return product;
+}
+
+module.exports = { 
+  PRODUCTS, 
+  COUPONS, 
+  AFFILIATE, 
+  getAffiliateUrl, 
+  getBestCoupon, 
+  getTopDeals, 
+  getDailyProduct, 
+  getRandomProduct, 
+  getProductByCategories,
+  getNextMagaluProduct
+};

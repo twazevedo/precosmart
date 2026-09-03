@@ -220,4 +220,25 @@ async function processMessageText(text) {
   return newText;
 }
 
-module.exports = { processMessageText };
+function extractCanonicalId(url) {
+  if (!url) return null;
+  // Amazon ASIN
+  const amzMatch = url.match(/\/dp\/([A-Z0-9]{10})/i) || url.match(/\/gp\/product\/([A-Z0-9]{10})/i) || url.match(/\/([B0][A-Z0-9]{9})/i);
+  if (amzMatch) return 'amz_' + amzMatch[1].toUpperCase();
+
+  // Mercado Livre MLB
+  const mlMatch = url.match(/(MLB-?\d{6,14})/i);
+  if (mlMatch) return 'ml_' + mlMatch[1].replace('-', '').toUpperCase();
+
+  // Shopee Item ID
+  const shpMatch = url.match(/\/product\/\d+\/(\d+)/i) || url.match(/i\.\d+\.(\d+)/i);
+  if (shpMatch) return 'shp_' + shpMatch[1];
+
+  // Magalu SKU
+  const magMatch = url.match(/\/p\/([0-9a-z]+)\//i) || url.match(/\/p\/([0-9a-z]+)$/i);
+  if (magMatch) return 'mag_' + magMatch[1];
+
+  return null;
+}
+
+module.exports = { processMessageText, extractProductKeyword, extractCanonicalId };
