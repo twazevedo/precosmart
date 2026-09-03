@@ -484,17 +484,19 @@ async function startBot() {
       ).trim();
 
       if (text.startsWith('!')) {
-        const configuredOwner = (process.env.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
+        const rawOwners = process.env.OWNER_NUMBER || '';
+        const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
         const senderPhone = remoteJid.replace(/[^0-9]/g, '');
 
-        // Autorizado se enviado do próprio número (fromMe) OU se bater com OWNER_NUMBER
-        // Usa os últimos 8 dígitos para compatibilidade total com o 9º dígito brasileiro
-        const ownerLast8 = configuredOwner.length >= 8 ? configuredOwner.slice(-8) : configuredOwner;
+        // Autorizado se enviado do próprio número (fromMe) OU se bater com qualquer OWNER_NUMBER da lista
         const isAuthorized = msg.key.fromMe || 
-                             !configuredOwner || 
-                             (ownerLast8 && senderPhone.includes(ownerLast8)) ||
-                             senderPhone.includes(configuredOwner) ||
-                             configuredOwner.includes(senderPhone);
+                             ownerList.length === 0 || 
+                             ownerList.some((owner) => {
+                               const last8 = owner.length >= 8 ? owner.slice(-8) : owner;
+                               return (last8 && senderPhone.includes(last8)) || 
+                                      senderPhone.includes(owner) || 
+                                      owner.includes(senderPhone);
+                             });
 
         if (isAuthorized) {
           const [cmd, ...args] = text.split(' ');
