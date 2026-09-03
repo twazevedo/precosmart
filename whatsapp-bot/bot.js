@@ -55,7 +55,7 @@ let isWorkerActive        = false;
 let lastDealSentAt        = 0;
 
 // ── Modo Noturno e Integração Instagram ───────────────────────────────────────
-let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || null;
+let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || 'https://hook.us2.make.com/vwa4ynrlf9bpjc2fubf8t4b5vfhnbh85';
 
 function isNightQuietHours() {
   try {
@@ -73,8 +73,11 @@ async function dispatchToInstagram(deal) {
   if (!instagramWebhookUrl) return;
   try {
     const axios = require('axios');
+    const urlMatch = deal.text ? deal.text.match(/(https?:\/\/[^\s]+)/i) : null;
+    const link = urlMatch ? urlMatch[1] : '';
     await axios.post(instagramWebhookUrl, {
       text: deal.text,
+      link: link,
       type: deal.type,
       timestamp: new Date().toISOString()
     }, { timeout: 8000 });
