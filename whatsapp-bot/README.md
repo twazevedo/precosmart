@@ -1,4 +1,4 @@
-﻿# 🤖 PreçoSmart WhatsApp Engine v2.0
+# 🤖 PreçoSmart WhatsApp Engine v2.0
 
 Microsserviço de automação de alto desempenho para agregação inteligente de ofertas, normalização de links e injeção de comissões de afiliados no WhatsApp e Instagram.
 
@@ -47,7 +47,7 @@ AFFILIATE_SHOPEE="suatag_shopee"
 OWNER_NUMBER="5511999999999,5511888888888"
 
 # Persistência de Sessão
-MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/..."
+MONGO_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/..."
 ```
 
 ---

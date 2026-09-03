@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 # ⚡ PreçoSmart Ecosystem
 ### Plataforma Full-Stack de Comparação de Preços & Automação Inteligente de Afiliados
@@ -131,7 +131,7 @@ AFFILIATE_AMAZON="suatag-20"
 AFFILIATE_ML="suatag_ml"
 AFFILIATE_SHOPEE="suatag_shopee"
 OWNER_NUMBER="5511999999999,5511888888888"
-MONGO_URI="mongodb+srv://usuario:senha@cluster.mongodb.net/..."
+MONGO_URI="mongodb+srv://<usuario>:<senha>@<cluster>.mongodb.net/..."
 ```
 
 ### 3. Executar os Serviços
