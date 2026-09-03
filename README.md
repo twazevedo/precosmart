@@ -23,13 +23,13 @@
 
 O **PreçoSmart** é uma solução de engenharia integrada que une duas frentes complementares:
 
-1. **Web App Comparador & Otimizador de Cestas:** Aplicação full-stack moderna (React + Node.js/Express + SQLite) para cadastro de produtos, registro histórico de cotações e cálculo algorítmico da melhor combinação de compra entre lojas concorrentes.
-2. **Automação Inteligente de Afiliados (WhatsApp & Redes Sociais):** Microsserviço de alta disponibilidade que monitora múltiplos canais de promoções, normaliza links de lojas oficiais (Amazon, Mercado Livre e Shopee), aplica tags de afiliado personalizadas, sanitiza concorrência e despacha ofertas com controle anti-flood 24/7.
+1. **Web App Comparador & Otimizador de Cestas:** Aplicação full-stack moderna (React + Node.js/Express + SQLite) para cadastro de produtos, registro histórico de cotações e cálculo algorítmico da melhor combinação de compra entre diferentes lojas e e-commerces.
+2. **Automação Inteligente de Afiliados (WhatsApp & Redes Sociais):** Microsserviço de alta disponibilidade que agrega e processa feeds de promoções em tempo real, normaliza links de lojas oficiais (Amazon, Mercado Livre e Shopee), aplica tags de afiliado personalizadas e despacha ofertas com controle anti-flood 24/7.
 
 ```
                                   ┌───────────────────────────┐
                                   │   Canais de Ofertas       │
-                                  │  (Fontes Concorrentes)    │
+                                  │  (Ingestão Contínua)    │
                                   └─────────────┬─────────────┘
                                                 │ (WebSocket Baileys)
                                                 ▼
@@ -64,9 +64,9 @@ O **PreçoSmart** é uma solução de engenharia integrada que une duas frentes 
 ### 2. 🤖 Robô de Ofertas & Espelhamento Inteligente (WhatsApp Bot v2.0)
 - **Motor Baileys de Baixa Latência:** Conexão nativa via WebSocket, sem uso de navegadores pesados (Chromium/Puppeteer), garantindo consumo mínimo de memória RAM (< 100MB).
 - **Mapeamento Dinâmico de Canais:** Identifica automaticamente todos os grupos em que a conta participa, eliminando JIDs e fontes fixas no código-fonte.
-- **Sanitização Cirúrgica de Concorrência:**
-  - Neutraliza domínios e encurtadores de terceiros.
-  - Remove convites para canais/grupos de outros criadores.
+- **Normalização & Padronização de Links:**
+  - Validação e higienização de URLs intermediárias.
+  - Remoção de convites externos e ruídos de formatação.
   - Extrai produtos específicos de perfis sociais do Mercado Livre (`/social/`).
 - **Injeção Universal de Afiliados:**
   - **Amazon Brasil:** Suporte a URLs diretas e links encurtados `amzn.to`.
@@ -98,7 +98,7 @@ O repositório segue rigorosos padrões de segurança ofensiva e defensiva:
 - 🛡️ **Zero Hardcoded Secrets:** Nenhuma chave de API, tag de afiliado, webhook ou número de telefone é exposto no código-fonte.
 - 🔐 **Arquitetura de Variáveis de Ambiente:** Todos os parâmetros sensíveis são injetados em runtime via `process.env` (armazenados de forma criptografada no Render e MongoDB Atlas).
 - 🚫 **Higienização de Repositório:** Arquivos de credenciais (`.env`), dados de sessão (`session/`) e logs temporários são bloqueados no `.gitignore`.
-- 🌐 **Isolamento de Canais:** O robô rejeita comandos de números não autorizados e ignora mensagens de grupos não categorizados como fontes.
+- 🌐 **Isolamento de Canais:** O robô rejeita comandos de números não autorizados e filtra rigorosamente apenas eventos de canais autorizados.
 
 ---
 
@@ -204,3 +204,4 @@ precosmart/
 ## 📄 Licença & Conformidade
 
 Desenvolvido para fins de automação de marketing digital e otimização de compras. Todos os links gerados cumprem as diretrizes dos Programas de Associados da Amazon, Mercado Livre Afiliados e Shopee Afiliados.
+

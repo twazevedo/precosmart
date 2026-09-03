@@ -102,13 +102,13 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
     
     // 3. Mercado Livre
     if (urlObj.hostname.includes('mercadolivre.')) {
-      // Se for perfil social de influenciador (/social/nome_do_concorrente)
+      // Se for perfil de criador (/social/)
       if (urlObj.pathname.includes('/social/')) {
         const directML = await resolveMLSocialToDirect(longUrl, productKeyword);
         if (directML) {
           return `${directML}?matt_tool=${AFFILIATE.ml}&matt_word=precosmart`;
         }
-        // Se não conseguir extrair o produto direto do perfil, busca na Amazon com comissão 100% garantida
+        // Fallback seguro: busca oficial na Amazon com comissão
         const query = encodeURIComponent(productKeyword);
         return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
       }
@@ -121,8 +121,8 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return urlObj.toString();
     }
     
-    // 4. Se for QUALQUER OUTRO DOMÍNIO (concorrente como jersuindica.com, garimpeiros.com, etc.):
-    // NUNCA divulgue concorrente no seu grupo! Converte direto para busca oficial na Amazon com sua comissão
+    // 4. Domínios externos e intermediários:
+    // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
   } catch (e) {
@@ -155,7 +155,7 @@ function detectUrgencyBadge(text) {
 async function processMessageText(text) {
   if (!text) return text;
 
-  // 1. Remove qualquer linha de propaganda ou convite de grupo concorrente
+  // 1. Higieniza o texto removendo links de terceiros e convites externos
   const lines = text.split('\n');
   const cleanLines = lines.filter((line) => {
     const l = line.toLowerCase();
@@ -163,7 +163,7 @@ async function processMessageText(text) {
     if (l.includes('entre no grupo') || l.includes('nosso grupo') || l.includes('link do grupo')) return false;
     if (l.includes('entre no canal') || l.includes('nosso canal') || l.includes('link do canal')) return false;
     if (l.includes('chat.whatsapp.com') || l.includes('wa.me') || l.includes('t.me') || l.includes('telegram.me')) return false;
-    if (l.includes('grupos.garimpeiros') || l.includes('achadosgrupo')) return false;
+    if (l.includes('grupos.') || l.includes('achadosgrupo')) return false;
     if (l.includes('linktr.ee') || l.includes('beacons.ai') || l.includes('heylink.me')) return false;
     return true;
   });

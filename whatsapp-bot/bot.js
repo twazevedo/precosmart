@@ -593,11 +593,10 @@ async function startBot() {
     // NUNCA processe ou responda mensagens do próprio grupo VIP de destino
     if (msg.key.remoteJid === groupJid) return;
 
-    // Se NÃO for um grupo espelho cadastrado, IGNORE TOTALMENTE!
-    // (Impede qualquer ação em conversas privadas, grupos de amigos, família, trabalho, etc.)
+    // Ingestão: processa apenas canais sincronizados
     if (!sourceGroupJids.includes(msg.key.remoteJid)) return;
 
-    // Se veio de um grupo espelho, ROUBE A OFERTA
+    // Processamento e normalização da oferta
     try {
       // Pega o texto da legenda ou texto normal
       const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
@@ -648,7 +647,7 @@ async function startBot() {
         logEntry('SKIP', 'Fila cheia, descartando item para evitar atrasos excessivos');
       }
     } catch (err) {
-      logEntry('MIRROR', 'Erro ao processar oferta espelho: ' + err.message);
+      logEntry('DEAL', 'Erro ao processar oferta: ' + err.message);
     }
   });
 }
