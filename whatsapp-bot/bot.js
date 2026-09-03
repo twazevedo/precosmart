@@ -528,57 +528,63 @@ async function startBot() {
     if (!msg?.message) return;
 
     const remoteJid = msg.key.remoteJid || '';
-    const isPrivateChat = remoteJid.endsWith('@s.whatsapp.net');
+    const senderJid = msg.key.participant || remoteJid;
+    const isGroup = remoteJid.endsWith('@g.us');
 
-    // ── 👑 COMANDOS DO DONO (CHAT PRIVADO) ──
-    if (isPrivateChat) {
-      const text = (
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        msg.message.imageMessage?.caption ||
-        msg.message.videoMessage?.caption ||
-        ''
-      ).trim();
+    const text = (
+      msg.message.conversation ||
+      msg.message.extendedTextMessage?.text ||
+      msg.message.imageMessage?.caption ||
+      msg.message.videoMessage?.caption ||
+      ''
+    ).trim();
 
-      if (text.startsWith('!')) {
-        const rawOwners = process.env.OWNER_NUMBER || '';
-        const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
-        const senderPhone = remoteJid.replace(/[^0-9]/g, '');
+    // ── 👑 COMANDOS DO DONO (PRIVADO OU GRUPO VIP) ──
+    if (text.startsWith('!')) {
+      const rawOwners = process.env.OWNER_NUMBER || '';
+      const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
+      const senderPhone = (msg.key.fromMe ? (sock.user?.id || '') : senderJid).replace(/[^0-9]/g, '');
 
-        // Autorizado se enviado do próprio número (fromMe) OU se bater com qualquer OWNER_NUMBER da lista
-        const isAuthorized = msg.key.fromMe || 
-                             ownerList.length === 0 || 
-                             ownerList.some((owner) => {
-                               const last8 = owner.length >= 8 ? owner.slice(-8) : owner;
-                               return (last8 && senderPhone.includes(last8)) || 
-                                      senderPhone.includes(owner) || 
-                                      owner.includes(senderPhone);
-                             });
+      // Autorizado se enviado do próprio número (fromMe) OU se bater com qualquer OWNER_NUMBER da lista
+      const isAuthorized = msg.key.fromMe || 
+                           ownerList.length === 0 || 
+                           ownerList.some((owner) => {
+                             const last8 = owner.length >= 8 ? owner.slice(-8) : owner;
+                             return (last8 && senderPhone.includes(last8)) || 
+                                    senderPhone.includes(owner) || 
+                                    owner.includes(senderPhone);
+                           });
 
-        if (isAuthorized) {
-          const [cmd, ...args] = text.split(' ');
-          const command = cmd.toLowerCase();
+      logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
 
-          // 1. !status
-          if (command === '!status') {
-            const uptimeHours = (process.uptime() / 3600).toFixed(1);
-            const statusMsg = `📊 *Status PreçoSmart Bot*\n\n` +
-              `🟢 Conectado: Sim\n` +
-              `⏱️ Tempo Online: ${uptimeHours} horas\n` +
-              `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
-              `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
-              `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
-              `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
-              `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
-            await waSocket.sendMessage(remoteJid, { text: statusMsg });
-            return;
-          }
+      if (isAuthorized) {
+        const cleanReplyJid = remoteJid.includes('@g.us') 
+          ? remoteJid 
+          : (remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net');
+
+        const [cmd, ...args] = text.split(' ');
+        const command = cmd.toLowerCase();
+
+        // 1. !status
+        if (command === '!status') {
+          const uptimeHours = (process.uptime() / 3600).toFixed(1);
+          const statusMsg = `📊 *Status PreçoSmart Bot*\n\n` +
+            `🟢 Conectado: Sim\n` +
+            `⏱️ Tempo Online: ${uptimeHours} horas\n` +
+            `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
+            `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
+            `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
+            `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
+            `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
+          await waSocket.sendMessage(cleanReplyJid, { text: statusMsg });
+          return;
+        }
 
           // 2. !limpar
           if (command === '!limpar') {
             const count = dealQueue.length;
             dealQueue.length = 0;
-            await waSocket.sendMessage(remoteJid, { text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+            await waSocket.sendMessage(cleanReplyJid, { text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
             return;
           }
 
@@ -586,7 +592,7 @@ async function startBot() {
           if (command === '!postar') {
             const content = args.join(' ');
             if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
-              await waSocket.sendMessage(remoteJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
+              await waSocket.sendMessage(cleanReplyJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
               return;
             }
 
@@ -611,7 +617,7 @@ async function startBot() {
               const newText = await processMessageText(content);
               
               if (!groupJid) {
-                await waSocket.sendMessage(remoteJid, { text: '❌ Grupo VIP oficial não encontrado para postar.' });
+                await waSocket.sendMessage(cleanReplyJid, { text: '❌ Grupo VIP oficial não encontrado para postar.' });
                 return;
               }
 
@@ -627,11 +633,11 @@ async function startBot() {
               // Dispara também para o Instagram com a foto real
               dispatchToInstagram({ type: mediaType, buffer, text: newText }).catch(() => {});
 
-              await waSocket.sendMessage(remoteJid, { text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
+              await waSocket.sendMessage(cleanReplyJid, { text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
               logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
               return;
             } catch (postErr) {
-              await waSocket.sendMessage(remoteJid, { text: `❌ Erro ao postar: ${postErr.message}` });
+              await waSocket.sendMessage(cleanReplyJid, { text: `❌ Erro ao postar: ${postErr.message}` });
               return;
             }
           }
@@ -641,17 +647,17 @@ async function startBot() {
             try {
               const magaluProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Magazine Luiza'));
               if (magaluProducts.length === 0) {
-                await waSocket.sendMessage(remoteJid, { text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
+                await waSocket.sendMessage(cleanReplyJid, { text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
                 return;
               }
               const product = magaluProducts[Math.floor(Math.random() * magaluProducts.length)];
               const caption = buildOfferMessage(product);
               await sendProductMessage(product, caption);
-              await waSocket.sendMessage(remoteJid, { text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+              await waSocket.sendMessage(cleanReplyJid, { text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
               logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
               return;
             } catch (magErr) {
-              await waSocket.sendMessage(remoteJid, { text: `❌ Erro ao postar Magalu: ${magErr.message}` });
+              await waSocket.sendMessage(cleanReplyJid, { text: `❌ Erro ao postar Magalu: ${magErr.message}` });
               return;
             }
           }
@@ -663,16 +669,15 @@ async function startBot() {
               `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
               `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
               `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
-              `_Envie qualquer um desses comandos aqui no privado!_`;
-            await waSocket.sendMessage(remoteJid, { text: helpMsg });
+              `_Envie qualquer um desses comandos aqui ou no grupo VIP!_`;
+            await waSocket.sendMessage(cleanReplyJid, { text: helpMsg });
             return;
           }
         }
       }
 
-      // Se não for comando de admin, não interage em chats privados
-      return;
-    }
+      // Se for chat privado mas não for comando de admin, não faz nada
+      if (!isGroup) return;
 
     if (msg.key.fromMe) return;
 
