@@ -55,7 +55,7 @@ let isWorkerActive        = false;
 let lastDealSentAt        = 0;
 
 // ── Modo Noturno e Integração Instagram ───────────────────────────────────────
-let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || 'https://hook.us2.make.com/vwa4ynrlf9bpjc2fubf8t4b5vfhnbh85';
+let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || 'https://hook.us2.make.com/m4ofe3ag7teo1y5r6qgmxcl7y2igs2le';
 
 function isNightQuietHours() {
   try {
