@@ -74,6 +74,9 @@ function isNightQuietHours() {
   return false;
 }
 
+// ── Cache de Mídias Públicas para Instagram ──────────────────────────────────
+const mediaCache = new Map();
+
 async function dispatchToInstagram(deal) {
   if (!instagramWebhookUrl) return;
   try {
@@ -81,23 +84,39 @@ async function dispatchToInstagram(deal) {
     const urlMatch = deal.text ? deal.text.match(/(https?:\/\/[^\s]+)/i) : null;
     const link = urlMatch ? urlMatch[1] : '';
 
-    // Formata legenda magnética de engajamento para o Instagram
-    const lines = deal.text ? deal.text.split('\n') : [];
-    const titleLine = lines[0] || '🔥 Super Oferta';
-    const bodyLines = lines.slice(1).filter((l) => 
-      !l.includes('Oferta Exclusiva') && 
-      !l.includes('Compre') && 
-      !l.includes('http') &&
-      !l.includes('Acesse aqui')
-    ).join('\n').trim();
+    // Limpa e formata o texto especificamente para o padrão nativo do Instagram
+    const rawLines = deal.text ? deal.text.split('\n') : [];
+    const cleanLines = rawLines.filter((l) => {
+      const low = l.toLowerCase();
+      if (low.includes('oferta exclusiva') || low.includes('compre aqui') || low.includes('link do produto')) return false;
+      if (low.includes('acesse:') || low.includes('http') || low.includes('grupo') || low.includes('canal')) return false;
+      if (low.includes('divulgador autorizado') || low.includes('compra 100% segura')) return false;
+      if (low.includes('no mercado livre') || low.includes('na shopee') || low.includes('na amazon')) return false;
+      return true;
+    }).map((l) => {
+      // Remove caracteres especiais de markdown do WhatsApp (*, ~, _, `)
+      return l.replace(/[*~_`]/g, '')
+              .replace(/\uFFFD+/g, '')
+              .replace(/(\?{3,})/g, '')
+              .trim();
+    }).filter(Boolean);
 
-    let igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #magalu #amazonbrasil #mercadolivre #shopee`;
+    const titleLine = cleanLines[0] || '🔥 SUPER OFERTA IMPERDÍVEL';
+    const bodyLines = cleanLines.slice(1).join('\n');
 
-    // Remove caracteres corrompidos ou sequências de interrogação estranhas
-    igCaption = igCaption.replace(/\uFFFD+/g, '').replace(/(\?{3,})/g, '');
+    const igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #magalu #amazonbrasil #mercadolivre #shopee`;
 
-    const fallbackImage = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1080';
-    const resolvedImageUrl = deal.imageUrl || fallbackImage;
+    // Garante que a foto REAL da oferta seja servida com URL pública direta
+    let resolvedImageUrl = deal.imageUrl || 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1080';
+    if (deal.buffer && Buffer.isBuffer(deal.buffer)) {
+      const mediaId = 'deal_' + Date.now();
+      mediaCache.set(mediaId, { buffer: deal.buffer, createdAt: Date.now() });
+      if (mediaCache.size > 50) {
+        const oldestKey = mediaCache.keys().next().value;
+        mediaCache.delete(oldestKey);
+      }
+      resolvedImageUrl = `https://precosmart.onrender.com/media/${mediaId}.jpg`;
+    }
 
     await axios.post(instagramWebhookUrl, {
       text: igCaption,
@@ -109,7 +128,7 @@ async function dispatchToInstagram(deal) {
       type: deal.type,
       timestamp: new Date().toISOString()
     }, { timeout: 8000 });
-    logEntry('INSTAGRAM', 'Oferta disparada para o Webhook do Instagram com chamada EU QUERO!');
+    logEntry('INSTAGRAM', `Oferta com foto real disparada para o Instagram (${resolvedImageUrl})!`);
   } catch (e) {
     logEntry('WARN', 'Falha ao notificar Webhook do Instagram: ' + e.message);
   }
@@ -129,6 +148,17 @@ const dashboardHtml = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.h
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dashboard')));
+
+// Endpoint público para fotos reais do feed do Instagram
+app.get('/media/:id.jpg', (req, res) => {
+  const item = mediaCache.get(req.params.id);
+  if (!item || !item.buffer) {
+    return res.status(404).send('Media not found');
+  }
+  res.setHeader('Content-Type', 'image/jpeg');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.send(item.buffer);
+});
 
 app.get('/', (req, res) => res.send(dashboardHtml));
 
@@ -577,8 +607,8 @@ async function startBot() {
                 await waSocket.sendMessage(groupJid, { text: newText });
               }
 
-              // Dispara também para o Instagram
-              dispatchToInstagram({ type: mediaType, text: newText }).catch(() => {});
+              // Dispara também para o Instagram com a foto real
+              dispatchToInstagram({ type: mediaType, buffer, text: newText }).catch(() => {});
 
               await waSocket.sendMessage(remoteJid, { text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
               logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
