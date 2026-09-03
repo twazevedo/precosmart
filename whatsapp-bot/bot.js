@@ -468,7 +468,119 @@ async function startBot() {
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
-    if (!msg?.message || msg.key.fromMe) return;
+    if (!msg?.message) return;
+
+    const remoteJid = msg.key.remoteJid || '';
+    const isPrivateChat = remoteJid.endsWith('@s.whatsapp.net');
+
+    // ── 👑 COMANDOS DO DONO (CHAT PRIVADO) ──
+    if (isPrivateChat) {
+      const text = (
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        msg.message.imageMessage?.caption ||
+        msg.message.videoMessage?.caption ||
+        ''
+      ).trim();
+
+      if (text.startsWith('!')) {
+        const configuredOwner = (process.env.OWNER_NUMBER || '').replace(/[^0-9]/g, '');
+        const senderPhone = remoteJid.replace(/[^0-9]/g, '');
+
+        // Autorizado se enviado do próprio número (fromMe) OU se bater com OWNER_NUMBER OU se ainda não configurou
+        const isAuthorized = msg.key.fromMe || !configuredOwner || senderPhone.includes(configuredOwner);
+
+        if (isAuthorized) {
+          const [cmd, ...args] = text.split(' ');
+          const command = cmd.toLowerCase();
+
+          // 1. !status
+          if (command === '!status') {
+            const uptimeHours = (process.uptime() / 3600).toFixed(1);
+            const statusMsg = `📊 *Status PreçoSmart Bot*\n\n` +
+              `🟢 Conectado: Sim\n` +
+              `⏱️ Tempo Online: ${uptimeHours} horas\n` +
+              `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
+              `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
+              `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
+              `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
+              `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
+            await waSocket.sendMessage(remoteJid, { text: statusMsg });
+            return;
+          }
+
+          // 2. !limpar
+          if (command === '!limpar') {
+            const count = dealQueue.length;
+            dealQueue.length = 0;
+            await waSocket.sendMessage(remoteJid, { text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+            return;
+          }
+
+          // 3. !postar <link ou texto>
+          if (command === '!postar') {
+            const content = args.join(' ');
+            if (!content && !msg.message.imageMessage) {
+              await waSocket.sendMessage(remoteJid, { text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto com a legenda `!postar <link>`.' });
+              return;
+            }
+
+            try {
+              let mediaType = 'text';
+              let buffer = null;
+
+              if (msg.message.imageMessage) {
+                mediaType = 'image';
+                const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+                const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+                buffer = Buffer.from([]);
+                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+              }
+
+              const newText = await processMessageText(content);
+              
+              if (!groupJid) {
+                await waSocket.sendMessage(remoteJid, { text: '❌ Grupo VIP oficial não encontrado para postar.' });
+                return;
+              }
+
+              // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
+              if (mediaType === 'image' && buffer) {
+                await waSocket.sendMessage(groupJid, { image: buffer, caption: newText });
+              } else {
+                await waSocket.sendMessage(groupJid, { text: newText });
+              }
+
+              // Dispara também para o Instagram
+              dispatchToInstagram({ type: mediaType, text: newText }).catch(() => {});
+
+              await waSocket.sendMessage(remoteJid, { text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
+              logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
+              return;
+            } catch (postErr) {
+              await waSocket.sendMessage(remoteJid, { text: `❌ Erro ao postar: ${postErr.message}` });
+              return;
+            }
+          }
+
+          // 4. !ajuda
+          if (command === '!ajuda' || command === '!comandos') {
+            const helpMsg = `👑 *Comandos do Administrador (PreçoSmart)*\n\n` +
+              `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
+              `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
+              `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
+              `_Envie qualquer um desses comandos aqui no privado!_`;
+            await waSocket.sendMessage(remoteJid, { text: helpMsg });
+            return;
+          }
+        }
+      }
+
+      // Se não for comando de admin, não interage em chats privados
+      return;
+    }
+
+    if (msg.key.fromMe) return;
 
     // NUNCA processe ou responda mensagens do próprio grupo VIP de destino
     if (msg.key.remoteJid === groupJid) return;
