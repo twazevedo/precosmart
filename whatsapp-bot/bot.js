@@ -28,7 +28,7 @@ const {
   fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 
-const { getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories } = require('./catalog');
+const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories } = require('./catalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 
 // ── Configurações ────────────────────────────────────────────────────────────
