@@ -300,6 +300,20 @@ async function findGroupJid(sock) {
  * Envia produto como imagem + legenda. Fallback para texto se a imagem falhar.
  */
 async function sendProductMessage(product, caption) {
+  if (product.videoUrl) {
+    try {
+      await waSocket.sendMessage(groupJid, {
+        video:    { url: product.videoUrl },
+        caption:  caption,
+        mimetype: 'video/mp4'
+      });
+      dispatchToInstagram({ type: 'video', imageUrl: product.imageUrl, text: caption }).catch(() => {});
+      return;
+    } catch (vidErr) {
+      logEntry('WARN', `Vídeo oficial falhou, usando imagem: ${vidErr.message}`);
+    }
+  }
+
   if (product.imageUrl) {
     try {
       await waSocket.sendMessage(groupJid, {

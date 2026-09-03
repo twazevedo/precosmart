@@ -39,39 +39,182 @@ const COUPONS = [
 ];
 
 const PRODUCTS = [
-  // CELULARES & SMARTPHONES (MAGALU & MULTI-LOJAS)
-  { "id": "galaxya15", "title": "Smartphone Samsung Galaxy A15 4G 128GB", "category": "Smartphones", "history30dAvg": 899, "quotes": [{"store": "Magazine Luiza", "pix": 789}], "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1598327105666-5b89351cb315?q=80&w=600" },
-  { "id": "galaxya55", "title": "Smartphone Samsung Galaxy A55 5G 128GB", "category": "Smartphones", "history30dAvg": 1999, "quotes": [{"store": "Magazine Luiza", "pix": 1699}], "shipping": {"Magazine Luiza": "Entrega Expressa Magalu"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?q=80&w=600" },
+  // CELULARES & SMARTPHONES (MAGALU COM VÍDEO OFICIAL DO DRIVE)
+  { 
+    "id": "galaxya15", 
+    "title": "Smartphone Samsung Galaxy A15 4G 128GB", 
+    "category": "Smartphones", 
+    "history30dAvg": 899, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 789}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, 
+    "emoji": "📱", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1AEABA9KChK58YGCLFI3wdSNc8DcEMQg8"
+  },
+  { 
+    "id": "galaxya55", 
+    "title": "Smartphone Samsung Galaxy A55 5G 128GB", 
+    "category": "Smartphones", 
+    "history30dAvg": 1999, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 1699}], 
+    "shipping": {"Magazine Luiza": "Entrega Expressa Magalu"}, 
+    "emoji": "📱", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1Fq3XPd3smP6f154ajHmYtxg_MPXKI67s"
+  },
   { "id": "ip15", "title": "Apple iPhone 15 (128 GB)", "category": "Smartphones", "history30dAvg": 4599, "quotes": [{"store": "Amazon", "pix": 4299}], "shipping": {"Amazon": "Prime"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=600" },
   { "id": "s23", "title": "Samsung Galaxy S23 5G 256GB", "category": "Smartphones", "history30dAvg": 3199, "quotes": [{"store": "Mercado Livre", "pix": 2899}], "shipping": {"Mercado Livre": "Full"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1678911820864-e2c567c655d7?q=80&w=600" },
   
-  // TV & ÁUDIO (MAGALU DESTAQUES)
-  { "id": "tvsamsung50", "title": "Smart TV 50\" Crystal UHD 4K Samsung 50DU7700", "category": "TV & Áudio", "history30dAvg": 2399, "quotes": [{"store": "Magazine Luiza", "pix": 2099}], "shipping": {"Magazine Luiza": "Frete Grátis Magalu"}, "emoji": "📺", "imageUrl": "https://images.unsplash.com/photo-1593784991095-a205069470b6?q=80&w=600" },
-  { "id": "tvlg43", "title": "Smart TV 43\" Full HD LG ThinQ AI HDR", "category": "TV & Áudio", "history30dAvg": 1699, "quotes": [{"store": "Magazine Luiza", "pix": 1499}], "shipping": {"Magazine Luiza": "Entrega Rápida"}, "emoji": "📺", "imageUrl": "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?q=80&w=600" },
+  // TV & ÁUDIO (MAGALU DESTAQUES COM TEMPLATE OFICIAL DRIVE)
+  { 
+    "id": "tvsamsung50", 
+    "title": "Smart TV 50\" Crystal UHD 4K Samsung 50DU7700", 
+    "category": "TV & Áudio", 
+    "history30dAvg": 2399, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 2099}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis Magalu"}, 
+    "emoji": "📺", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+  },
+  { 
+    "id": "tvlg43", 
+    "title": "Smart TV 43\" Full HD LG ThinQ AI HDR", 
+    "category": "TV & Áudio", 
+    "history30dAvg": 1699, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 1499}], 
+    "shipping": {"Magazine Luiza": "Entrega Rápida"}, 
+    "emoji": "📺", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13ga7_65E_57nQAVxuvgqXgwpQDrJ-vd0&sz=w1000" 
+  },
 
-  // ELETRODOMÉSTICOS & COZINHA (CAMPEÕES DE VENDAS MAGALU)
-  { "id": "airfryermondial", "title": "Fritadeira Sem Óleo Air Fryer Mondial 4L Family Inox", "category": "Eletrodomésticos", "history30dAvg": 349, "quotes": [{"store": "Magazine Luiza", "pix": 269}], "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, "emoji": "🍳", "imageUrl": "https://images.unsplash.com/photo-1621217030807-6c84138a39a7?q=80&w=600" },
-  { "id": "lavadorabrastemp", "title": "Lavadora de Roupas Brastemp 12kg Titânio", "category": "Eletrodomésticos", "history30dAvg": 2199, "quotes": [{"store": "Magazine Luiza", "pix": 1899}], "shipping": {"Magazine Luiza": "Entrega Especial Magalu"}, "emoji": "🧺", "imageUrl": "https://images.unsplash.com/photo-1626806787461-102c1bfaaea1?q=80&w=600" },
-  { "id": "microondasconsul", "title": "Micro-ondas Consul 20 Litros Branco Espelhado", "category": "Eletrodomésticos", "history30dAvg": 549, "quotes": [{"store": "Magazine Luiza", "pix": 459}], "shipping": {"Magazine Luiza": "Retira Grátis na Loja"}, "emoji": "🍲", "imageUrl": "https://images.unsplash.com/photo-1574269909862-7e1d70bb8078?q=80&w=600" },
+  // BELEZA & PERFUMARIA (COM VÍDEO OFICIAL DO DRIVE)
+  { 
+    "id": "secadorgama", 
+    "title": "Secador de Cabelos Gama Lichia Ceramic Ion 2100W Vermelho", 
+    "category": "Beleza & Perfumaria", 
+    "history30dAvg": 199, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 149}], 
+    "shipping": {"Magazine Luiza": "Entrega Rápida Magalu"}, 
+    "emoji": "💇‍♀️", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13pRIgjRy2aT5d3YcJmYyXENjThY8tK3o&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1UMiNSUZVMFAEm-KxdwdARnZKbH0oOje0"
+  },
+  { 
+    "id": "pranchagama", 
+    "title": "Chapinha Prancha de Cabelo Gama Ergostyler Babosa Ceramic Ion Bivolt", 
+    "category": "Beleza & Perfumaria", 
+    "history30dAvg": 149, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 109}], 
+    "shipping": {"Magazine Luiza": "Retira Grátis na Loja"}, 
+    "emoji": "✨", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13qNmL-BOzUSGi-gow-DdxThvjb0P4ZYb&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1Uxm0mRy3rAFX5JIvtjkDmOyFPpZj2uKF"
+  },
 
-  // CALÇADOS & ESPORTE (CUPOM ASICS10)
-  { "id": "asicsgel", "title": "Tênis Asics Gel Shogun 6 Masculino Amortecimento", "category": "Calçados & Esporte", "history30dAvg": 399, "quotes": [{"store": "Magazine Luiza", "pix": 319}], "shipping": {"Magazine Luiza": "Frete Grátis"}, "emoji": "👟", "imageUrl": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?q=80&w=600" },
+  // ELETRODOMÉSTICOS & COZINHA (COM VÍDEO E TEMPLATE OFICIAL DRIVE)
+  { 
+    "id": "airfryermondial", 
+    "title": "Fritadeira Sem Óleo Air Fryer Mondial 4L Family Inox", 
+    "category": "Eletrodomésticos", 
+    "history30dAvg": 349, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 269}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, 
+    "emoji": "🍳", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1jD6XgK0SnXZhWpYmfmEIb0zRo4oDwaoc"
+  },
+  { 
+    "id": "lavadorabrastemp", 
+    "title": "Lavadora de Roupas Brastemp 12kg Titânio", 
+    "category": "Eletrodomésticos", 
+    "history30dAvg": 2199, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 1899}], 
+    "shipping": {"Magazine Luiza": "Entrega Especial Magalu"}, 
+    "emoji": "🧺", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1GgQwXCDK_-FtR2eDJd8zZiBflQS2WvDt"
+  },
+  { 
+    "id": "microondasconsul", 
+    "title": "Micro-ondas Consul 20 Litros Branco Espelhado", 
+    "category": "Eletrodomésticos", 
+    "history30dAvg": 549, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 459}], 
+    "shipping": {"Magazine Luiza": "Retira Grátis na Loja"}, 
+    "emoji": "🍲", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+  },
 
-  // PETSHOP (CUPOM PET10)
-  { "id": "goldenpet", "title": "Ração Seca PremieR Golden Special Cães Adultos Frango e Carne 15kg", "category": "Petshop", "history30dAvg": 169, "quotes": [{"store": "Magazine Luiza", "pix": 149}], "shipping": {"Magazine Luiza": "Entrega Rápida"}, "emoji": "🐶", "imageUrl": "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?q=80&w=600" },
+  // CLIMATIZAÇÃO & VENTILAÇÃO (COM VÍDEO OFICIAL DRIVE)
+  { 
+    "id": "ventilador", 
+    "title": "Ventilador de Mesa Mondial Maxi Power 40cm", 
+    "category": "Climatização", 
+    "history30dAvg": 139, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 99}], 
+    "shipping": {"Magazine Luiza": "Retira Grátis"}, 
+    "emoji": "💨", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13pRIgjRy2aT5d3YcJmYyXENjThY8tK3o&sz=w1000",
+    "videoUrl": "https://drive.google.com/uc?export=download&id=1crvkS1t5-6G1PiTBiswScZe5Yb_1H4z8"
+  },
 
-  // FARMÁCIA & BEBÊ (CUPOM FARMACIA10)
-  { "id": "pampershiper", "title": "Fralda Pampers Confort Sec Hiper Tamanho G", "category": "Farmácia & Bebê", "history30dAvg": 119, "quotes": [{"store": "Magazine Luiza", "pix": 89}], "shipping": {"Magazine Luiza": "Retira Grátis"}, "emoji": "👶", "imageUrl": "https://images.unsplash.com/photo-1555252333-9f8e92e65df9?q=80&w=600" },
+  // CALÇADOS & ESPORTE (CUPOM ASICS10 COM TEMPLATE OFICIAL DRIVE)
+  { 
+    "id": "asicsgel", 
+    "title": "Tênis Asics Gel Shogun 6 Masculino Amortecimento", 
+    "category": "Calçados & Esporte", 
+    "history30dAvg": 399, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 319}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis"}, 
+    "emoji": "👟", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13ga7_65E_57nQAVxuvgqXgwpQDrJ-vd0&sz=w1000" 
+  },
 
-  // BELEZA & PERFUMARIA (CUPOM BELEZA10)
-  { "id": "malbec", "title": "Perfume Masculino Malbec Desodorante Colônia 100ml", "category": "Beleza & Perfumaria", "history30dAvg": 199, "quotes": [{"store": "Magazine Luiza", "pix": 169}], "shipping": {"Magazine Luiza": "Entrega Expressa"}, "emoji": "💄", "imageUrl": "https://images.unsplash.com/photo-1523293182086-7651a899d37f?q=80&w=600" },
+  // PETSHOP (CUPOM PET10 COM TEMPLATE OFICIAL DRIVE)
+  { 
+    "id": "goldenpet", 
+    "title": "Ração Seca PremieR Golden Special Cães Adultos Frango e Carne 15kg", 
+    "category": "Petshop", 
+    "history30dAvg": 169, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 149}], 
+    "shipping": {"Magazine Luiza": "Entrega Rápida"}, 
+    "emoji": "🐶", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13qNmL-BOzUSGi-gow-DdxThvjb0P4ZYb&sz=w1000" 
+  },
 
-  // CLIMATIZAÇÃO & VENTILAÇÃO
-  { "id": "ventilador", "title": "Ventilador de Mesa Mondial Maxi Power 40cm", "category": "Climatização", "history30dAvg": 139, "quotes": [{"store": "Magazine Luiza", "pix": 99}], "shipping": {"Magazine Luiza": "Retira Grátis"}, "emoji": "💨", "imageUrl": "https://images.unsplash.com/photo-1585338107529-13afc5f02586?q=80&w=600" },
+  // FARMÁCIA & BEBÊ (CUPOM FARMACIA10 COM TEMPLATE OFICIAL DRIVE)
+  { 
+    "id": "pampershiper", 
+    "title": "Fralda Pampers Confort Sec Hiper Tamanho G", 
+    "category": "Farmácia & Bebê", 
+    "history30dAvg": 119, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 89}], 
+    "shipping": {"Magazine Luiza": "Retira Grátis"}, 
+    "emoji": "👶", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000" 
+  },
 
-  // INFORMÁTICA & GAMES
-  { "id": "notebooklenovo", "title": "Notebook Lenovo IdeaPad 1 AMD Ryzen 5 8GB 256GB SSD", "category": "Informática", "history30dAvg": 2499, "quotes": [{"store": "Magazine Luiza", "pix": 2199}], "shipping": {"Magazine Luiza": "Frete Grátis"}, "emoji": "💻", "imageUrl": "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?q=80&w=600" },
-  { "id": "xboxs", "title": "Console Xbox Series S 512GB", "category": "Games & Consoles", "history30dAvg": 2399, "quotes": [{"store": "Magazine Luiza", "pix": 2199}], "shipping": {"Magazine Luiza": "Frete Grátis"}, "emoji": "🎮", "imageUrl": "https://images.unsplash.com/photo-1605901309584-818e25960b8f?q=80&w=600" },
+  // INFORMÁTICA & GAMES (MAGALU TEMPLATES DRIVE)
+  { 
+    "id": "notebooklenovo", 
+    "title": "Notebook Lenovo IdeaPad 1 AMD Ryzen 5 8GB 256GB SSD", 
+    "category": "Informática", 
+    "history30dAvg": 2499, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 2199}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis"}, 
+    "emoji": "💻", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000" 
+  },
+  { 
+    "id": "xboxs", 
+    "title": "Console Xbox Series S 512GB", 
+    "category": "Games & Consoles", 
+    "history30dAvg": 2399, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 2199}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis"}, 
+    "emoji": "🎮", 
+    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+  },
   { "id": "ps5", "title": "Console PlayStation 5 Edição Digital", "category": "Games & Consoles", "history30dAvg": 3899, "quotes": [{"store": "Amazon", "pix": 3599}], "shipping": {"Amazon": "Prime"}, "emoji": "🎮", "imageUrl": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=600" }
 ];
 
