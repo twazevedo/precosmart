@@ -1,4 +1,4 @@
-const axios = require('axios');
+﻿const axios = require('axios');
 const { AFFILIATE } = require('./catalog');
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -6,47 +6,22 @@ const urlRegex = /(https?:\/\/[^\s]+)/g;
 function extractProductKeyword(text) {
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
   
-  // Preferência 1: Linha que contenha palavras comuns de produto ou marca
-  const productWords = [
-    'tênis', 'tenis', 'nike', 'adidas', 'puma', 'iphone', 'samsung', 'xiaomi', 'smartphone', 'celular',
-    'console', 'playstation', 'ps5', 'xbox', 'nintendo', 'monitor', 'notebook', 'pc',
-    'computador', 'fone', 'headset', 'caixa', 'soundbar', 'tv', 'smart tv',
-    'aspirador', 'airfryer', 'fritadeira', 'alexa', 'echo', 'relogio',
-    'smartwatch', 'whey', 'creatina', 'placa', 'ssd', 'mouse', 'teclado',
-    'cadeira', 'camisa', 'mochila', 'sandalia', 'chinelo', 'perfume', 'philco',
-    'mondial', 'lg', 'apple', 'motorola', 'positivo', 'jbl', 'lenovo', 'dell'
-  ];
-  
   for (const line of lines) {
     const l = line.toLowerCase();
-    if (l.startsWith('http') || l.includes('http://') || l.includes('https://') || l.includes('.com')) continue;
-    if (productWords.some((pw) => l.includes(pw))) {
-      const clean = line.replace(/^[^\w\s]+/, '').replace(/[🔥⚡📦🏷️🛒💙📱👀🚨😱👉🔗]/g, '').trim();
-      if (clean.length > 4 && !l.includes('de:') && !l.includes('por:') && !l.includes('cupom')) {
-        return clean.substring(0, 50);
-      }
+    if (l.includes('http') || l.includes('.com') || l.includes('cupom') || l.includes('por:') || l.includes('de:') || l.includes('alerta')) continue;
+    
+    // Limpa formatações de markdown, emojis e caracteres especiais
+    const clean = line
+      .replace(/[*_~`#\[\]]/g, '')
+      .replace(/[🔥⚡📦🏷️🛒💙📱👀🚨😱👉🔗🛍️❄️😍💳]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+      
+    if (clean.length > 5 && !clean.toLowerCase().includes('compre aqui') && !clean.toLowerCase().includes('acesse aqui') && !clean.toLowerCase().includes('link da compra')) {
+      return clean.substring(0, 60);
     }
   }
-
-  // Preferência 2: Primeira linha com substância que não seja anúncio genérico
-  for (const line of lines) {
-    const clean = line.replace(/^[^\w\s]+/, '').replace(/[🔥⚡📦🏷️🛒💙📱👀🚨😱👉🔗]/g, '').trim();
-    const l = clean.toLowerCase();
-    if (l.startsWith('http') || l.includes('http://') || l.includes('https://') || l.includes('.com')) continue;
-    if (clean.length > 5 && 
-        !l.includes('compre') && 
-        !l.includes('acesse') && 
-        !l.includes('cupom') && 
-        !l.includes('de:') && 
-        !l.includes('por:') &&
-        !l.includes('preção') &&
-        !l.includes('lançamento') &&
-        !l.includes('mídia') &&
-        !l.includes('midia')) {
-      return clean.substring(0, 50);
-    }
-  }
-  return 'oferta';
+  return 'Oferta';
 }
 
 async function expandUrl(url) {
@@ -57,17 +32,45 @@ async function expandUrl(url) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
       },
       maxRedirects: 8,
-      timeout: 5000,
+      timeout: 6000,
       validateStatus: () => true
     });
-    if (res.request && res.request.res && res.request.res.responseUrl) {
-      return res.request.res.responseUrl;
-    }
-  } catch (e) {}
-  return url;
+    return res.request?.res?.responseUrl || res.headers?.location || url;
+  } catch (e) {
+    return url;
+  }
 }
 
-function replaceAffiliateTags(longUrl, productKeyword) {
+// Resolução de perfis de criadores do Mercado Livre (/social/...) para o produto direto
+async function resolveMLSocialToDirect(socialUrl, keyword) {
+  try {
+    const res = await axios.get(socialUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      },
+      timeout: 6000
+    });
+    const html = res.data;
+    const matches = html.match(/https:\/\/(?:www|produto)\.mercadolivre\.com\.br\/[^\s\"']+/g) || [];
+    const productLinks = matches.filter((u) => u.includes('/p/MLB') || u.includes('MLB-'));
+    
+    if (productLinks.length > 0) {
+      const cleanKw = (keyword || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      let best = productLinks[0];
+      for (const link of productLinks) {
+        const cleanLink = link.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanKw && cleanLink.includes(cleanKw.substring(0, 8))) {
+          best = link;
+          break;
+        }
+      }
+      return best.split('&amp;')[0].split('?')[0].split('#')[0];
+    }
+  } catch (e) {}
+  return null;
+}
+
+async function replaceAffiliateTags(longUrl, productKeyword) {
   try {
     const urlObj = new URL(longUrl);
     
@@ -82,13 +85,10 @@ function replaceAffiliateTags(longUrl, productKeyword) {
     
     // 2. Shopee
     if (urlObj.hostname.includes('shopee.')) {
-      // Remove rastreamento do concorrente
       urlObj.searchParams.delete('uls_trackid');
       urlObj.searchParams.delete('utm_campaign');
       urlObj.searchParams.delete('utm_content');
       urlObj.searchParams.delete('utm_term');
-      
-      // Injeta afiliação do usuário
       urlObj.searchParams.set('mmp_pid', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_source', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_medium', 'affiliates');
@@ -100,9 +100,15 @@ function replaceAffiliateTags(longUrl, productKeyword) {
     if (urlObj.hostname.includes('mercadolivre.')) {
       // Se for perfil social de influenciador (/social/nome_do_concorrente)
       if (urlObj.pathname.includes('/social/')) {
+        const directML = await resolveMLSocialToDirect(longUrl, productKeyword);
+        if (directML) {
+          return `${directML}?matt_tool=${AFFILIATE.ml}&matt_word=precosmart`;
+        }
+        // Se não conseguir extrair o produto direto do perfil, busca na Amazon com comissão 100% garantida
         const query = encodeURIComponent(productKeyword);
-        return 'https://lista.mercadolivre.com.br/' + query + '?matt_tool=' + AFFILIATE.ml + '&matt_word=precosmart';
+        return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
       }
+      
       // Produto direto do Mercado Livre
       urlObj.searchParams.delete('ref');
       urlObj.searchParams.delete('tracking_id');
@@ -111,22 +117,22 @@ function replaceAffiliateTags(longUrl, productKeyword) {
       return urlObj.toString();
     }
     
-    // 4. Domínios de redirecionamento ou concorrentes que não foram expandidos
-    if (urlObj.hostname.includes('garimpeiros.') || 
-        urlObj.hostname.includes('achadosgrupo.') || 
-        urlObj.hostname.includes('promocoes.')) {
-      const query = encodeURIComponent(productKeyword);
-      return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
-    }
-    
-    return longUrl;
+    // 4. Se for QUALQUER OUTRO DOMÍNIO (concorrente como jersuindica.com, garimpeiros.com, etc.):
+    // NUNCA divulgue concorrente no seu grupo! Converte direto para busca oficial na Amazon com sua comissão
+    const query = encodeURIComponent(productKeyword);
+    return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
   } catch (e) {
-    return longUrl;
+    const query = encodeURIComponent(productKeyword);
+    return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
   }
 }
 
 function detectUrgencyBadge(text) {
   const l = text.toLowerCase();
+  // Se a mensagem já possui cabeçalho de alerta, não duplica
+  if (l.includes('alerta de cupom') || l.includes('menor preço histórico') || l.includes('oferta relâmpago')) {
+    return '';
+  }
   if (l.includes('cupom') || l.includes('voucher') || l.includes('código')) {
     return '🏷️ *ALERTA DE CUPOM ATIVO* 🏷️\n\n';
   }
@@ -165,15 +171,17 @@ async function processMessageText(text) {
   for (const url of urls) {
     let longUrl = url;
     
-    // Se for link encurtado ou domínio de redirecionamento, segue o redirecionamento
-    if (url.includes('amzn.to') || url.includes('shopee.') || url.includes('shope.ee') || 
-        url.includes('meli.la') || url.includes('bit.ly') || url.includes('cutt.ly') || 
-        url.includes('garimpeiros.') || url.includes('tinyurl.') || url.includes('tidd.ly') || 
-        url.includes('compre.vc') || url.includes('maga.lu')) {
+    // Expande qualquer URL que não seja destino final direto
+    const isDirectFinal = url.includes('amazon.com.br/dp/') || 
+                          url.includes('produto.mercadolivre.com.br/MLB') || 
+                          url.includes('mercadolivre.com.br/p/MLB') ||
+                          url.includes('shopee.com.br/product/');
+                          
+    if (!isDirectFinal) {
       longUrl = await expandUrl(url);
     }
     
-    const afUrl = replaceAffiliateTags(longUrl, productKeyword);
+    const afUrl = await replaceAffiliateTags(longUrl, productKeyword);
     newText = newText.replace(url, afUrl);
   }
 
