@@ -8,3 +8,6 @@ Thumbs.db
 logs.json
 .env
 scratch/
+whatsapp-bot/auth_info/
+whatsapp-bot/alerts.json
+subir_github.bat

@@ -1,0 +1,38 @@
+name: PreçoSmart CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x, 22.x]
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install Root Dependencies
+      run: npm install
+
+    - name: Build Frontend React App
+      run: |
+        npm --prefix frontend install
+        npm --prefix frontend run build
+
+    - name: Run WhatsApp Bot Automated Test Suite
+      run: |
+        npm --prefix whatsapp-bot install
+        node --test whatsapp-bot/test/mirror.test.js

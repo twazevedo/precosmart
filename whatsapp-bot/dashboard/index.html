@@ -176,9 +176,9 @@
       <div class="stat-label">Produtos no Catálogo</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-icon">🎟️</div>
-      <div class="stat-value">8</div>
-      <div class="stat-label">Cupons Ativos</div>
+      <div class="stat-icon">🎯</div>
+      <div class="stat-value" id="stat-alerts">0</div>
+      <div class="stat-label">Alertas de Preço</div>
     </div>
     <div class="card stat-card">
       <div class="stat-icon">⏱️</div>
@@ -221,6 +221,31 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Guia de Comandos e IA -->
+  <div class="card" style="margin-bottom: 20px;">
+    <h2>🤖 Comandos Interativos & Alertas em Tempo Real</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+      <div style="background: var(--surface); padding: 16px; border-radius: 10px; border-left: 3px solid var(--accent);">
+        <strong style="color: #fff;">👥 Comandos da Comunidade (Grupo / Privado)</strong>
+        <ul style="list-style: none; margin-top: 10px; font-size: 0.85rem; line-height: 1.8; color: var(--muted);">
+          <li><code style="color: var(--accent); background: #1e1b4b; padding: 2px 6px; border-radius: 4px;">!alerta &lt;produto&gt; [preço]</code> — Cria alerta de preço com notificação privada</li>
+          <li><code style="color: var(--accent); background: #1e1b4b; padding: 2px 6px; border-radius: 4px;">!alertas</code> — Lista seus alertas monitorados ativos</li>
+          <li><code style="color: var(--accent); background: #1e1b4b; padding: 2px 6px; border-radius: 4px;">!remover &lt;termo|todos&gt;</code> — Cancela alertas salvos</li>
+          <li><code style="color: var(--accent); background: #1e1b4b; padding: 2px 6px; border-radius: 4px;">!buscar &lt;termo&gt;</code> — Pesquisa ofertas com links diretos</li>
+        </ul>
+      </div>
+      <div style="background: var(--surface); padding: 16px; border-radius: 10px; border-left: 3px solid var(--green);">
+        <strong style="color: #fff;">👑 Comandos do Administrador</strong>
+        <ul style="list-style: none; margin-top: 10px; font-size: 0.85rem; line-height: 1.8; color: var(--muted);">
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!postar &lt;link ou print&gt;</code> — Fura a fila + OCR com Gemini Vision</li>
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!magalu</code> — Dispara oferta Magazine Luiza no VIP + Instagram</li>
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!status</code> — Exibe fila, conexões e uptime em tempo real</li>
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!limpar</code> — Esvazia a fila de ofertas pendentes</li>
+        </ul>
+      </div>
+    </div>
   </div>
 
   <!-- Log de Atividade -->
@@ -275,9 +300,10 @@
         text.textContent = '🔴 Desconectado';
       }
 
-      // Stat uptime
+      // Stat uptime & metrics
       $('stat-uptime').textContent = fmtUptime(d.uptime);
       $('stat-sent').textContent   = d.logCount;
+      $('stat-alerts').textContent = d.activeAlerts ?? 0;
 
       // Buttons
       const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome'];

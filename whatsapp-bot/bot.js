@@ -30,6 +30,8 @@ const {
 
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
+const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
+const { extractOfferFromImage } = require('./geminiVision');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -221,11 +223,14 @@ app.get('/api/status', (req, res) => res.json({
   uptime:      Math.floor(process.uptime()),
   logCount:    messageLog.length,
   queueLength: dealQueue.length,
+  activeAlerts: countTotalAlerts(),
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
   lastMessage: messageLog[0] || null,
-  version:     '2.0.0'
+  version:     '2.1.0'
 }));
+
+app.get('/api/alerts', (req, res) => res.json(getAllAlerts()));
 
 app.get('/api/qr', (req, res) => {
   if (isConnected)      return res.json({ status: 'connected', qr: null });
@@ -622,6 +627,22 @@ async function startBot() {
         lastDealSentAt = Date.now();
         // Dispara simultaneamente para o Instagram se webhook estiver conectado
         dispatchToInstagram(deal).catch(() => {});
+
+        // 🔔 DISPARO DE ALERTAS PERSONALIZADOS PARA USUÁRIOS
+        try {
+          const matchedAlerts = checkMatchingAlerts(deal.text);
+          for (const m of matchedAlerts) {
+            const alertNotice = `🔔 *ALERTA PREÇOSMART:* O produto que você estava monitorando (*${m.query}*) acabou de entrar em oferta!\n\n${deal.text}`;
+            if (deal.type === 'image' && deal.buffer) {
+              await waSocket.sendMessage(m.userJid, { image: deal.buffer, caption: alertNotice });
+            } else {
+              await waSocket.sendMessage(m.userJid, { text: alertNotice });
+            }
+            logEntry('ALERT_SENT', `Alerta de "${m.query}" enviado no privado para ${m.phone}`);
+          }
+        } catch (alertErr) {
+          logEntry('WARN', 'Falha ao notificar alertas: ' + alertErr.message);
+        }
       } catch (err) {
         logEntry('ERROR', 'Falha ao enviar oferta da fila: ' + err.message);
       }
@@ -673,154 +694,277 @@ async function startBot() {
 
       logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
 
-      if (isAuthorized) {
-        let cleanReplyJid = remoteJid;
-        if (remoteJid.includes('@s.whatsapp.net')) {
-          cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+      let cleanReplyJid = remoteJid;
+      if (remoteJid.includes('@s.whatsapp.net')) {
+        cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+      }
+
+      async function replyToUser(content) {
+        try {
+          await waSocket.sendMessage(cleanReplyJid, content);
+          logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
+        } catch (replyErr) {
+          logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
+          if (msg.key.fromMe && sock.user?.id) {
+            const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+            try {
+              await waSocket.sendMessage(myPhoneJid, content);
+              logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
+            } catch (e2) {
+              logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
+            }
+          }
+        }
+      }
+
+      const [cmd, ...args] = text.split(' ');
+      const command = cmd.toLowerCase();
+
+      // Anti-Flood / Debounce para comandos
+      const lastExec = lastCommandExecution.get(`${senderPhone}:${command}`) || 0;
+      if (Date.now() - lastExec < 3500) {
+        logEntry('CMD_SKIP', `Comando ${command} ignorado por debounce de 3.5s`);
+        return;
+      }
+      lastCommandExecution.set(`${senderPhone}:${command}`, Date.now());
+
+      // ── 👥 COMANDOS PÚBLICOS (QUALQUER MEMBRO) ──
+
+      // 1. !alerta <produto> [preço]
+      if (command === '!alerta') {
+        const queryText = args.join(' ').trim();
+        if (!queryText) {
+          await replyToUser({
+            text: '🔔 *Como criar um alerta PreçoSmart:*\n\n' +
+                  'Digite: `!alerta <produto> [preço máximo]`\n\n' +
+                  '📌 *Exemplos:*\n' +
+                  '• `!alerta ps5 3800` (avisa quando o PS5 estiver até R$ 3.800)\n' +
+                  '• `!alerta fone jbl` (avisa qualquer promoção de fone JBL)\n' +
+                  '• `!alerta airfryer 300`\n\n' +
+                  'Assim que a oferta for detectada, eu te aviso no privado no mesmo segundo! 🚀'
+          });
+          return;
         }
 
-        async function replyToUser(content) {
-          try {
-            await waSocket.sendMessage(cleanReplyJid, content);
-            logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
-          } catch (replyErr) {
-            logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
-            if (msg.key.fromMe && sock.user?.id) {
-              const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
-              try {
-                await waSocket.sendMessage(myPhoneJid, content);
-                logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
-              } catch (e2) {
-                logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
+        const parts = queryText.split(' ');
+        let targetPrice = null;
+        let prodName = queryText;
+        const lastPart = parts[parts.length - 1].replace('R$', '').replace('r$', '').replace(',', '.');
+        const possibleNum = parseFloat(lastPart);
+        if (!isNaN(possibleNum) && possibleNum > 0 && parts.length > 1) {
+          targetPrice = possibleNum;
+          prodName = parts.slice(0, -1).join(' ');
+        }
+
+        const cleanUserJid = msg.key.fromMe ? (sock.user?.id?.split(':')[0] + '@s.whatsapp.net') : senderJid;
+        const created = addAlert(cleanUserJid, senderPhone, prodName, targetPrice);
+
+        await replyToUser({
+          text: `✅ *Alerta criado com sucesso!*\n\n` +
+                `📦 *Produto:* ${created.query}\n` +
+                `💰 *Preço Máximo:* ${targetPrice ? 'R$ ' + targetPrice.toFixed(2).replace('.', ',') : 'Qualquer preço em oferta'}\n\n` +
+                `Assim que essa oferta bater no radar, te envio no privado! 🔔`
+        });
+        logEntry('ALERT', `Novo alerta de ${senderPhone}: "${created.query}" (teto: ${targetPrice})`);
+        return;
+      }
+
+      // 2. !alertas / !meusalertas
+      if (command === '!alertas' || command === '!meusalertas') {
+        const cleanUserJid = msg.key.fromMe ? (sock.user?.id?.split(':')[0] + '@s.whatsapp.net') : senderJid;
+        const userAlerts = getUserAlerts(cleanUserJid);
+        if (userAlerts.length === 0) {
+          await replyToUser({
+            text: '📭 Você não tem nenhum alerta cadastrado no momento.\n\nPara criar um, digite:\n`!alerta <produto> [preço]`'
+          });
+          return;
+        }
+
+        let msgAlerts = `📋 *Seus Alertas Ativos no PreçoSmart (${userAlerts.length}):*\n\n`;
+        userAlerts.forEach((a, i) => {
+          msgAlerts += `${i + 1}. *${a.query}* ${a.targetPrice ? `(até R$ ${a.targetPrice})` : '(qualquer valor)'}\n   ID: \`${a.id}\`\n\n`;
+        });
+        msgAlerts += `Para remover algum, digite: \`!remover <id ou produto>\` ou \`!remover todos\``;
+        await replyToUser({ text: msgAlerts });
+        return;
+      }
+
+      // 3. !remover / !cancelaralerta
+      if (command === '!remover' || command === '!cancelaralerta') {
+        const cleanUserJid = msg.key.fromMe ? (sock.user?.id?.split(':')[0] + '@s.whatsapp.net') : senderJid;
+        const q = args.join(' ');
+        if (!q) {
+          await replyToUser({ text: '⚠️ Digite `!remover <nome do produto>` ou `!remover todos`.' });
+          return;
+        }
+        const removed = removeAlert(cleanUserJid, q);
+        await replyToUser({
+          text: removed > 0
+            ? `🗑️ *${removed} alerta(s) removido(s) com sucesso!*`
+            : `⚠️ Nenhum alerta encontrado para "${q}". Digite \`!alertas\` para ver sua lista.`
+        });
+        return;
+      }
+
+      // 4. !buscar <termo>
+      if (command === '!buscar' || command === '!pesquisar') {
+        const q = args.join(' ').toLowerCase();
+        if (!q) {
+          await replyToUser({ text: '🔍 Digite `!buscar <nome do produto>` (ex: `!buscar monitor`).' });
+          return;
+        }
+        const results = PRODUCTS.filter((p) => p.title.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q))).slice(0, 3);
+        if (results.length === 0) {
+          await replyToUser({
+            text: `🔍 Não encontrei ofertas ativas para "${q}" no catálogo agora.\n\nDica: Digite \`!alerta ${q}\` para eu te avisar no privado assim que entrar uma promoção!`
+          });
+          return;
+        }
+        let resp = `🔍 *Resultados para "${q}" no PreçoSmart:*\n\n`;
+        results.forEach((p, idx) => {
+          resp += `${idx + 1}️⃣ *${p.title}*\n💰 *${p.promoPrice || p.price}* ${p.discPct ? `(-${p.discPct}%)` : ''}\n🛒 Loja: ${p.store}\n🔗 ${p.link}\n\n`;
+        });
+        await replyToUser({ text: resp.trim() });
+        return;
+      }
+
+      // 5. !ajuda / !comandos
+      if (command === '!ajuda' || command === '!comandos') {
+        let helpMsg = `🤖 *Comandos PreçoSmart Ofertas*\n\n` +
+          `🔔 *!alerta <produto> [preço]*\nCria um alerta personalizado e te avisa no privado quando o preço cair!\n\n` +
+          `📋 *!alertas*\nLista todos os seus alertas ativos.\n\n` +
+          `🗑️ *!remover <produto>*\nRemove um alerta cadastrado.\n\n` +
+          `🔍 *!buscar <produto>*\nBusca ofertas disponíveis agora no catálogo.\n`;
+
+        if (isAuthorized) {
+          helpMsg += `\n👑 *Comandos de Administrador:*\n` +
+            `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
+            `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
+            `👉 *!status* — Exibe status do bot\n` +
+            `👉 *!limpar* — Esvazia a fila pendente`;
+        }
+
+        await replyToUser({ text: helpMsg });
+        return;
+      }
+
+      // ── 👑 COMANDOS DE ADMINISTRADOR (EXCLUSIVOS PARA O DONO) ──
+      if (!isAuthorized) {
+        await replyToUser({ text: '⛔ Este comando é reservado para o administrador do PreçoSmart.' });
+        return;
+      }
+
+      // 6. !status (Admin)
+      if (command === '!status') {
+        const uptimeHours = (process.uptime() / 3600).toFixed(1);
+        const statusMsg = `📊 *Status PreçoSmart Bot v2.1*\n\n` +
+          `🟢 Conectado: Sim\n` +
+          `⏱️ Tempo Online: ${uptimeHours} horas\n` +
+          `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
+          `🔔 Alertas Ativos: ${countTotalAlerts()} monitorados\n` +
+          `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
+          `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
+          `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
+          `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
+        await replyToUser({ text: statusMsg });
+        return;
+      }
+
+      // 7. !limpar (Admin)
+      if (command === '!limpar') {
+        const count = dealQueue.length;
+        dealQueue.length = 0;
+        await replyToUser({ text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+        return;
+      }
+
+      // 8. !postar <link ou imagem> (Admin)
+      if (command === '!postar') {
+        let content = args.join(' ');
+        if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
+          await replyToUser({ text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto com `!postar`.' });
+          return;
+        }
+
+        try {
+          let mediaType = 'text';
+          let buffer = null;
+
+          if (msg.message.imageMessage) {
+            mediaType = 'image';
+            const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+            const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+            buffer = Buffer.from([]);
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+            // Se enviou foto mas não passou texto nem link, lê a foto com Google Gemini Vision!
+            if (!content || content.trim() === '') {
+              logEntry('AI', 'Analisando print/foto de oferta com Google Gemini Vision...');
+              const aiData = await extractOfferFromImage(buffer);
+              if (aiData && aiData.title) {
+                content = `${aiData.title}\n${aiData.oldPrice ? `De: ~${aiData.oldPrice}~\n` : ''}Por: *${aiData.newPrice}*\n\n${aiData.summary}`;
+                logEntry('AI', `Gemini extraiu: ${aiData.title} (${aiData.newPrice})`);
               }
             }
+          } else if (msg.message.videoMessage) {
+            mediaType = 'video';
+            const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+            const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
+            buffer = Buffer.from([]);
+            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
           }
-        }
 
-        const [cmd, ...args] = text.split(' ');
-        const command = cmd.toLowerCase();
+          const newText = await processMessageText(content || '');
+          
+          if (!groupJid) {
+            await replyToUser({ text: '❌ Grupo VIP oficial não encontrado para postar.' });
+            return;
+          }
 
-        // Anti-Flood / Debounce para comandos: evita que duplo clique ou lag envie repetido
-        const lastExec = lastCommandExecution.get(`${senderPhone}:${command}`) || 0;
-        if (Date.now() - lastExec < 3500) {
-          logEntry('CMD_SKIP', `Comando ${command} ignorado por debounce de 3.5s`);
+          // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
+          if (mediaType === 'image' && buffer) {
+            await waSocket.sendMessage(groupJid, { image: buffer, caption: newText || content });
+          } else if (mediaType === 'video' && buffer) {
+            await waSocket.sendMessage(groupJid, { video: buffer, caption: newText || content });
+          } else {
+            await waSocket.sendMessage(groupJid, { text: newText || content });
+          }
+
+          dispatchToInstagram({ type: mediaType, buffer, text: newText || content }).catch(() => {});
+
+          await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
+          logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
           return;
-        }
-        lastCommandExecution.set(`${senderPhone}:${command}`, Date.now());
-
-        // 1. !status
-        if (command === '!status') {
-          const uptimeHours = (process.uptime() / 3600).toFixed(1);
-          const statusMsg = `📊 *Status PreçoSmart Bot*\n\n` +
-            `🟢 Conectado: Sim\n` +
-            `⏱️ Tempo Online: ${uptimeHours} horas\n` +
-            `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
-            `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
-            `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
-            `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
-            `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
-          await replyToUser({ text: statusMsg });
-          return;
-        }
-
-        // 2. !limpar
-        if (command === '!limpar') {
-          const count = dealQueue.length;
-          dealQueue.length = 0;
-          await replyToUser({ text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
-          return;
-        }
-
-        // 3. !postar <link ou texto>
-        if (command === '!postar') {
-          const content = args.join(' ');
-          if (!content && !msg.message.imageMessage && !msg.message.videoMessage) {
-            await replyToUser({ text: '⚠️ *Como usar:* Digite `!postar <link>` ou envie uma foto/vídeo com a legenda `!postar <link>`.' });
-            return;
-          }
-
-          try {
-            let mediaType = 'text';
-            let buffer = null;
-
-            if (msg.message.imageMessage) {
-              mediaType = 'image';
-              const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-              const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-              buffer = Buffer.from([]);
-              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-            } else if (msg.message.videoMessage) {
-              mediaType = 'video';
-              const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-              const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-              buffer = Buffer.from([]);
-              for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-            }
-
-            const newText = await processMessageText(content);
-            
-            if (!groupJid) {
-              await replyToUser({ text: '❌ Grupo VIP oficial não encontrado para postar.' });
-              return;
-            }
-
-            // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
-            if (mediaType === 'image' && buffer) {
-              await waSocket.sendMessage(groupJid, { image: buffer, caption: newText });
-            } else if (mediaType === 'video' && buffer) {
-              await waSocket.sendMessage(groupJid, { video: buffer, caption: newText });
-            } else {
-              await waSocket.sendMessage(groupJid, { text: newText });
-            }
-
-            // Dispara também para o Instagram com a foto real
-            dispatchToInstagram({ type: mediaType, buffer, text: newText }).catch(() => {});
-
-            await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
-            logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
-            return;
-          } catch (postErr) {
-            await replyToUser({ text: `❌ Erro ao postar: ${postErr.message}` });
-            return;
-          }
-        }
-
-        // 4. !magalu
-        if (command === '!magalu') {
-          try {
-            const product = getNextMagaluProduct();
-            if (!product) {
-              await replyToUser({ text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
-              return;
-            }
-
-            registerSentDeal(['mag_' + product.id], product.title, product.title);
-
-            const caption = buildOfferMessage(product);
-            await sendProductMessage(product, caption);
-            if (!isGroup) {
-              await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
-            }
-            logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
-            return;
-          } catch (magErr) {
-            await replyToUser({ text: `❌ Erro ao postar Magalu: ${magErr.message}` });
-            return;
-          }
-        }
-
-        // 5. !ajuda
-        if (command === '!ajuda' || command === '!comandos') {
-          const helpMsg = `👑 *Comandos do Administrador (PreçoSmart)*\n\n` +
-            `👉 *!magalu*\nDispara uma oferta imediata do Magazine Luiza no Grupo VIP e no Instagram.\n\n` +
-            `👉 *!postar <link> [texto]*\nEnvia uma oferta na mesma hora para o grupo VIP (fura a fila) com seus links de afiliados embutidos.\n\n` +
-            `👉 *!status*\nMostra como o robô está operando agora.\n\n` +
-            `👉 *!limpar*\nEsvazia a fila de ofertas se acumular muitas.\n\n` +
-            `_Envie qualquer um desses comandos aqui ou no grupo VIP!_`;
-          await replyToUser({ text: helpMsg });
+        } catch (postErr) {
+          await replyToUser({ text: `❌ Erro ao postar: ${postErr.message}` });
           return;
         }
       }
+
+      // 9. !magalu (Admin)
+      if (command === '!magalu') {
+        try {
+          const product = getNextMagaluProduct();
+          if (!product) {
+            await replyToUser({ text: '❌ Nenhum produto do Magazine Luiza encontrado no catálogo.' });
+            return;
+          }
+
+          registerSentDeal(['mag_' + product.id], product.title, product.title);
+
+          const caption = buildOfferMessage(product);
+          await sendProductMessage(product, caption);
+          if (!isGroup) {
+            await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
+          }
+          logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
+          return;
+        } catch (magErr) {
+          await replyToUser({ text: `❌ Erro ao postar Magalu: ${magErr.message}` });
+          return;
+        }
+      }
+    }
       }
 
       // Se for chat privado mas não for comando de admin, não faz nada

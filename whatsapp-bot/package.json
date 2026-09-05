@@ -6,7 +6,8 @@
   "type": "commonjs",
   "scripts": {
     "start": "node bot.js",
-    "dev": "node --watch bot.js"
+    "dev": "node --watch bot.js",
+    "test": "node --test test/mirror.test.js"
   },
   "engines": {
     "node": "20.x"
