@@ -93,9 +93,9 @@ function registerSentDeal(canonicalIds, keyword, rawText) {
 }
 
 /**
- * Código de convite do grupo WhatsApp (extraído do link fornecido pelo dono).
+ * Código de convite do grupo WhatsApp oficial PreçoSmart.
  */
-const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || '';
+const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'Lo3ONNfAXVh5cEe2Pg6gM7';
 
 // ── Estado Global ────────────────────────────────────────────────────────────
 let waSocket       = null;
@@ -326,26 +326,55 @@ async function findGroupJid(sock) {
   const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '';
   const groups = await sock.groupFetchAllParticipating();
 
-  if (groups[TARGET_GROUP_JID]) {
+  // 1. Tenta identificar o grupo oficial diretamente pelo link de convite
+  if (GROUP_INVITE_CODE) {
+    try {
+      const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
+      if (inviteInfo?.id) {
+        const expectedJid = inviteInfo.id.includes('@g.us') ? inviteInfo.id : `${inviteInfo.id}@g.us`;
+        groupJid = expectedJid;
+        logEntry('GROUP', `🎯 Grupo VIP Oficial identificado via convite: "${inviteInfo.subject}" (${groupJid})`);
+
+        // Se ainda não estiver participando do grupo, entra nele agora
+        if (!groups[groupJid]) {
+          try {
+            await sock.groupAcceptInvite(GROUP_INVITE_CODE);
+            logEntry('GROUP', `✅ Entrou no Grupo VIP Oficial com sucesso!`);
+          } catch (joinErr) {
+            logEntry('WARN', `Aviso ao aceitar convite: ${joinErr.message}`);
+          }
+        }
+        return;
+      }
+    } catch (invErr) {
+      logEntry('WARN', `Info do convite não retornou: ${invErr.message}`);
+    }
+  }
+
+  // 2. Se já tiver JID configurado manualmente
+  if (TARGET_GROUP_JID && groups[TARGET_GROUP_JID]) {
     groupJid = TARGET_GROUP_JID;
     logEntry('GROUP', `Grupo oficial confirmado: "${groups[TARGET_GROUP_JID].subject}" (${groupJid})`);
     return;
   }
 
-  const match = Object.values(groups).find((g) => g.subject === TARGET_GROUP || g.subject === 'PROMOÇÕES');
+  // 3. Fallback por nome
+  const match = Object.values(groups).find((g) => g.subject === TARGET_GROUP || g.subject.toLowerCase().includes('preçosmart') || g.subject === 'PROMOÇÕES');
   if (match) {
     groupJid = match.id;
     logEntry('GROUP', `Grupo encontrado: "${match.subject}" (${groupJid})`);
     return;
   }
 
-  // 2. Grupo não encontrado — tenta entrar via código de convite
-  logEntry('GROUP', `Tentando entrar no grupo via convite...`);
-  try {
-    groupJid = await sock.groupAcceptInvite(GROUP_INVITE_CODE);
-    logEntry('GROUP', `✅ Entrou no grupo com sucesso! JID: ${groupJid}`);
-  } catch (err) {
-    logEntry('ERROR', `Falha ao entrar no grupo via convite: ${err.message}`);
+  // 4. Se ainda não entrou, tenta aceitar o convite
+  if (GROUP_INVITE_CODE) {
+    logEntry('GROUP', `Tentando entrar no grupo via convite...`);
+    try {
+      groupJid = await sock.groupAcceptInvite(GROUP_INVITE_CODE);
+      logEntry('GROUP', `✅ Entrou no grupo com sucesso! JID: ${groupJid}`);
+    } catch (err) {
+      logEntry('ERROR', `Falha ao entrar no grupo via convite: ${err.message}`);
+    }
   }
 }
 
@@ -506,12 +535,23 @@ async function startBot() {
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
 
-      // Carrega dinamicamente todos os canais conectados do WhatsApp,
-      // excluindo apenas o grupo VIP oficial. NENHUMA fonte fica exposta no código!
+      // Carrega canais de ofertas, filtrando apenas grupos de promoções
+      // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
       try {
         const participating = await sock.groupFetchAllParticipating();
-        sourceGroupJids = Object.keys(participating).filter((id) => id !== groupJid);
-        logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais ativos)`);
+        const promoKeywords = ['oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 'garimpo', 'barato', 'cupom', 'vip', 'radar'];
+        const explicitSources = (process.env.SOURCE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+
+        sourceGroupJids = Object.values(participating)
+          .filter((g) => {
+            if (!g?.id || g.id === groupJid) return false;
+            if (explicitSources.includes(g.id)) return true;
+            const sub = (g.subject || '').toLowerCase();
+            return promoKeywords.some((kw) => sub.includes(kw));
+          })
+          .map((g) => g.id);
+
+        logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais com foco em promoções)`);
       } catch (gErr) {
         logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
       }
@@ -797,12 +837,16 @@ async function startBot() {
     // Processamento e normalização da oferta
     try {
       // Pega o texto da legenda ou texto normal
-      const text = msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '';
+      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '').trim();
       
+      // FILTRO ESSENCIAL: Se não contém link de internet, é mensagem de conversa normal, NÃO É OFERTA!
+      if (!text || !text.includes('http')) return;
+
       // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
       const newText = await processMessageText(text);
       
-      if (!newText.trim()) return;
+      // Se processMessageText retornou nulo (sem link de loja de e-commerce real), descarta
+      if (!newText || !newText.trim()) return;
 
       // ── Deduplicação Inteligente Ultra-Rigorosa ──
       const productKeyword = extractProductKeyword(text);

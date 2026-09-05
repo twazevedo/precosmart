@@ -174,9 +174,15 @@ function detectUrgencyBadge(text) {
 }
 
 async function processMessageText(text) {
-  if (!text) return text;
+  if (!text) return null;
 
-  // 1. Higieniza o texto removendo links de terceiros e convites externos
+  // 1. Uma oferta OBRIGATORIAMENTE precisa conter ao menos um link
+  const initialUrls = text.match(urlRegex) || [];
+  if (initialUrls.length === 0) {
+    return null; // Não é oferta (mensagem de conversa comum), descarta imediatamente!
+  }
+
+  // 2. Higieniza o texto removendo links de terceiros e convites externos
   const lines = text.split('\n');
   const cleanLines = lines.filter((line) => {
     const l = line.toLowerCase();
@@ -193,6 +199,11 @@ async function processMessageText(text) {
   const productKeyword = extractProductKeyword(newText);
   const urls = newText.match(urlRegex) || [];
 
+  if (urls.length === 0) {
+    return null;
+  }
+
+  let hasValidStoreUrl = false;
   for (const url of urls) {
     let longUrl = url;
     
@@ -206,8 +217,30 @@ async function processMessageText(text) {
       longUrl = await expandUrl(url);
     }
     
+    // Verifica se é de fato um domínio de e-commerce/loja
+    const lowLong = longUrl.toLowerCase();
+    const isStore = lowLong.includes('amazon.') || 
+                    lowLong.includes('amzn.to') ||
+                    lowLong.includes('mercadolivre.') || 
+                    lowLong.includes('shopee.') || 
+                    lowLong.includes('shope.ee') || 
+                    lowLong.includes('magazinevoce.') || 
+                    lowLong.includes('magazineluiza.') || 
+                    lowLong.includes('maga.lu') ||
+                    lowLong.includes('kabum.') ||
+                    lowLong.includes('casasbahia.');
+
+    if (isStore) {
+      hasValidStoreUrl = true;
+    }
+
     const afUrl = await replaceAffiliateTags(longUrl, productKeyword);
     newText = newText.replace(url, afUrl);
+  }
+
+  // Se não tem nenhum link de loja real, não é uma oferta válida
+  if (!hasValidStoreUrl) {
+    return null;
   }
 
   const badge = detectUrgencyBadge(newText);
