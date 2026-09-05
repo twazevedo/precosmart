@@ -221,3 +221,38 @@ O sistema impede 100% das duplicações através de 3 camadas ativas:
    - Extrai ASIN (Amazon), MLB (Mercado Livre), SKU (Magalu) e ItemID (Shopee).
    - Cache com expiração TTL de 6 horas.
    - Se 3 canais parceiros enviarem o mesmo produto com textos diferentes, apenas o primeiro é postado; os demais são descartados com log `SKIP`.
+
+---
+
+## 🌟 Funcionalidades Avançadas (v2.2)
+
+### 1. 🎯 Alertas Personalizados com Notificação Privada (`alerts.js`)
+- Membros podem criar alertas digitando `!alerta <produto> [teto_preço]`.
+- O bot monitora todas as ofertas que entram no grupo VIP e envia uma **mensagem privada (DM)** para os membros interessados assim que o preço atingir o teto solicitado.
+- Comandos: `!alerta`, `!alertas`, `!remover`, `!buscar`, `!ajuda`.
+
+### 2. 👁️ Inteligência Artificial com Google Gemini Vision (`geminiVision.js`)
+- Permite que o administrador envie prints ou fotos de ofertas com o comando `!postar`.
+- A IA do Google Gemini transcreve a imagem, extrai título, preço de / por e benefícios, formatando automaticamente com os links afiliados.
+
+### 3. 🌡️ Termômetro de Ofertas & "Deal Score" (`dealScore.js`)
+- Algoritmo estatístico que avalia o desconto de 1.0 a 10.0 e mantém histórico de mínimas registradas.
+- Insere selos de alta credibilidade nas mensagens:
+  - `🔥 Termômetro PreçoSmart: 9.8/10 — MENOR PREÇO HISTÓRICO!`
+  - `⭐ Termômetro PreçoSmart: 8.5/10 — DESCONTO EXCELENTE (35% OFF)`
+
+### 4. 📢 Expansão Multicanal para o Telegram (`telegram.js`)
+- Sincronização simultânea: ao enviar uma oferta no WhatsApp, o bot também posta no Canal do Telegram com **botões inline** (*"Comprar com Desconto"* e *"Ver no PreçoSmart"*).
+- Configurado via `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID`.
+
+### 5. 📊 Encurtador Próprio & Métricas de Cliques (`analytics.js`)
+- Endpoints `/r/:code` e `/api/analytics` para rastreamento de cliques e taxa de conversão (CTR).
+- Exibição de total de cliques e ranking dos produtos mais clicados no painel web.
+
+### 6. 🕷️ Crawler Autônomo de Ofertas (`crawler.js`)
+- Varredura de feeds públicos de promoções verificadas (Adrenaline, TecMundo, etc.) para garantir abastecimento contínuo do grupo VIP em horários de pico.
+- Acionamento via botão no dashboard ou comando admin `!crawler`.
+
+### 7. 🧪 Suíte de Testes Automatizados & CI/CD
+- **11 testes unitários** executados via `npm test` (`node --test`).
+- Pipeline GitHub Actions (`.github/workflows/ci.yml`) validando builds em Node 20.x e 22.x em cada push.
