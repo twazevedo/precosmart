@@ -10,4 +10,6 @@ logs.json
 scratch/
 whatsapp-bot/auth_info/
 whatsapp-bot/alerts.json
+whatsapp-bot/price_history.json
+whatsapp-bot/analytics.json
 subir_github.bat

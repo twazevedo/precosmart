@@ -1,5 +1,7 @@
 const axios = require('axios');
 const { AFFILIATE } = require('./catalog');
+const { evaluateDeal } = require('./dealScore');
+const { extractPriceFromText } = require('./alerts');
 
 const urlRegex = /(https?:\/\/[^\s]+)/g;
 
@@ -245,11 +247,20 @@ async function processMessageText(text) {
 
   const badge = detectUrgencyBadge(newText);
   const isMagalu = newText.includes('magazinevoce.com.br') || newText.includes('magazineluiza.com.br');
+  const detectedPrice = extractPriceFromText(newText);
+  let dealBadge = '';
+  if (detectedPrice) {
+    const evaluation = evaluateDeal(productKeyword, detectedPrice);
+    if (evaluation && evaluation.badge) {
+      dealBadge = '\n\n' + evaluation.badge;
+    }
+  }
+
   const footer = isMagalu
     ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
     : '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
 
-  newText = badge + newText.trim() + footer;
+  newText = badge + newText.trim() + dealBadge + footer;
   return newText;
 }
 

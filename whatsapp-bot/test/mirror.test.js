@@ -77,3 +77,58 @@ test('7. Extração Numérica de Preço', () => {
   assert.equal(extractPriceFromText('Por R$ 49,00 com cupom'), 49.00);
   assert.equal(extractPriceFromText('Sem preço aqui'), null);
 });
+
+test('8. Algoritmo do Termômetro de Ofertas (Deal Score)', () => {
+  const { evaluateDeal } = require('../dealScore');
+  const deal = evaluateDeal('Notebook Dell Inspiron', 2499, 3999);
+  assert.ok(deal.score >= 9.0, 'Desconto alto deve render score superior a 9.0');
+  assert.ok(deal.badge.includes('Termômetro PreçoSmart'), 'Deve gerar badge visual com termômetro');
+  assert.equal(deal.discountPct, 38, 'Desconto deve ser 38%');
+});
+
+test('9. Encurtador de Links & Rastreamento de Cliques', () => {
+  const { createShortLink, recordClick, getAnalyticsSummary } = require('../analytics');
+  const link = createShortLink('https://www.amazon.com.br/dp/B0TESTE', 'Monitor Gamer', 'Amazon', 899);
+  assert.ok(link.code, 'Deve gerar código curto único');
+  assert.equal(link.shortPath, `/r/${link.code}`, 'Caminho deve ser /r/:code');
+
+  const target = recordClick(link.code);
+  assert.equal(target, 'https://www.amazon.com.br/dp/B0TESTE', 'Deve retornar URL de destino no clique');
+
+  const summary = getAnalyticsSummary();
+  assert.ok(summary.totalClicks >= 1, 'Contador de cliques global deve ser incrementado');
+});
+
+test('10. Expansão Multicanal Telegram (Modo Seguro / Fallback)', async () => {
+  const { isTelegramConfigured, broadcastTelegramDeal } = require('../telegram');
+  // Sem variáveis de ambiente no ambiente de teste, deve retornar simulated sem quebrar
+  const res = await broadcastTelegramDeal({
+    title: 'Echo Pop',
+    price: 'R$ 219,00',
+    url: 'https://amzn.to/echo'
+  });
+  assert.equal(res.ok, true, 'Deve responder ok em modo simulado');
+});
+
+test('11. Parser de Feeds RSS do Crawler Autônomo', () => {
+  const { parseRssFeed } = require('../crawler');
+  const mockXml = `
+    <rss>
+      <channel>
+        <item>
+          <title><![CDATA[Super Oferta: Placa de Vídeo RTX 4060 com menor preço]]></title>
+          <link>https://www.adrenaline.com.br/oferta-rtx</link>
+          <description><![CDATA[Placa de vídeo por apenas R$ 1.899 no Pix]]></description>
+        </item>
+        <item>
+          <title><![CDATA[Notícia sobre nova atualização do Windows]]></title>
+          <link>https://www.adrenaline.com.br/windows-update</link>
+          <description><![CDATA[Atualização traz correções de segurança]]></description>
+        </item>
+      </channel>
+    </rss>
+  `;
+  const items = parseRssFeed(mockXml);
+  assert.equal(items.length, 1, 'Deve filtrar apenas itens que são ofertas reais');
+  assert.ok(items[0].title.includes('RTX 4060'));
+});

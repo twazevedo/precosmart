@@ -32,6 +32,9 @@ const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCa
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
+const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
+const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
+const { fetchCuratedDeals } = require('./crawler');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -224,13 +227,46 @@ app.get('/api/status', (req, res) => res.json({
   logCount:    messageLog.length,
   queueLength: dealQueue.length,
   activeAlerts: countTotalAlerts(),
+  hasTelegram: isTelegramConfigured(),
+  analytics:   getAnalyticsSummary(),
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
   lastMessage: messageLog[0] || null,
-  version:     '2.1.0'
+  version:     '2.2.0'
 }));
 
 app.get('/api/alerts', (req, res) => res.json(getAllAlerts()));
+
+app.get('/r/:code', (req, res) => {
+  const target = recordClick(req.params.code);
+  if (target) {
+    return res.redirect(302, target);
+  }
+  res.status(404).send('Link de oferta não encontrado ou expirado.');
+});
+
+app.get('/api/analytics', (req, res) => res.json(getAnalyticsSummary()));
+
+app.post('/api/crawler/run', async (req, res) => {
+  try {
+    const deals = await fetchCuratedDeals();
+    let count = 0;
+    for (const d of deals) {
+      dealQueue.push({
+        type: 'text',
+        caption: d.rawText,
+        canonicalIds: [],
+        keyword: d.title,
+        textForDup: d.rawText
+      });
+      count++;
+    }
+    logEntry('CRAWLER', `Crawler autônomo ativado: ${count} ofertas enfileiradas.`);
+    res.json({ ok: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/qr', (req, res) => {
   if (isConnected)      return res.json({ status: 'connected', qr: null });
@@ -627,6 +663,11 @@ async function startBot() {
         lastDealSentAt = Date.now();
         // Dispara simultaneamente para o Instagram se webhook estiver conectado
         dispatchToInstagram(deal).catch(() => {});
+        // Dispara simultaneamente para o Canal do Telegram
+        broadcastTelegramDeal({
+          text: deal.text,
+          title: deal.keyword || 'Oferta PreçoSmart'
+        }).catch(() => {});
 
         // 🔔 DISPARO DE ALERTAS PERSONALIZADOS PARA USUÁRIOS
         try {
@@ -931,6 +972,10 @@ async function startBot() {
           }
 
           dispatchToInstagram({ type: mediaType, buffer, text: newText || content }).catch(() => {});
+          broadcastTelegramDeal({
+            text: newText || content,
+            title: 'Oferta PreçoSmart'
+          }).catch(() => {});
 
           await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
           logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
@@ -963,6 +1008,49 @@ async function startBot() {
           await replyToUser({ text: `❌ Erro ao postar Magalu: ${magErr.message}` });
           return;
         }
+      }
+
+      // 10. !crawler (Admin)
+      if (command === '!crawler' || command === '!varrer') {
+        try {
+          await replyToUser({ text: '🕷️ *Iniciando varredura autônoma de ofertas nos feeds...*' });
+          const deals = await fetchCuratedDeals();
+          let count = 0;
+          for (const d of deals) {
+            dealQueue.push({
+              type: 'text',
+              caption: d.rawText,
+              canonicalIds: [],
+              keyword: d.title,
+              textForDup: d.rawText
+            });
+            count++;
+          }
+          runDealQueueWorker();
+          await replyToUser({ text: `✅ *Varredura Concluída!*\nForam adicionadas *${count} novas ofertas* à fila de postagens do grupo VIP!` });
+          return;
+        } catch (cErr) {
+          await replyToUser({ text: `❌ Erro no crawler: ${cErr.message}` });
+          return;
+        }
+      }
+
+      // 11. !cliques (Admin)
+      if (command === '!cliques' || command === '!metricas') {
+        const stats = getAnalyticsSummary();
+        let msgText = `📊 *Métricas de Cliques e Conversão (PreçoSmart)*\n\n` +
+          `🖱️ Total de Cliques: *${stats.totalClicks}*\n` +
+          `🔗 Links Criados: *${stats.totalLinks}*\n\n` +
+          `🏆 *Top Produtos Mais Clicados:*\n`;
+        if (stats.topLinks.length === 0) {
+          msgText += `_Nenhum clique registrado ainda._`;
+        } else {
+          stats.topLinks.forEach((l, i) => {
+            msgText += `${i + 1}. *${l.title}* (${l.store}) → *${l.clicks} cliques*\n`;
+          });
+        }
+        await replyToUser({ text: msgText });
+        return;
       }
     }
       }

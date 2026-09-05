@@ -6,6 +6,7 @@
 'use strict';
 
 const { getAffiliateUrl, getBestCoupon, getTopDeals } = require('./catalog');
+const { evaluateDeal } = require('./dealScore');
 
 const brl = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const now  = ()  => new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
@@ -41,11 +42,14 @@ function buildOfferCaption(product) {
     ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
     : '';
 
+  const dealEval = evaluateDeal(product.title, final, oldPrice);
+  const scoreBadge = dealEval && dealEval.badge ? `\n\n${dealEval.badge}` : '';
+
   return `${catchphrase}
 
 ${product.emoji} ${product.title}
 
-🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
+🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}${scoreBadge}
 
 🔗 ${url}${storeBadge}`;
 }

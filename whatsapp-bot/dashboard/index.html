@@ -171,9 +171,9 @@
       <div class="stat-label">Mensagens Enviadas</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-icon">🛍️</div>
-      <div class="stat-value">15</div>
-      <div class="stat-label">Produtos no Catálogo</div>
+      <div class="stat-icon">🖱️</div>
+      <div class="stat-value" id="stat-clicks">0</div>
+      <div class="stat-label">Cliques em Afiliados</div>
     </div>
     <div class="card stat-card">
       <div class="stat-icon">🎯</div>
@@ -211,6 +211,9 @@
         <button class="btn btn-primary" id="btn-send-welcome" disabled onclick="sendWelcome()">
           👋 Enviar Boas-Vindas
         </button>
+        <button class="btn btn-outline" id="btn-run-crawler" onclick="runCrawler()">
+          🕷️ Executar Crawler de Ofertas
+        </button>
         <hr style="border-color:var(--border); margin:4px 0">
         <div class="schedule-list">
           <div class="schedule-item"><span class="schedule-time">09:55</span><span class="schedule-desc">☀️ Resumo Top 3 do Dia</span></div>
@@ -225,7 +228,7 @@
 
   <!-- Guia de Comandos e IA -->
   <div class="card" style="margin-bottom: 20px;">
-    <h2>🤖 Comandos Interativos & Alertas em Tempo Real</h2>
+    <h2>🤖 Comandos Interativos, Alertas & Multicanal</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
       <div style="background: var(--surface); padding: 16px; border-radius: 10px; border-left: 3px solid var(--accent);">
         <strong style="color: #fff;">👥 Comandos da Comunidade (Grupo / Privado)</strong>
@@ -240,6 +243,8 @@
         <strong style="color: #fff;">👑 Comandos do Administrador</strong>
         <ul style="list-style: none; margin-top: 10px; font-size: 0.85rem; line-height: 1.8; color: var(--muted);">
           <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!postar &lt;link ou print&gt;</code> — Fura a fila + OCR com Gemini Vision</li>
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!crawler</code> — Varre feeds públicos e busca novas ofertas</li>
+          <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!cliques</code> — Métricas de cliques e conversão dos links</li>
           <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!magalu</code> — Dispara oferta Magazine Luiza no VIP + Instagram</li>
           <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!status</code> — Exibe fila, conexões e uptime em tempo real</li>
           <li><code style="color: var(--green); background: #064e3b; padding: 2px 6px; border-radius: 4px;">!limpar</code> — Esvazia a fila de ofertas pendentes</li>
@@ -304,6 +309,7 @@
       $('stat-uptime').textContent = fmtUptime(d.uptime);
       $('stat-sent').textContent   = d.logCount;
       $('stat-alerts').textContent = d.activeAlerts ?? 0;
+      $('stat-clicks').textContent = d.analytics?.totalClicks ?? 0;
 
       // Buttons
       const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome'];
@@ -409,6 +415,25 @@
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '👋 Enviar Boas-Vindas';
     fetchLogs();
+  }
+
+  async function runCrawler() {
+    const btn = $('btn-run-crawler');
+    btn.disabled = true; btn.textContent = 'Varrendo feeds...';
+    toast('🕷️ Executando crawler de ofertas nos feeds...', '#6366f1');
+    try {
+      const r = await fetch('/api/crawler/run', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) {
+        toast(`✅ Crawler adicionou ${d.count} ofertas à fila!`, '#10b981');
+      } else {
+        toast(`❌ Erro: ${d.error}`, '#ef4444');
+      }
+    } catch(e) {
+      toast('❌ Falha ao acionar crawler', '#ef4444');
+    }
+    btn.disabled = false; btn.textContent = '🕷️ Executar Crawler de Ofertas';
+    fetchStatus(); fetchLogs();
   }
 
   // Poll a cada 3 segundos
