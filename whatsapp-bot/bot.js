@@ -35,6 +35,7 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
+const { requireApiAuth, securityHeaders } = require('./security');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -208,6 +209,7 @@ const dashboardHtml = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.h
 
 // ── Express Dashboard ────────────────────────────────────────────────────────
 const app = express();
+app.use(securityHeaders);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'dashboard')));
 
@@ -420,7 +422,7 @@ app.get('/api/qr', (req, res) => {
 
 app.get('/api/logs', (req, res) => res.json(messageLog));
 
-app.post('/api/send-magalu', async (req, res) => {
+app.post('/api/send-magalu', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
     const product = getNextMagaluProduct();
@@ -437,7 +439,7 @@ app.post('/api/send-magalu', async (req, res) => {
   }
 });
 
-app.post('/api/send-now', async (req, res) => {
+app.post('/api/send-now', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
     const product = getRandomProduct();
@@ -450,7 +452,7 @@ app.post('/api/send-now', async (req, res) => {
   }
 });
 
-app.post('/api/send-welcome', async (req, res) => {
+app.post('/api/send-welcome', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
   try {
     await waSocket.sendMessage(groupJid, { text: buildWelcomeMessage() });
@@ -461,7 +463,7 @@ app.post('/api/send-welcome', async (req, res) => {
   }
 });
 
-app.post('/api/send-flash', async (req, res) => {
+app.post('/api/send-flash', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
   try {
     const [top] = getTopDeals(1);
@@ -474,7 +476,7 @@ app.post('/api/send-flash', async (req, res) => {
   }
 });
 
-app.post('/api/send-custom', async (req, res) => {
+app.post('/api/send-custom', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   const { text, imageUrl } = req.body;
   try {
