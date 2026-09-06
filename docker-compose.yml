@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  precosmart-bot:
+    build:
+      context: ./whatsapp-bot
+      dockerfile: Dockerfile
+    container_name: precosmart_whatsapp_bot
+    restart: always
+    ports:
+      - "3002:3002"
+    env_file:
+      - ./whatsapp-bot/.env
+    volumes:
+      - ./whatsapp-bot/session:/app/session
+      - ./whatsapp-bot/data:/app/data
+    environment:
+      - NODE_ENV=production
+      - TZ=America/Sao_Paulo
