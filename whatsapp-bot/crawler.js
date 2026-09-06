@@ -12,7 +12,8 @@ const { getRandomProduct } = require('./catalog');
  */
 const RSS_SOURCES = [
   { name: 'Adrenaline Ofertas', url: 'https://www.adrenaline.com.br/feed/' },
-  { name: 'TecMundo Descontos', url: 'https://rss.tecmundo.com.br/feed' }
+  { name: 'TecMundo Descontos', url: 'https://rss.tecmundo.com.br/feed' },
+  { name: 'Garimpeiros', url: 'https://www.garimpeiros.com.br/feed' }
 ];
 
 /**

@@ -163,7 +163,13 @@ async function dispatchToInstagram(deal) {
     const igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #magalu #amazonbrasil #mercadolivre #shopee`;
 
     // Garante que a foto REAL da oferta seja servida com URL pública direta
-    let resolvedImageUrl = deal.imageUrl || 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1080';
+        let resolvedImageUrl = deal.imageUrl;
+    if (!resolvedImageUrl && link) {
+      try {
+        const og = await getOgImage(link);
+        if (og) resolvedImageUrl = og;
+      } catch(e) {}
+    }
     if (deal.buffer && Buffer.isBuffer(deal.buffer)) {
       const mediaId = 'deal_' + Date.now();
       mediaCache.set(mediaId, { buffer: deal.buffer, createdAt: Date.now() });
@@ -1209,32 +1215,20 @@ async function startBot() {
         }
       }
 
-      // 10. !shopee (Admin) - Envia os Mais Vendidos e Ofertas Relâmpago da Shopee
+                  // 10. !shopee (Admin) - Envia um produto da Shopee
       if (command === '!shopee') {
         try {
-          const shopeeText = `🔥 *SELEÇÃO SHOPEE: OS MAIS VENDIDOS!* 🔥\n\n` +
-            `Separamos as páginas oficiais com as maiores promoções da Shopee atualizadas agora. O que você está procurando?\n\n` +
-            `⚡ *Ofertas Relâmpago (Até 80% OFF):*\n🔗 https://shopee.com.br/m/ofertas-relampago\n\n` +
-            `🏆 *Mais Vendidos (Todas as Categorias):*\n🔗 https://shopee.com.br/m/mais-vendidos\n\n` +
-            `🎟️ *Cupons do Dia & Frete Grátis:*\n🔗 https://shopee.com.br/m/cupons-diarios\n\n` +
-            `🏡 *Achadinhos para Casa:*\n🔗 https://shopee.com.br/m/shopee-decora\n\n` +
-            `Basta clicar nos links acima para ativar nosso desconto parceiro! 🛒`;
-            
-          const finalText = await processMessageText(shopeeText);
-
-          const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-          const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
-
-          if (jidsToSend.length > 0) {
-            for (const targetJid of jidsToSend) {
-              await waSocket.sendMessage(targetJid, { text: finalText });
-            }
-            if (!isGroup) await replyToUser({ text: '✅ Hub de Ofertas da Shopee enviado para os grupos VIP!' });
+          const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
+          if (shopeeProducts.length > 0) {
+            const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+            const caption = buildOfferMessage(p);
+            await sendProductMessage(p, caption);
+            if (!isGroup) await replyToUser({ text: '? Produto da Shopee enviado para os grupos VIP!' });
             logEntry('ADMIN', 'Comando !shopee executado com sucesso.');
           }
           return;
         } catch (shErr) {
-          await replyToUser({ text: `❌ Erro ao postar Shopee: ${shErr.message}` });
+          await replyToUser({ text: '? Erro ao postar Shopee: ' + shErr.message });
           return;
         }
       }
@@ -1421,3 +1415,6 @@ async function startBot() {
 logEntry('BOOT', '🚀 PreçoSmart WhatsApp Bot v2.0 iniciando...');
 logEntry('BOOT', `Dashboard: http://localhost:${PORT}`);
 startBot().catch((err) => logEntry('FATAL', err.message));
+
+
+

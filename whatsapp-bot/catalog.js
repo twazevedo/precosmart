@@ -254,7 +254,7 @@ function getAffiliateUrl(store, title) {
   const enc = encodeURIComponent(title);
   switch (store) {
     case 'Amazon':         return `https://www.amazon.com.br/s?k=${enc}&tag=${AFFILIATE.amazon}`;
-    case 'Shopee':         return `https://shopee.com.br/search?keyword=${enc}&aff_id=${AFFILIATE.shopee}`;
+    case 'Shopee':         return `https://shopee.com.br/search?keyword=${enc}&utm_source=an_${AFFILIATE.shopee}&utm_medium=affiliates`;
     case 'Mercado Livre':  return `https://lista.mercadolivre.com.br/${enc}?matt_tool=${AFFILIATE.ml}`;
     case 'Magazine Luiza': {
       const storeSlug = AFFILIATE.magalu ? `magazine${AFFILIATE.magalu.toLowerCase().replace('magazine', '')}` : 'magazineprecosmartvip';
@@ -356,3 +356,4 @@ module.exports = {
   getProductByCategories,
   getNextMagaluProduct
 };
+
