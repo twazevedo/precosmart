@@ -1050,6 +1050,33 @@ async function startBot() {
       }
       lastCommandExecution.set(`${senderPhone}:${command}`, Date.now());
 
+      // ── ⚡ DISPATCHER MODULAR DE COMANDOS (!top, !shopee, !magalu, !crawler) ──
+      try {
+        const { getCommand } = require('./commands');
+        const modCmd = getCommand(command);
+        if (modCmd) {
+          if (modCmd.adminOnly && !isAuthorized) {
+            await replyToUser({ text: '🚫 Comando restrito ao administrador do PreçoSmart.' });
+            return;
+          }
+          await modCmd.execute({
+            sock,
+            waSocket,
+            groupJid,
+            isGroup,
+            args,
+            replyToUser,
+            sendProductMessage,
+            dealQueue,
+            runDealQueueWorker,
+            logEntry
+          });
+          return;
+        }
+      } catch (modErr) {
+        logEntry('ERROR', `Erro no comando modular ${command}: ${modErr.message}`);
+      }
+
       // ── 👥 COMANDOS PÚBLICOS (QUALQUER MEMBRO) ──
 
       // 1. !alerta <produto> [preço]

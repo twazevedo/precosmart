@@ -16,6 +16,7 @@ function registerCommand(cmdModule) {
 registerCommand(require('./shopee'));
 registerCommand(require('./magalu'));
 registerCommand(require('./crawler'));
+registerCommand(require('./top'));
 
 function getCommand(name) {
   return commands.get(name.toLowerCase());
