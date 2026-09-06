@@ -98,7 +98,7 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       urlObj.searchParams.set('mmp_pid', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_source', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_medium', 'affiliates');
-      urlObj.searchParams.set('aff_id', AFFILIATE.shopee);
+      if (!urlObj.pathname.startsWith('/m/')) { urlObj.searchParams.set('aff_id', AFFILIATE.shopee); }
       return urlObj.toString();
     }
     

@@ -17,11 +17,11 @@ const magTag = (process.env.AFFILIATE_MAGALU || 'PRECOSMARTVIP').toUpperCase();
 
 const COUPONS = [
   // Cupons Gerais
-  { code: 'PRIME15',     store: 'Amazon',        discount: 15,   type: 'fixed',   desc: '-R$\u00a015 para membros Prime'              },
-  { code: 'SHOPEE20',    store: 'Shopee',        discount: 20,   type: 'fixed',   desc: '-R$\u00a020 em tech acima de R$\u00a0150'        },
-  { code: 'MELI10',      store: 'Mercado Livre', discount: 0.10, type: 'percent', desc: '-10% em lojas oficiais'                 },
-  { code: 'SHOPEE50',    store: 'Shopee',        discount: 50,   type: 'fixed',   desc: '-R$\u00a050 acima de R$\u00a0300'               },
-  { code: 'AMZNWELCOME', store: 'Amazon',        discount: 0.05, type: 'percent', desc: '-5% extra para novos clientes Prime'    },
+  { code: 'PRIME15',     store: 'Amazon',        discount: 15,   type: 'fixed',   min: 15,   desc: '-R$\u00a015 para membros Prime'              },
+  { code: 'SHOPEE20',    store: 'Shopee',        discount: 20,   type: 'fixed',   min: 150,  desc: '-R$\u00a020 em tech acima de R$\u00a0150'        },
+  { code: 'MELI10',      store: 'Mercado Livre', discount: 0.10, type: 'percent', min: 0,    desc: '-10% em lojas oficiais'                 },
+  { code: 'SHOPEE50',    store: 'Shopee',        discount: 50,   type: 'fixed',   min: 300,  desc: '-R$\u00a050 acima de R$\u00a0300'               },
+  { code: 'AMZNWELCOME', store: 'Amazon',        discount: 0.05, type: 'percent', min: 0,    desc: '-5% extra para novos clientes Prime'    },
 
   // Cupons Oficiais da Central do Magazine Luiza
   { code: 'BEMVINDO20',  store: 'Magazine Luiza', discount: 20,   type: 'fixed',   min: 80,   desc: '-R$\u00a020 OFF em compras acima de R$\u00a080' },
@@ -48,8 +48,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 789}, {"store": "Shopee", "pix": 779}], 
     "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja", "Shopee": "Frete Grátis com Cupom"}, 
     "emoji": "📱", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1AEABA9KChK58YGCLFI3wdSNc8DcEMQg8"
+    
+    
   },
   { 
     "id": "galaxya55", 
@@ -59,8 +59,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 1699}], 
     "shipping": {"Magazine Luiza": "Entrega Expressa Magalu"}, 
     "emoji": "📱", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1Fq3XPd3smP6f154ajHmYtxg_MPXKI67s"
+    
+    
   },
   { "id": "ip15", "title": "Apple iPhone 15 (128 GB)", "category": "Smartphones", "history30dAvg": 4599, "quotes": [{"store": "Amazon", "pix": 4299}], "shipping": {"Amazon": "Prime"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=600" },
   { "id": "s23", "title": "Samsung Galaxy S23 5G 256GB", "category": "Smartphones", "history30dAvg": 3199, "quotes": [{"store": "Mercado Livre", "pix": 2899}, {"store": "Shopee", "pix": 2799}], "shipping": {"Mercado Livre": "Full", "Shopee": "Vendedor Oficial"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1678911820864-e2c567c655d7?q=80&w=600" },
@@ -105,7 +105,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 2099}], 
     "shipping": {"Magazine Luiza": "Frete Grátis Magalu"}, 
     "emoji": "📺", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+    
   },
   { 
     "id": "tvlg43", 
@@ -115,7 +115,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 1499}], 
     "shipping": {"Magazine Luiza": "Entrega Rápida"}, 
     "emoji": "📺", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13ga7_65E_57nQAVxuvgqXgwpQDrJ-vd0&sz=w1000" 
+    
   },
 
   // BELEZA & PERFUMARIA (COM VÍDEO OFICIAL DO DRIVE)
@@ -127,8 +127,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 149}], 
     "shipping": {"Magazine Luiza": "Entrega Rápida Magalu"}, 
     "emoji": "💇‍♀️", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13pRIgjRy2aT5d3YcJmYyXENjThY8tK3o&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1UMiNSUZVMFAEm-KxdwdARnZKbH0oOje0"
+    
+    
   },
   { 
     "id": "pranchagama", 
@@ -138,8 +138,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 109}], 
     "shipping": {"Magazine Luiza": "Retira Grátis na Loja"}, 
     "emoji": "✨", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13qNmL-BOzUSGi-gow-DdxThvjb0P4ZYb&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1Uxm0mRy3rAFX5JIvtjkDmOyFPpZj2uKF"
+    
+    
   },
 
   // ELETRODOMÉSTICOS & COZINHA (COM VÍDEO E TEMPLATE OFICIAL DRIVE)
@@ -151,8 +151,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 269}], 
     "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, 
     "emoji": "🍳", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1jD6XgK0SnXZhWpYmfmEIb0zRo4oDwaoc"
+    
+    
   },
   { 
     "id": "lavadorabrastemp", 
@@ -162,8 +162,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 1899}], 
     "shipping": {"Magazine Luiza": "Entrega Especial Magalu"}, 
     "emoji": "🧺", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1GgQwXCDK_-FtR2eDJd8zZiBflQS2WvDt"
+    
+    
   },
   { 
     "id": "microondasconsul", 
@@ -173,7 +173,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 459}], 
     "shipping": {"Magazine Luiza": "Retira Grátis na Loja"}, 
     "emoji": "🍲", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+    
   },
 
   // CLIMATIZAÇÃO & VENTILAÇÃO (COM VÍDEO OFICIAL DRIVE)
@@ -185,8 +185,8 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 99}], 
     "shipping": {"Magazine Luiza": "Retira Grátis"}, 
     "emoji": "💨", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13pRIgjRy2aT5d3YcJmYyXENjThY8tK3o&sz=w1000",
-    "videoUrl": "https://drive.google.com/uc?export=download&id=1crvkS1t5-6G1PiTBiswScZe5Yb_1H4z8"
+    
+    
   },
 
   // CALÇADOS & ESPORTE (CUPOM ASICS10 COM TEMPLATE OFICIAL DRIVE)
@@ -198,7 +198,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 319}], 
     "shipping": {"Magazine Luiza": "Frete Grátis"}, 
     "emoji": "👟", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13ga7_65E_57nQAVxuvgqXgwpQDrJ-vd0&sz=w1000" 
+    
   },
 
   // PETSHOP (CUPOM PET10 COM TEMPLATE OFICIAL DRIVE)
@@ -210,7 +210,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 149}], 
     "shipping": {"Magazine Luiza": "Entrega Rápida"}, 
     "emoji": "🐶", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13qNmL-BOzUSGi-gow-DdxThvjb0P4ZYb&sz=w1000" 
+    
   },
 
   // FARMÁCIA & BEBÊ (CUPOM FARMACIA10 COM TEMPLATE OFICIAL DRIVE)
@@ -222,7 +222,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 89}], 
     "shipping": {"Magazine Luiza": "Retira Grátis"}, 
     "emoji": "👶", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000" 
+    
   },
 
   // INFORMÁTICA & GAMES (MAGALU TEMPLATES DRIVE)
@@ -234,7 +234,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 2199}], 
     "shipping": {"Magazine Luiza": "Frete Grátis"}, 
     "emoji": "💻", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13nEvCti6nBOCGEjHRwIaZQDbxYrN-taq&sz=w1000" 
+    
   },
   { 
     "id": "xboxs", 
@@ -244,7 +244,7 @@ const PRODUCTS = [
     "quotes": [{"store": "Magazine Luiza", "pix": 2199}], 
     "shipping": {"Magazine Luiza": "Frete Grátis"}, 
     "emoji": "🎮", 
-    "imageUrl": "https://drive.google.com/thumbnail?id=13juIKNEEQvE7sLMUg8FO-sH_x9cJ2eXx&sz=w1000" 
+    
   },
   { "id": "ps5", "title": "Console PlayStation 5 Edição Digital", "category": "Games & Consoles", "history30dAvg": 3899, "quotes": [{"store": "Amazon", "pix": 3599}], "shipping": {"Amazon": "Prime"}, "emoji": "🎮", "imageUrl": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=600" }
 ];
