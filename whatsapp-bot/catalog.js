@@ -253,16 +253,26 @@ const PRODUCTS = [
 function getAffiliateUrl(store, title) {
   const enc = encodeURIComponent(title);
   switch (store) {
-    case 'Amazon':         return `https://www.amazon.com.br/s?k=${enc}&tag=${AFFILIATE.amazon}`;
-    case 'Shopee':         return `https://shopee.com.br/search?keyword=${enc}&utm_source=an_${AFFILIATE.shopee}&utm_medium=affiliates`;
-    case 'Mercado Livre':  return `https://lista.mercadolivre.com.br/${enc}?matt_tool=${AFFILIATE.ml}`;
+    case 'Amazon':
+      // Ordenação oficial Amazon: Mais Vendidos (exact-aware / s=exact-aware-popularity-rank)
+      return `https://www.amazon.com.br/s?k=${enc}&s=exact-aware-popularity-rank&tag=${AFFILIATE.amazon}`;
+    case 'Shopee':
+      // Ordenação oficial Shopee: Mais Vendidos (order=desc&sortBy=sales)
+      return `https://shopee.com.br/search?keyword=${enc}&order=desc&sortBy=sales&utm_source=an_${AFFILIATE.shopee}&utm_medium=affiliates`;
+    case 'Mercado Livre':
+      // Filtro oficial Mercado Livre: Mais Vendidos / Melhores Vendedores
+      return `https://lista.mercadolivre.com.br/${enc}_OrderId_PRICE*DISCOUNT_NoIndex_True?matt_tool=${AFFILIATE.ml}`;
     case 'Magazine Luiza': {
       const storeSlug = AFFILIATE.magalu ? `magazine${AFFILIATE.magalu.toLowerCase().replace('magazine', '')}` : 'magazineprecosmartvip';
-      return `https://www.magazinevoce.com.br/${storeSlug}/busca/${enc}/`;
+      // Ordenação oficial Magazine Luiza: Mais Vendidos e Populares
+      return `https://www.magazinevoce.com.br/${storeSlug}/busca/${enc}/?sort=most-popular`;
     }
-    case 'KaBuM!':         return `https://www.kabum.com.br/busca/${enc}`;
-    case 'AliExpress':     return `https://pt.aliexpress.com/wholesale?SearchText=${enc}`;
-    default:               return '#';
+    case 'KaBuM!':
+      return `https://www.kabum.com.br/busca/${enc}?ordem=mais_vendidos`;
+    case 'AliExpress':
+      return `https://pt.aliexpress.com/wholesale?SearchText=${enc}&sortType=total_tranpro_desc`;
+    default:
+      return '#';
   }
 }
 
