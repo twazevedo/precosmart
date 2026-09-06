@@ -95,10 +95,10 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       urlObj.searchParams.delete('utm_campaign');
       urlObj.searchParams.delete('utm_content');
       urlObj.searchParams.delete('utm_term');
+      urlObj.searchParams.delete('aff_id');
       urlObj.searchParams.set('mmp_pid', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_source', 'an_' + AFFILIATE.shopee);
       urlObj.searchParams.set('utm_medium', 'affiliates');
-      if (!urlObj.pathname.startsWith('/m/')) { urlObj.searchParams.set('aff_id', AFFILIATE.shopee); }
       return urlObj.toString();
     }
     
