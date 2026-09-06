@@ -1,15 +1,49 @@
+# Dependencies
 node_modules/
 frontend/node_modules/
 backend/node_modules/
-backend/data/*.sqlite*
-.DS_Store
-Thumbs.db
-*.log
-logs.json
+whatsapp-bot/node_modules/
+
+# Environment and secrets
 .env
-scratch/
+.env.local
+.env.*.local
+*.env
+whatsapp-bot/.env
+
+# WhatsApp bot session & local state
+whatsapp-bot/session/
 whatsapp-bot/auth_info/
+whatsapp-bot/data/
 whatsapp-bot/alerts.json
 whatsapp-bot/price_history.json
 whatsapp-bot/analytics.json
+
+# Logs & temp files
+*.log
+logs.json
+whatsapp-bot/bot_debug.log
+whatsapp-bot/start_log.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Database & artifacts
+backend/data/*.sqlite*
+scratch/
+
+# Local utility scripts (Windows batch files)
+*.bat
 subir_github.bat
+iniciar.bat
+whatsapp-bot/loop_bot.bat
+
+# Conversation history & agent metadata
+HISTORICO_CONVERSA.md
+HISTORICO_E_GUIA_DO_PROJETO.md
+.agents/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
