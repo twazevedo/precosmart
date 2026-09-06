@@ -1,7 +1,35 @@
 version: '3.8'
 
 services:
-  precosmart-bot:
+  # 🌐 Interface Web do Comparador (React + Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: precosmart_frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  # ⚙️ API REST & Comparador de Cestas (Express + SQLite)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: precosmart_backend
+    restart: always
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+
+  # 🤖 Robô de Ofertas & Automação Inteligente (WhatsApp + Telegram + Instagram)
+  whatsapp-bot:
     build:
       context: ./whatsapp-bot
       dockerfile: Dockerfile
@@ -14,6 +42,9 @@ services:
     volumes:
       - ./whatsapp-bot/session:/app/session
       - ./whatsapp-bot/data:/app/data
+    depends_on:
+      - backend
     environment:
       - NODE_ENV=production
       - TZ=America/Sao_Paulo
+      - BACKEND_API_URL=http://backend:3001/api

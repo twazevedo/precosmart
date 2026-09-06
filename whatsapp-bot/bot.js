@@ -227,47 +227,134 @@ app.get('/', (req, res) => res.send(dashboardHtml));
 app.get('/dashboard', (req, res) => {
   const html = `
   <!DOCTYPE html>
-  <html>
+  <html lang="pt-BR">
   <head>
-    <title>Painel do Chefe - PreçoSmart</title>
+    <meta charset="UTF-8">
+    <title>Painel do Chefe — PreçoSmart Analytics Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-      body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin:0; padding: 20px; color: #333; }
-      .container { max-width: 800px; margin: auto; }
-      .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-      h1, h2 { color: #1c1e21; margin-top: 0; }
-      .metric { font-size: 32px; font-weight: bold; color: #0084ff; }
-      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-      th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
-      th { background: #f8f9fa; }
+      :root {
+        --bg: #0f172a;
+        --card: #1e293b;
+        --border: #334155;
+        --text: #f8fafc;
+        --muted: #94a3b8;
+        --accent: #6366f1;
+        --green: #10b981;
+      }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin:0; padding: 24px; color: var(--text); }
+      .container { max-width: 1000px; margin: auto; }
+      header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+      h1 { font-size: 1.6rem; font-weight: 700; margin: 0; color: #fff; }
+      .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+      .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+      .metric-label { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+      .metric-val { font-size: 2.2rem; font-weight: 800; color: #fff; margin-top: 6px; }
+      .metric-sub { font-size: 0.8rem; color: var(--green); margin-top: 4px; }
+      .chart-container { position: relative; height: 260px; margin-top: 16px; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+      th { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; }
+      a { color: var(--accent); text-decoration: none; font-weight: 600; }
+      a:hover { text-decoration: underline; }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>📊 Painel do Chefe - PreçoSmart</h1>
-      <div id="content">Carregando métricas...</div>
+      <header>
+        <h1>📊 PreçoSmart Analytics Pro</h1>
+        <span style="font-size: 0.85rem; color: var(--green); background: rgba(16,185,129,0.15); padding: 6px 12px; border-radius: 999px; font-weight: 600;">● Sistema Operando</span>
+      </header>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="metric-label">Cliques Registrados</div>
+          <div class="metric-val" id="total-clicks">0</div>
+          <div class="metric-sub">▲ Rastreamento em tempo real</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Links Únicos Ativos</div>
+          <div class="metric-val" id="total-links">0</div>
+          <div class="metric-sub">Monitorados com tags</div>
+        </div>
+        <div class="card">
+          <div class="metric-label">Conversão Estimada</div>
+          <div class="metric-val" id="est-conv">--</div>
+          <div class="metric-sub">Baseada no DealScore™</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px;">
+        <h2 style="font-size: 1rem; margin: 0; color: #fff;">📈 Volume de Cliques por Oferta</h2>
+        <div class="chart-container">
+          <canvas id="clicksChart"></canvas>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 style="font-size: 1rem; margin: 0 0 8px 0; color: #fff;">🏆 Ranking de Ofertas Mais Clicadas</h2>
+        <div id="table-container">Carregando dados...</div>
+      </div>
     </div>
+
     <script>
-      async function loadData() {
+      let chartInstance = null;
+
+      async function loadDashboard() {
         try {
           const res = await fetch('/api/analytics');
           const data = await res.json();
-          let html = '<div class="card"><h2>Cliques Hoje</h2><div class="metric">' + data.totalClicks + '</div><p>Total de ofertas geradas: ' + data.totalLinks + '</p></div>';
-          
-          if(data.topLinks.length > 0) {
-            html += '<div class="card"><h2>🏆 Top Ofertas Mais Clicadas</h2><table><tr><th>Produto</th><th>Cliques</th><th>Link</th></tr>';
+
+          document.getElementById('total-clicks').innerText = data.totalClicks || 0;
+          document.getElementById('total-links').innerText = data.totalLinks || 0;
+          const convRate = data.totalLinks > 0 ? ((data.totalClicks / data.totalLinks) * 100).toFixed(1) + '%' : '0%';
+          document.getElementById('est-conv').innerText = convRate;
+
+          // Gráfico
+          const labels = (data.topLinks || []).map(l => l.title.substring(0, 18) + '...');
+          const values = (data.topLinks || []).map(l => l.clicks);
+
+          const ctx = document.getElementById('clicksChart').getContext('2d');
+          if (chartInstance) chartInstance.destroy();
+          chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: labels.length ? labels : ['Sem dados'],
+              datasets: [{
+                label: 'Cliques',
+                data: values.length ? values : [0],
+                backgroundColor: '#6366f1',
+                borderRadius: 6
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: { beginAtZero: true, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+              }
+            }
+          });
+
+          // Tabela
+          if (data.topLinks && data.topLinks.length > 0) {
+            let tHtml = '<table><thead><tr><th>Produto</th><th>Loja</th><th>Cliques</th><th>Ação</th></tr></thead><tbody>';
             data.topLinks.forEach(l => {
-              html += '<tr><td>' + l.title + '</td><td><b>' + l.clicks + '</b></td><td><a href="' + l.shortUrl + '" target="_blank">Acessar</a></td></tr>';
+              tHtml += '<tr><td><b>' + l.title + '</b></td><td>' + (l.store || 'Varejo') + '</td><td><span style="color:#10b981; font-weight:700;">' + l.clicks + '</span></td><td><a href="' + l.shortUrl + '" target="_blank">Testar Link ↗</a></td></tr>';
             });
-            html += '</table></div>';
+            tHtml += '</tbody></table>';
+            document.getElementById('table-container').innerHTML = tHtml;
+          } else {
+            document.getElementById('table-container').innerHTML = '<p style="color:#94a3b8; padding: 12px 0;">Nenhum clique registrado ainda. As métricas atualizarão assim que os membros clicarem nas ofertas!</p>';
           }
-          document.getElementById('content').innerHTML = html;
-        } catch(e) {
-          document.getElementById('content').innerHTML = '<p>Erro ao carregar dados.</p>';
-        }
+        } catch(e) {}
       }
-      loadData();
-      setInterval(loadData, 10000);
+
+      loadDashboard();
+      setInterval(loadDashboard, 15000);
     </script>
   </body>
   </html>
