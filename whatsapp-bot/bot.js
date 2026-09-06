@@ -584,28 +584,18 @@ function setupCronJobs() {
     } catch (err) { logEntry('ERROR', 'Erro no cron Shopee Produto: ' + err.message); }
   }, { timezone: 'America/Sao_Paulo' });
 
-  // 14:00 — Especial Shopee (Mais Vendidos e Cupons)
+  // 14:00 — Achadinhos Shopee Automáticos (1 produto por vez com foto)
   cron.schedule('0 14 * * *', async () => {
     if (!isConnected) return;
     try {
-      const shopeeText = `🧡 *ACHADINHOS E MAIS VENDIDOS SHOPEE!* 🧡\n\n` +
-        `Atualizamos os links oficias das maiores promoções da Shopee de hoje:\n\n` +
-        `⚡ *Ofertas Relâmpago (Até 80% OFF):*\n🔗 https://shopee.com.br/m/ofertas-relampago\n\n` +
-        `🏆 *Mais Vendidos (Geral):*\n🔗 https://shopee.com.br/m/mais-vendidos\n\n` +
-        `🎟️ *Cupons Diários:*\n🔗 https://shopee.com.br/m/cupons-diarios\n\n` +
-        `Clique nos links para ativar as ofertas!`;
-        
-      const { processMessageText } = require('./mirror');
-      const finalText = await processMessageText(shopeeText);
-
-      const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-      const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
-      
-      for (const targetJid of jidsToSend) {
-        await waSocket.sendMessage(targetJid, { text: finalText });
+      const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
+      if (shopeeProducts.length > 0) {
+        const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+        const caption = buildOfferMessage(p);
+        await sendProductMessage(p, caption);
+        logEntry('SENT', '[14:00] Achadinho Shopee automático enviado: ' + p.title);
       }
-      logEntry('SENT', '[14:00] Hub Shopee diário enviado');
-    } catch (err) { logEntry('ERROR', 'Erro no cron Shopee: ' + err.message); }
+    } catch (err) { logEntry('ERROR', 'Erro no cron Shopee Produto: ' + err.message); }
   }, { timezone: 'America/Sao_Paulo' });
 
   // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)
@@ -766,9 +756,17 @@ async function startBot() {
       isConnected = false;
       groupJid    = null;
       const code  = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = code !== DisconnectReason.loggedOut;
-      logEntry('DISCONNECTED', `Desconectado (código ${code}). Reconectando: ${shouldReconnect}`);
-      if (shouldReconnect) setTimeout(startBot, 5000);
+      const isLoggedOut = code === DisconnectReason.loggedOut;
+      logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
+      if (isLoggedOut) {
+        try {
+          fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+          logEntry('BOOT', 'Pasta session limpa após logout 401. Gerando novo QR Code...');
+        } catch(e) {}
+        setTimeout(startBot, 2000);
+      } else {
+        setTimeout(startBot, 5000);
+      }
     }
   });
 
@@ -904,6 +902,29 @@ async function startBot() {
       ''
     ).trim();
 
+    let cleanReplyJid = remoteJid;
+    if (remoteJid.includes('@s.whatsapp.net')) {
+      cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+    }
+
+    async function replyToUser(content) {
+      try {
+        await waSocket.sendMessage(cleanReplyJid, content);
+        logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
+      } catch (replyErr) {
+        logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
+        if (msg.key.fromMe && sock.user?.id) {
+          const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+          try {
+            await waSocket.sendMessage(myPhoneJid, content);
+            logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
+          } catch (e2) {
+            logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
+          }
+        }
+      }
+    }
+
     // ── 👑 COMANDOS DO DONO (PRIVADO OU GRUPO VIP) ──
     if (text.startsWith('!')) {
       if (msg.key.id) {
@@ -930,29 +951,6 @@ async function startBot() {
                            });
 
       logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
-
-      let cleanReplyJid = remoteJid;
-      if (remoteJid.includes('@s.whatsapp.net')) {
-        cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
-      }
-
-      async function replyToUser(content) {
-        try {
-          await waSocket.sendMessage(cleanReplyJid, content);
-          logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
-        } catch (replyErr) {
-          logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
-          if (msg.key.fromMe && sock.user?.id) {
-            const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
-            try {
-              await waSocket.sendMessage(myPhoneJid, content);
-              logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
-            } catch (e2) {
-              logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
-            }
-          }
-        }
-      }
 
       const [cmd, ...args] = text.split(' ');
       const command = cmd.toLowerCase();
