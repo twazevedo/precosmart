@@ -45,8 +45,8 @@ const PRODUCTS = [
     "title": "Smartphone Samsung Galaxy A15 4G 128GB", 
     "category": "Smartphones", 
     "history30dAvg": 899, 
-    "quotes": [{"store": "Magazine Luiza", "pix": 789}], 
-    "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja"}, 
+    "quotes": [{"store": "Magazine Luiza", "pix": 789}, {"store": "Shopee", "pix": 779}], 
+    "shipping": {"Magazine Luiza": "Frete Grátis ou Retire na Loja", "Shopee": "Frete Grátis com Cupom"}, 
     "emoji": "📱", 
     "imageUrl": "https://drive.google.com/thumbnail?id=13nOxQkzhb_8-ZtGeCx7J7X9Ak5I44f2L&sz=w1000",
     "videoUrl": "https://drive.google.com/uc?export=download&id=1AEABA9KChK58YGCLFI3wdSNc8DcEMQg8"
@@ -63,8 +63,39 @@ const PRODUCTS = [
     "videoUrl": "https://drive.google.com/uc?export=download&id=1Fq3XPd3smP6f154ajHmYtxg_MPXKI67s"
   },
   { "id": "ip15", "title": "Apple iPhone 15 (128 GB)", "category": "Smartphones", "history30dAvg": 4599, "quotes": [{"store": "Amazon", "pix": 4299}], "shipping": {"Amazon": "Prime"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1695048133142-1a20484d2569?q=80&w=600" },
-  { "id": "s23", "title": "Samsung Galaxy S23 5G 256GB", "category": "Smartphones", "history30dAvg": 3199, "quotes": [{"store": "Mercado Livre", "pix": 2899}], "shipping": {"Mercado Livre": "Full"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1678911820864-e2c567c655d7?q=80&w=600" },
-  
+  { "id": "s23", "title": "Samsung Galaxy S23 5G 256GB", "category": "Smartphones", "history30dAvg": 3199, "quotes": [{"store": "Mercado Livre", "pix": 2899}, {"store": "Shopee", "pix": 2799}], "shipping": {"Mercado Livre": "Full", "Shopee": "Vendedor Oficial"}, "emoji": "📱", "imageUrl": "https://images.unsplash.com/photo-1678911820864-e2c567c655d7?q=80&w=600" },
+
+  // ITENS SHOPEE EXCLUSIVOS (ACHADINHOS)
+  { 
+    "id": "shopee_fonesem_fio", 
+    "title": "Fone de Ouvido Bluetooth TWS Lenovo LP40 Pro", 
+    "category": "Áudio", 
+    "history30dAvg": 99, 
+    "quotes": [{"store": "Shopee", "pix": 49.90}], 
+    "shipping": {"Shopee": "Frete Grátis Extra"}, 
+    "emoji": "🎧", 
+    "imageUrl": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?q=80&w=600" 
+  },
+  { 
+    "id": "shopee_luminaria", 
+    "title": "Luminária de Mesa Inteligente RGB com Carregador Indução", 
+    "category": "Casa Inteligente", 
+    "history30dAvg": 150, 
+    "quotes": [{"store": "Shopee", "pix": 89.90}], 
+    "shipping": {"Shopee": "Frete Grátis Especial"}, 
+    "emoji": "💡", 
+    "imageUrl": "https://images.unsplash.com/photo-1513506003901-1e6a229e2d15?q=80&w=600" 
+  },
+  { 
+    "id": "shopee_mop", 
+    "title": "Mop Giratório Fit 8 Litros FlashLimp Com Balde", 
+    "category": "Supermercado", 
+    "history30dAvg": 89, 
+    "quotes": [{"store": "Shopee", "pix": 54.90}], 
+    "shipping": {"Shopee": "Frete Grátis APP"}, 
+    "emoji": "🧹", 
+    "imageUrl": "https://images.unsplash.com/photo-1584820927498-cafe4c1ebbd7?q=80&w=600" 
+  },  
   // TV & ÁUDIO (MAGALU DESTAQUES COM TEMPLATE OFICIAL DRIVE)
   { 
     "id": "tvsamsung50", 

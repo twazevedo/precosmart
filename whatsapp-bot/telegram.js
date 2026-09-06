@@ -23,11 +23,17 @@ async function broadcastTelegramDeal(deal) {
 
   const endpoint = 'https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN;
   
+  let targetUrl = deal.url;
+  if (!targetUrl && deal.text) {
+    const linkMatch = deal.text.match(/https?:\/\/[^\s]+/);
+    if (linkMatch) targetUrl = linkMatch[0];
+  }
+
   // Botões inline para cliques diretos no Telegram
   const inlineKeyboard = {
     inline_keyboard: [
       [
-        { text: '🛒 Comprar com Desconto', url: deal.url || 'https://precosmart.com.br' }
+        { text: '🛒 Comprar com Desconto', url: targetUrl || 'https://precosmart.com.br' }
       ],
       [
         { text: '🌐 Ver no PreçoSmart', url: 'https://precosmart.com.br' },

@@ -79,4 +79,48 @@ Se não for uma oferta ou não encontrar produtos, retorne {"title": "", "oldPri
   }
 }
 
-module.exports = { extractOfferFromImage };
+/**
+ * Usa a IA para reescrever um texto de oferta bruto, tornando-o persuasivo (Copywriting)
+ * @param {string} rawText - Texto original da oferta encontrado no crawler
+ * @returns {Promise<string|null>}
+ */
+async function generateSalesCopy(rawText) {
+  if (!GEMINI_API_KEY || !rawText) return null;
+
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    
+    const prompt = `Você é um copywriter de e-commerce brasileiro especialista em ofertas, gatilhos mentais (urgência e prova social) e aumento de cliques (CTR).
+Reescreva a seguinte oferta em um formato altamente engajador para WhatsApp e Telegram.
+
+Regras INEGOCIÁVEIS:
+1. Mantenha os preços e nomes exatos. NUNCA altere os valores numéricos.
+2. Adicione emojis de forma estratégica, mas não exagere (máximo 4 ou 5).
+3. Comece com uma chamada forte (ex: 🔥 MEGA PROMO, ⚡ BUG, 🎯 ACHADO).
+4. Substitua ou deixe os links originais intactos. Não mude a URL, se ela existir.
+5. Deixe a mensagem curta (no máximo 5 ou 6 linhas). Ninguém lê textos longos.
+6. Aja com naturalidade, parecendo um administrador do grupo vip, não um robô chato.
+7. Retorne APENAS o novo texto formatado. Nenhuma frase extra como "Aqui está o texto" ou aspas.
+
+Oferta original a ser reescrita:
+"${rawText}"`;
+
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.7
+      }
+    };
+
+    const res = await axios.post(endpoint, payload, { timeout: 10000 });
+    const textOutput = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (textOutput) return textOutput.trim();
+    return null;
+  } catch (err) {
+    console.error('[GEMINI_COPY] Erro ao reescrever oferta:', err.response?.data?.error?.message || err.message);
+    return null;
+  }
+}
+
+module.exports = { extractOfferFromImage, generateSalesCopy };

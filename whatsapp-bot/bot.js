@@ -218,6 +218,57 @@ app.get('/media/:id.jpg', (req, res) => {
 
 app.get('/', (req, res) => res.send(dashboardHtml));
 
+app.get('/dashboard', (req, res) => {
+  const html = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <title>Painel do Chefe - PreçoSmart</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: -apple-system, sans-serif; background: #f0f2f5; margin:0; padding: 20px; color: #333; }
+      .container { max-width: 800px; margin: auto; }
+      .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+      h1, h2 { color: #1c1e21; margin-top: 0; }
+      .metric { font-size: 32px; font-weight: bold; color: #0084ff; }
+      table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+      th { background: #f8f9fa; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📊 Painel do Chefe - PreçoSmart</h1>
+      <div id="content">Carregando métricas...</div>
+    </div>
+    <script>
+      async function loadData() {
+        try {
+          const res = await fetch('/api/analytics');
+          const data = await res.json();
+          let html = '<div class="card"><h2>Cliques Hoje</h2><div class="metric">' + data.totalClicks + '</div><p>Total de ofertas geradas: ' + data.totalLinks + '</p></div>';
+          
+          if(data.topLinks.length > 0) {
+            html += '<div class="card"><h2>🏆 Top Ofertas Mais Clicadas</h2><table><tr><th>Produto</th><th>Cliques</th><th>Link</th></tr>';
+            data.topLinks.forEach(l => {
+              html += '<tr><td>' + l.title + '</td><td><b>' + l.clicks + '</b></td><td><a href="' + l.shortUrl + '" target="_blank">Acessar</a></td></tr>';
+            });
+            html += '</table></div>';
+          }
+          document.getElementById('content').innerHTML = html;
+        } catch(e) {
+          document.getElementById('content').innerHTML = '<p>Erro ao carregar dados.</p>';
+        }
+      }
+      loadData();
+      setInterval(loadData, 10000);
+    </script>
+  </body>
+  </html>
+  `;
+  res.send(html);
+});
+
 app.get('/api/status', (req, res) => res.json({
   connected:   isConnected,
   groupName:   TARGET_GROUP,
@@ -423,35 +474,59 @@ async function findGroupJid(sock) {
  * Envia produto como imagem + legenda. Fallback para texto se a imagem falhar.
  */
 async function sendProductMessage(product, caption) {
-  if (product.videoUrl) {
-    try {
-      await waSocket.sendMessage(groupJid, {
-        video:    { url: product.videoUrl },
-        caption:  caption,
-        mimetype: 'video/mp4'
-      });
-      dispatchToInstagram({ type: 'video', imageUrl: product.imageUrl, text: caption }).catch(() => {});
-      return;
-    } catch (vidErr) {
-      logEntry('WARN', `Vídeo oficial falhou, usando imagem: ${vidErr.message}`);
-    }
-  }
+  const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+  const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+  
+  if (jidsToSend.length === 0) return;
 
-  if (product.imageUrl) {
+  for (const targetJid of jidsToSend) {
+    let mentions = [];
     try {
-      await waSocket.sendMessage(groupJid, {
-        image:    { url: product.imageUrl },
-        caption:  caption,
-        mimetype: 'image/jpeg'
-      });
-      dispatchToInstagram({ type: 'image', imageUrl: product.imageUrl, text: caption }).catch(() => {});
-      return;
-    } catch (imgErr) {
-      logEntry('WARN', `Imagem falhou, enviando só texto: ${imgErr.message}`);
+      // MEGA-ALERTA (Marcação Fantasma) para descontos acima de 40%
+      const discPct = product.history30dAvg ? Math.round((1 - product.quotes[0].pix / product.history30dAvg) * 100) : 0;
+      if (discPct >= 40) {
+        const metadata = await waSocket.groupMetadata(targetJid);
+        mentions = metadata.participants.map(p => p.id);
+        logEntry('MEGA-ALERTA', `Disparando marcação fantasma para ${mentions.length} membros no grupo ${targetJid} (Desconto: ${discPct}%)`);
+      }
+    } catch (e) {
+      logEntry('WARN', 'Erro ao obter participantes para marcação fantasma: ' + e.message);
     }
+
+    if (product.videoUrl) {
+      try {
+        await waSocket.sendMessage(targetJid, {
+          video:    { url: product.videoUrl },
+          caption:  caption,
+          mimetype: 'video/mp4',
+          mentions: mentions
+        });
+        continue;
+      } catch (vidErr) {
+        logEntry('WARN', `Vídeo oficial falhou no grupo ${targetJid}: ${vidErr.message}`);
+      }
+    }
+
+    if (product.imageUrl) {
+      try {
+        await waSocket.sendMessage(targetJid, {
+          image:    { url: product.imageUrl },
+          caption:  caption,
+          mimetype: 'image/jpeg',
+          mentions: mentions
+        });
+        continue;
+      } catch (imgErr) {
+        logEntry('WARN', `Imagem falhou no grupo ${targetJid}: ${imgErr.message}`);
+      }
+    }
+    
+    try {
+      await waSocket.sendMessage(targetJid, { text: caption, mentions: mentions });
+    } catch (txtErr) {}
   }
-  await waSocket.sendMessage(groupJid, { text: caption });
-  dispatchToInstagram({ type: 'text', imageUrl: product.imageUrl, text: caption }).catch(() => {});
+  
+  dispatchToInstagram({ type: product.videoUrl ? 'video' : (product.imageUrl ? 'image' : 'text'), imageUrl: product.imageUrl, text: caption }).catch(() => {});
 }
 
 async function sendScheduledOffer(label, productFn) {
@@ -472,16 +547,59 @@ async function sendScheduledOffer(label, productFn) {
 function setupCronJobs() {
   // 09:00 — Resumo matinal (O que esperar do dia)
   cron.schedule('0 9 * * *', async () => {
-    if (!isConnected || !groupJid) return;
-    try {
-      await waSocket.sendMessage(groupJid, { text: buildMorningMessage() });
-      logEntry('SENT', '[09:00] Resumo matinal enviado');
-    } catch (err) { logEntry('ERROR', err.message); }
+    if (!isConnected) return;
+    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    for (const targetJid of jidsToSend) {
+      try {
+        await waSocket.sendMessage(targetJid, { text: buildMorningMessage() });
+      } catch (err) {}
+    }
+    logEntry('SENT', '[09:00] Resumo matinal enviado');
   }, { timezone: 'America/Sao_Paulo' });
 
   // 12:00 — Horário de almoço (Compras rápidas no celular)
   cron.schedule('0 12 * * *', () => {
     sendScheduledOffer('12h', () => getProductByCategories(['Smartphones', 'E-readers & Tablets', 'Smartwatches', 'Saúde & Beleza', 'Supermercado']));
+  }, { timezone: 'America/Sao_Paulo' });
+
+  // 15:00 — Achadinhos Shopee Automáticos
+  cron.schedule('0 15 * * *', async () => {
+    if (!isConnected) return;
+    try {
+      // Buscar apenas produtos da Shopee no catálogo
+      const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
+      if (shopeeProducts.length > 0) {
+        const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+        const caption = buildOfferMessage(p);
+        await sendProductMessage(p, caption);
+        logEntry('SENT', '[15:00] Achadinho Shopee automático enviado');
+      }
+    } catch (err) { logEntry('ERROR', 'Erro no cron Shopee Produto: ' + err.message); }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  // 14:00 — Especial Shopee (Mais Vendidos e Cupons)
+  cron.schedule('0 14 * * *', async () => {
+    if (!isConnected) return;
+    try {
+      const shopeeText = `🧡 *ACHADINHOS E MAIS VENDIDOS SHOPEE!* 🧡\n\n` +
+        `Atualizamos os links oficias das maiores promoções da Shopee de hoje:\n\n` +
+        `⚡ *Ofertas Relâmpago (Até 80% OFF):*\n🔗 https://shopee.com.br/m/ofertas-relampago\n\n` +
+        `🏆 *Mais Vendidos (Geral):*\n🔗 https://shopee.com.br/m/mais-vendidos\n\n` +
+        `🎟️ *Cupons Diários:*\n🔗 https://shopee.com.br/m/cupons-diarios\n\n` +
+        `Clique nos links para ativar as ofertas!`;
+        
+      const { processMessageText } = require('./mirror');
+      const finalText = await processMessageText(shopeeText);
+
+      const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+      const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+      
+      for (const targetJid of jidsToSend) {
+        await waSocket.sendMessage(targetJid, { text: finalText });
+      }
+      logEntry('SENT', '[14:00] Hub Shopee diário enviado');
+    } catch (err) { logEntry('ERROR', 'Erro no cron Shopee: ' + err.message); }
   }, { timezone: 'America/Sao_Paulo' });
 
   // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)
@@ -494,11 +612,36 @@ function setupCronJobs() {
     sendScheduledOffer('19h30', () => getProductByCategories(['TV & Vídeo', 'Áudio', 'Câmeras & Drones', 'Casa Inteligente', 'Eletrodomésticos']));
   }, { timezone: 'America/Sao_Paulo' });
 
+  // 20:00 — Resumo Diário (Top 5 Ofertas Mais Clicadas)
+  cron.schedule('0 20 * * *', async () => {
+    if (!isConnected) return;
+    const stats = getAnalyticsSummary();
+    if (stats.topLinks.length === 0) return;
+    
+    let msgText = `🔥 *OFERTAS MAIS COMPRADAS HOJE!*\n\n` +
+                  `Muita gente aproveitou essas promoções enquanto você trabalhava. Algumas ainda estão ativas:\n\n`;
+    
+    stats.topLinks.slice(0, 5).forEach((l, i) => {
+      msgText += `${i + 1}. *${l.title}*\n🔗 ${l.shortUrl}\n\n`;
+    });
+    
+    msgText += `Amanhã tem mais! Fique de olho no radar. 🎯`;
+    
+    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    
+    for (const targetJid of jidsToSend) {
+      try {
+        await waSocket.sendMessage(targetJid, { text: msgText });
+      } catch (err) {}
+    }
+    logEntry('SENT', '[20:00] Resumo Top 5 enviado');
+  }, { timezone: 'America/Sao_Paulo' });
+
   // 22:00 — Gamers e Hardware (Pico de compras tech pesadas)
   cron.schedule('0 22 * * *', async () => {
     const [top] = getTopDeals(1);
-    if (top.discPct >= 15 && isConnected && groupJid) {
-      // Se tiver uma oferta muuuito boa, solta como Flash Sale
+    if (top && top.discPct >= 15 && isConnected) {
       const caption = buildFlashSaleMessage(top);
       await sendProductMessage(top, caption);
       logEntry('FLASH', `[22h] Flash Sale: ${top.title}`);
@@ -507,7 +650,7 @@ function setupCronJobs() {
     }
   }, { timezone: 'America/Sao_Paulo' });
 
-  logEntry('CRON', 'Horários de pico ativos: 09h(Resumo) • 12h(Celulares) • 16h(PCs) • 19:30(TV/Áudio) • 22h(Gamers)');
+  logEntry('CRON', 'Horários ativos: 09h • 12h • 16h • 19:30 • 20h (Top 5) • 22h');
 }
 
 const { MongoClient } = require('mongodb');
@@ -647,26 +790,40 @@ async function startBot() {
       }
 
       const deal = dealQueue.shift();
-      if (!deal || !groupJid || !waSocket) continue;
+      if (!deal || !waSocket) continue;
+
+      const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+      const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+
+      if (jidsToSend.length === 0) {
+        logEntry('WARN', 'Nenhum grupo VIP configurado para envio.');
+        continue;
+      }
 
       try {
-        if (deal.type === 'image' && deal.buffer) {
-          await waSocket.sendMessage(groupJid, { image: deal.buffer, caption: deal.text });
-          logEntry('MIRROR', `Oferta postada via Anti-Flood (FOTO)! Restam na fila: ${dealQueue.length}`);
-        } else if (deal.type === 'video' && deal.buffer) {
-          await waSocket.sendMessage(groupJid, { video: deal.buffer, caption: deal.text });
-          logEntry('MIRROR', `Oferta postada via Anti-Flood (VÍDEO)! Restam na fila: ${dealQueue.length}`);
-        } else {
-          await waSocket.sendMessage(groupJid, { text: deal.text });
-          logEntry('MIRROR', `Oferta postada via Anti-Flood (TEXTO)! Restam na fila: ${dealQueue.length}`);
+        for (const targetJid of jidsToSend) {
+          try {
+            if (deal.type === 'image' && deal.buffer) {
+              await waSocket.sendMessage(targetJid, { image: deal.buffer, caption: deal.text });
+            } else if (deal.type === 'video' && deal.buffer) {
+              await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
+            } else {
+              await waSocket.sendMessage(targetJid, { text: deal.text });
+            }
+          } catch (sendErr) {
+             logEntry('WARN', `Erro ao postar via Anti-Flood no grupo ${targetJid}: ${sendErr.message}`);
+          }
         }
+        logEntry('MIRROR', `Oferta postada via Anti-Flood para ${jidsToSend.length} grupo(s)! Restam na fila: ${dealQueue.length}`);
         lastDealSentAt = Date.now();
         // Dispara simultaneamente para o Instagram se webhook estiver conectado
         dispatchToInstagram(deal).catch(() => {});
         // Dispara simultaneamente para o Canal do Telegram
         broadcastTelegramDeal({
           text: deal.text,
-          title: deal.keyword || 'Oferta PreçoSmart'
+          title: deal.keyword || 'Oferta PreçoSmart',
+          imageUrl: deal.imageUrl,
+          url: deal.finalUrl || deal.url
         }).catch(() => {});
 
         // 🔔 DISPARO DE ALERTAS PERSONALIZADOS PARA USUÁRIOS
@@ -691,6 +848,39 @@ async function startBot() {
 
     isWorkerActive = false;
   }
+
+  sock.ev.on('group-participants.update', async (update) => {
+    // Only process if it's the target VIP group
+    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    
+    if (!jidsToSend.includes(update.id)) return;
+
+    if (update.action === 'add') {
+      for (const participant of update.participants) {
+        try {
+          // Send private welcome message
+          const welcomeMsg = `👋 Olá! Vi que você acabou de entrar no nosso grupo VIP de ofertas do *PreçoSmart*!\n\n` +
+            `Aqui vai uma dica de ouro: sabia que você pode me pedir para vigiar o preço de qualquer produto?\n\n` +
+            `👉 Basta me mandar (aqui no privado ou lá no grupo) o comando:\n` +
+            `*!alerta <nome do produto>*\n\n` +
+            `Exemplo: *!alerta iphone 15*\n\n` +
+            `Assim que a oferta bater na internet, eu te aviso aqui na hora! ⚡\n\n` +
+            `E se você costuma comprar muito na Amazon, aproveite para assinar o Prime por apenas R$ 19,90 e ter Frete Grátis em quase tudo:\n` +
+            `🔗 https://amzn.to/${process.env.AFFILIATE_AMAZON || 'precosmartapp-20'}\n\n` +
+            `Boas compras! 🛒`;
+          
+          await waSocket.sendMessage(participant, { text: welcomeMsg });
+          logEntry('WELCOME', `Mensagem de boas-vindas enviada no privado para ${participant}`);
+          
+          // Delay to avoid spam filters if multiple people join
+          await new Promise(r => setTimeout(r, 2000));
+        } catch (err) {
+          logEntry('WARN', `Falha ao enviar boas-vindas para ${participant}: ${err.message}`);
+        }
+      }
+    }
+  });
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
@@ -957,18 +1147,27 @@ async function startBot() {
 
           const newText = await processMessageText(content || '');
           
-          if (!groupJid) {
-            await replyToUser({ text: '❌ Grupo VIP oficial não encontrado para postar.' });
+          const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+          const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+
+          if (jidsToSend.length === 0) {
+            await replyToUser({ text: '❌ Nenhum Grupo VIP configurado para postar.' });
             return;
           }
 
-          // Prioridade do Dono: Fura a fila e envia imediatamente para o VIP!
-          if (mediaType === 'image' && buffer) {
-            await waSocket.sendMessage(groupJid, { image: buffer, caption: newText || content });
-          } else if (mediaType === 'video' && buffer) {
-            await waSocket.sendMessage(groupJid, { video: buffer, caption: newText || content });
-          } else {
-            await waSocket.sendMessage(groupJid, { text: newText || content });
+          // Prioridade do Dono: Fura a fila e envia imediatamente para todos os VIPs!
+          for (const targetJid of jidsToSend) {
+            try {
+              if (mediaType === 'image' && buffer) {
+                await waSocket.sendMessage(targetJid, { image: buffer, caption: newText || content });
+              } else if (mediaType === 'video' && buffer) {
+                await waSocket.sendMessage(targetJid, { video: buffer, caption: newText || content });
+              } else {
+                await waSocket.sendMessage(targetJid, { text: newText || content });
+              }
+            } catch (e) {
+               logEntry('WARN', `Erro no !postar para ${targetJid}: ${e.message}`);
+            }
           }
 
           dispatchToInstagram({ type: mediaType, buffer, text: newText || content }).catch(() => {});
@@ -1010,24 +1209,67 @@ async function startBot() {
         }
       }
 
-      // 10. !crawler (Admin)
+      // 10. !shopee (Admin) - Envia os Mais Vendidos e Ofertas Relâmpago da Shopee
+      if (command === '!shopee') {
+        try {
+          const shopeeText = `🔥 *SELEÇÃO SHOPEE: OS MAIS VENDIDOS!* 🔥\n\n` +
+            `Separamos as páginas oficiais com as maiores promoções da Shopee atualizadas agora. O que você está procurando?\n\n` +
+            `⚡ *Ofertas Relâmpago (Até 80% OFF):*\n🔗 https://shopee.com.br/m/ofertas-relampago\n\n` +
+            `🏆 *Mais Vendidos (Todas as Categorias):*\n🔗 https://shopee.com.br/m/mais-vendidos\n\n` +
+            `🎟️ *Cupons do Dia & Frete Grátis:*\n🔗 https://shopee.com.br/m/cupons-diarios\n\n` +
+            `🏡 *Achadinhos para Casa:*\n🔗 https://shopee.com.br/m/shopee-decora\n\n` +
+            `Basta clicar nos links acima para ativar nosso desconto parceiro! 🛒`;
+            
+          const finalText = await processMessageText(shopeeText);
+
+          const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+          const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+
+          if (jidsToSend.length > 0) {
+            for (const targetJid of jidsToSend) {
+              await waSocket.sendMessage(targetJid, { text: finalText });
+            }
+            if (!isGroup) await replyToUser({ text: '✅ Hub de Ofertas da Shopee enviado para os grupos VIP!' });
+            logEntry('ADMIN', 'Comando !shopee executado com sucesso.');
+          }
+          return;
+        } catch (shErr) {
+          await replyToUser({ text: `❌ Erro ao postar Shopee: ${shErr.message}` });
+          return;
+        }
+      }
+
+      // 11. !crawler (Admin)
       if (command === '!crawler' || command === '!varrer') {
         try {
           await replyToUser({ text: '🕷️ *Iniciando varredura autônoma de ofertas nos feeds...*' });
           const deals = await fetchCuratedDeals();
+          const { generateSalesCopy } = require('./geminiVision');
           let count = 0;
           for (const d of deals) {
+            let processedText = d.rawText;
+            
+            // Apply Gemini Copywriting if possible
+            const aiCopy = await generateSalesCopy(d.rawText);
+            if (aiCopy) {
+              processedText = aiCopy;
+              logEntry('AI_COPY', `Oferta reescrita pelo Gemini: ${d.title.substring(0, 30)}...`);
+            }
+            
+            // Pass the text through link shortener / affiliate formatter
+            const finalText = await processMessageText(processedText);
+
             dealQueue.push({
               type: 'text',
-              caption: d.rawText,
+              text: finalText,
               canonicalIds: [],
               keyword: d.title,
-              textForDup: d.rawText
+              textForDup: finalText
             });
             count++;
           }
           runDealQueueWorker();
-          await replyToUser({ text: `✅ *Varredura Concluída!*\nForam adicionadas *${count} novas ofertas* à fila de postagens do grupo VIP!` });
+          await replyToUser({ text: `✅ *Varredura Concluída!*\nForam adicionadas *${count} novas ofertas* à fila VIP! As descrições foram otimizadas com IA. 🧠` });
           return;
         } catch (cErr) {
           await replyToUser({ text: `❌ Erro no crawler: ${cErr.message}` });
@@ -1053,15 +1295,66 @@ async function startBot() {
         return;
       }
     }
-      }
 
-      // Se for chat privado mas não for comando de admin, não faz nada
-      if (!isGroup) return;
+    // Assistente de Vendas (Tira-teima com IA no Privado)
+    if (!isGroup) {
+      if (msg.message.imageMessage) {
+        try {
+          await replyToUser({ text: '👀 Analisando a sua foto, um momento...' });
+          
+          const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+          const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
+          let buffer = Buffer.from([]);
+          for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+          
+          const { extractOfferFromImage } = require('./geminiVision');
+          const aiData = await extractOfferFromImage(buffer);
+          
+          if (aiData && aiData.title) {
+            const reply = `🎯 *Produto Identificado:*\n${aiData.title}\n\n` +
+                          `💰 *Preço na foto:* ${aiData.newPrice || aiData.oldPrice || 'Não identificado'}\n\n` +
+                          `Pesquisando o melhor preço pra você nas lojas parceiras...\n` +
+                          `🔗 *Link na Amazon:* https://www.amazon.com.br/s?k=${encodeURIComponent(aiData.title)}&tag=${process.env.AFFILIATE_AMAZON || 'precosmartapp-20'}\n\n` +
+                          `Se o preço estiver mais barato ou igual na Amazon, compre por lá para garantir o frete grátis do Prime! 📦`;
+            await replyToUser({ text: reply });
+          } else {
+            await replyToUser({ text: '🤔 Hmm, não consegui identificar um produto claro nessa imagem. Tente mandar um print mais nítido do anúncio ou o link direto!' });
+          }
+        } catch (err) {
+          logEntry('ERROR', `Falha ao analisar imagem do usuário: ${err.message}`);
+        }
+      }
+      // Ignora mensagens de texto comuns no privado
+      return;
+    }
 
     if (msg.key.fromMe) return;
 
-    // NUNCA processe ou responda mensagens do próprio grupo VIP de destino
-    if (msg.key.remoteJid === groupJid) return;
+    // NUNCA ingere ou responde mensagens comuns do próprio grupo VIP de destino
+    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+    const vipGroups = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+
+    if (vipGroups.includes(msg.key.remoteJid)) {
+      // 🛡️ MODERAÇÃO ANTI-LINK (Leão de Chácara)
+      const rawOwners = process.env.OWNER_NUMBER || '';
+      const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
+      const senderPhoneLocal = (msg.key.fromMe ? (sock.user?.id || '') : (msg.key.participant || msg.key.remoteJid)).replace(/[^0-9]/g, '');
+      const isSenderAuthorized = msg.key.fromMe || ownerList.length === 0 || ownerList.some((o) => senderPhoneLocal.includes(o));
+
+      if (!isSenderAuthorized) {
+        const msgText = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').toLowerCase();
+        if (msgText.includes('http://') || msgText.includes('https://') || msgText.includes('.com') || msgText.includes('wa.me')) {
+          try {
+            await waSocket.sendMessage(msg.key.remoteJid, { delete: msg.key });
+            await waSocket.sendMessage(msg.key.remoteJid, { text: '⚠️ *Mensagem Apagada!*\nÉ proibido enviar links de afiliados ou convites de outros grupos por aqui.' });
+            logEntry('MOD', `Link apagado do grupo VIP enviado por ${senderPhoneLocal}`);
+          } catch (e) {
+            logEntry('WARN', `Falha ao apagar link no grupo VIP: ${e.message}`);
+          }
+        }
+      }
+      return;
+    }
 
     // Ingestão: processa apenas canais sincronizados
     if (!sourceGroupJids.includes(msg.key.remoteJid)) return;
