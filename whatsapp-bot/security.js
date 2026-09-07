@@ -94,6 +94,9 @@ function requireApiAuth(req, res, next) {
     return next();
   }
 
+  // 🚨 Log estruturado de tentativa de ataque / acesso indevido
+  console.warn(`[ALERTA DE SEGURANÇA] Tentativa de invasão bloqueada! IP: ${ip} | Rota: ${req.originalUrl || req.url} | Data: ${new Date().toISOString()}`);
+
   return res.status(401).json({ error: 'Não autorizado. Token de API inválido ou ausente.' });
 }
 

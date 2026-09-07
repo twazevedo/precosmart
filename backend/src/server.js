@@ -16,8 +16,52 @@ app.use((req, res, next) => {
   next();
 });
 
+// 🛡️ Autenticação de Operações Administrativas (POST / DELETE / PUT)
+function requireAdminAuth(req, res, next) {
+  // Consultas públicas (GET) continuam liberadas para os usuários do app
+  if (req.method === 'GET') return next();
+
+  const apiKey = req.headers['x-api-key'] || (req.headers['authorization']?.replace(/^Bearer\s+/i, ''));
+  const configuredKey = process.env.API_SECRET_KEY;
+  const isLocal = req.ip?.includes('127.0.0.1') || req.ip?.includes('::1');
+
+  if ((configuredKey && apiKey === configuredKey) || isLocal) {
+    return next();
+  }
+  return res.status(401).json({ error: 'Acesso não autorizado para alteração de dados.' });
+}
+app.use('/api', requireAdminAuth);
+
+// 🛡️ Rate Limiting Leve (Anti-DoS e Anti-Bombardeio)
+const requestCounts = new Map();
+app.use((req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxPerWindow = 120;
+
+  const record = requestCounts.get(ip) || { count: 0, resetTime: now + windowMs };
+  if (now > record.resetTime) {
+    record.count = 0;
+    record.resetTime = now + windowMs;
+  }
+  record.count++;
+  requestCounts.set(ip, record);
+
+  if (record.count > maxPerWindow) {
+    return res.status(429).json({ error: 'Limite de requisições excedido. Aguarde 1 minuto.' });
+  }
+  next();
+});
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// 🛡️ Função Sanitizadora de Entradas do Usuário (Anti-XSS / Limite de Tamanho)
+function cleanInput(str, max = 150) {
+  if (typeof str !== 'string') return '';
+  return str.trim().slice(0, max).replace(/[<>]/g, '');
+}
 
 // ==========================================
 // PRODUTOS
@@ -30,11 +74,11 @@ app.get('/api/products', (req, res) => {
 
     if (category) {
       query += ' AND category = ?';
-      params.push(category);
+      params.push(cleanInput(category, 60));
     }
     if (search) {
       query += ' AND (name LIKE ? OR brand LIKE ? OR barcode LIKE ?)';
-      const term = `%${search}%`;
+      const term = `%${cleanInput(search, 80)}%`;
       params.push(term, term, term);
     }
 
@@ -42,26 +86,37 @@ app.get('/api/products', (req, res) => {
     const products = db.prepare(query).all(...params);
     res.json(products);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[DB ERROR /api/products GET]:', error.message);
+    res.status(500).json({ error: 'Erro interno ao consultar produtos.' });
   }
 });
 
 app.post('/api/products', (req, res) => {
   try {
     const { name, category, brand, barcode, image_url } = req.body;
-    if (!name || !category) {
-      return res.status(400).json({ error: 'Nome e Categoria são obrigatórios' });
+    const safeName = cleanInput(name, 120);
+    const safeCategory = cleanInput(category, 60);
+
+    if (!safeName || !safeCategory) {
+      return res.status(400).json({ error: 'Nome e Categoria válidos são obrigatórios' });
     }
 
     const stmt = db.prepare(`
       INSERT INTO products (name, category, brand, barcode, image_url)
       VALUES (?, ?, ?, ?, ?)
     `);
-    const result = stmt.run(name, category, brand || '', barcode || '', image_url || '');
+    const result = stmt.run(
+      safeName,
+      safeCategory,
+      cleanInput(brand, 60),
+      cleanInput(barcode, 30),
+      cleanInput(image_url, 300)
+    );
     const newProduct = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(newProduct);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[DB ERROR /api/products POST]:', error.message);
+    res.status(500).json({ error: 'Erro interno ao cadastrar produto.' });
   }
 });
 
@@ -71,7 +126,8 @@ app.delete('/api/products/:id', (req, res) => {
     db.prepare('DELETE FROM products WHERE id = ?').run(id);
     res.json({ success: true, message: 'Produto removido com sucesso' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[DB ERROR /api/products DELETE]:', error.message);
+    res.status(500).json({ error: 'Erro interno ao remover produto.' });
   }
 });
 

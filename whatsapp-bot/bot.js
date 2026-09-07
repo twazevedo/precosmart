@@ -211,7 +211,30 @@ const dashboardHtml = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.h
 // ── Express Dashboard ────────────────────────────────────────────────────────
 const app = express();
 app.use(securityHeaders);
-app.use(express.json());
+
+// 🛡️ Rate Limiting Anti-DoS
+const botRequestCounts = new Map();
+app.use((req, res, next) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxPerWindow = 120;
+
+  const record = botRequestCounts.get(ip) || { count: 0, resetTime: now + windowMs };
+  if (now > record.resetTime) {
+    record.count = 0;
+    record.resetTime = now + windowMs;
+  }
+  record.count++;
+  botRequestCounts.set(ip, record);
+
+  if (record.count > maxPerWindow) {
+    return res.status(429).json({ error: 'Limite de requisições excedido. Aguarde 1 minuto.' });
+  }
+  next();
+});
+
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'dashboard')));
 
 // Endpoint público para fotos reais do feed do Instagram
