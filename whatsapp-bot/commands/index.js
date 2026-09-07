@@ -17,6 +17,7 @@ registerCommand(require('./shopee'));
 registerCommand(require('./magalu'));
 registerCommand(require('./crawler'));
 registerCommand(require('./top'));
+registerCommand(require('./garimpar'));
 
 function getCommand(name) {
   return commands.get(name.toLowerCase());

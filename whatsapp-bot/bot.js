@@ -35,6 +35,7 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
+const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
 const { requireApiAuth, securityHeaders } = require('./security');
 
 // ── Configurações ────────────────────────────────────────────────────────────
@@ -408,6 +409,28 @@ app.post('/api/crawler/run', async (req, res) => {
       count++;
     }
     logEntry('CRAWLER', `Crawler autônomo ativado: ${count} ofertas enfileiradas.`);
+    res.json({ ok: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
+  try {
+    const deals = await fetchAllGarimpeirosDeals(4);
+    let count = 0;
+    for (const d of deals) {
+      dealQueue.push({
+        type: d.imageUrl ? 'image' : 'text',
+        imageUrl: d.imageUrl,
+        caption: d.formattedText,
+        canonicalIds: ['garimpo_' + d.id],
+        keyword: d.title,
+        textForDup: d.formattedText
+      });
+      count++;
+    }
+    logEntry('GARIMPO', `Garimpeiros Crawler ativado: ${count} ofertas de todas as categorias enfileiradas.`);
     res.json({ ok: true, count });
   } catch (err) {
     res.status(500).json({ error: err.message });
