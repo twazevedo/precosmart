@@ -9,28 +9,33 @@ const path = require('path');
 const HISTORY_FILE = path.join(__dirname, 'price_history.json');
 let history = {};
 
-function loadHistory() {
-  try {
-    if (fs.existsSync(HISTORY_FILE)) {
-      const data = fs.readFileSync(HISTORY_FILE, 'utf8');
-      history = JSON.parse(data || '{}');
-    } else {
-      history = {};
-    }
-  } catch (err) {
+let saveTimeout = null;
+
+try {
+  if (fs.existsSync(HISTORY_FILE)) {
+    const data = fs.readFileSync(HISTORY_FILE, 'utf8');
+    history = JSON.parse(data || '{}');
+  } else {
     history = {};
   }
+} catch (err) {
+  history = {};
+}
+
+function loadHistory() {
+  return history;
 }
 
 function saveHistory() {
-  try {
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
-  } catch (err) {
-    // Falha silenciosa em I/O
-  }
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+    } catch (err) {
+      // Falha silenciosa em I/O
+    }
+  }, 1000);
 }
-
-loadHistory();
 
 function normalizeProductKey(keyOrTitle) {
   if (!keyOrTitle) return 'unknown';
@@ -62,7 +67,6 @@ function evaluateDeal(keyOrTitle, currentPrice, oldPrice = null) {
     };
   }
 
-  loadHistory();
   const key = normalizeProductKey(keyOrTitle);
   const record = history[key] || {
     min: currentPrice,

@@ -12,6 +12,10 @@ const brl = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', curren
 const now  = ()  => new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 const pct  = (v) => `${Math.round(v)}%`;
 
+function escapeMarkdown(text) {
+  return text.replace(/([*_~`])/g, '\\$1');
+}
+
 /** ── Legenda da oferta (vai junto à foto do produto) ───────────────────────── */
 function buildOfferCaption(product) {
   const sorted   = [...product.quotes].sort((a, b) => a.pix - b.pix);
@@ -47,7 +51,7 @@ function buildOfferCaption(product) {
 
   return `${catchphrase}
 
-${product.emoji} ${product.title}
+${product.emoji} ${escapeMarkdown(product.title)}
 
 🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}${scoreBadge}
 
@@ -66,7 +70,7 @@ function buildMorningMessage() {
     const coupon = getBestCoupon(p.cheapest.store, p.cheapest.pix);
     const final  = coupon ? coupon.finalPrice : p.cheapest.pix;
     const url    = getAffiliateUrl(p.cheapest.store, p.title);
-    return `${medals[i]} ${p.emoji} *${p.title.split(' ').slice(0, 6).join(' ')}...*\n   💰 ${brl(final)} na ${p.cheapest.store}${coupon ? ` com \`${coupon.code}\`` : ''} (${pct(p.discPct)} OFF)\n   🔗 ${url}`;
+    return `${medals[i]} ${p.emoji} *${escapeMarkdown(p.title.split(' ').slice(0, 6).join(' ') + '...')}*\n   💰 ${brl(final)} na ${p.cheapest.store}${coupon ? ` com \`${coupon.code}\`` : ''} (${pct(p.discPct)} OFF)\n   🔗 ${url}`;
   }).join('\n\n');
 
   return `☀️ *Bom dia! Top 3 Ofertas de Hoje!*
@@ -117,7 +121,7 @@ function buildFlashCaption(product) {
 
   return `🚨 FLASH SALE — ESTOQUE LIMITADO
 
-${product.emoji} ${product.title}
+${product.emoji} ${escapeMarkdown(product.title)}
 
 🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
 

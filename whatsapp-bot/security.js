@@ -11,13 +11,21 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
+let cachedMasterKey = null;
+
 /**
  * Obtém ou deriva a chave mestra do ambiente.
- * Usa process.env.APP_MASTER_KEY ou uma chave derivada localmente.
+ * Usa process.env.ENCRYPTION_KEY ou gera um fallback aleatório.
  */
 function getMasterKey() {
-  const secret = process.env.APP_MASTER_KEY || process.env.OWNER_NUMBER || 'precosmart-secure-vault-key-2026';
-  return crypto.scryptSync(secret, 'precosmart_salt_fixed', 32);
+  if (cachedMasterKey) return cachedMasterKey;
+  const secret = process.env.ENCRYPTION_KEY;
+  if (!secret) {
+    console.warn('[ALERTA DE SEGURANÇA] ENCRYPTION_KEY não configurada! Usando chave gerada aleatoriamente em memória.');
+  }
+  const pass = secret || crypto.randomBytes(32).toString('hex');
+  cachedMasterKey = crypto.scryptSync(pass, 'precosmart_salt_fixed', 32);
+  return cachedMasterKey;
 }
 
 /**
@@ -57,7 +65,8 @@ function decryptSecret(encryptedPayload) {
     decrypted += decipher.final('utf8');
     return decrypted;
   } catch (err) {
-    return encryptedPayload;
+    console.error('[ALERTA] Erro ao descriptografar:', err.message);
+    return null;
   }
 }
 

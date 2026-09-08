@@ -25,10 +25,7 @@ const envPath = path.join(__dirname, '.env');
 
 // Se o arquivo .env não existir, cria automaticamente com as configurações padrão
 if (!fs.existsSync(envPath)) {
-  try {
-    const defaultLines = Object.entries(DEFAULTS).map(([k, v]) => `${k}=${v}`).join('\n');
-    fs.writeFileSync(envPath, defaultLines + '\n', 'utf8');
-  } catch (e) {}
+  console.warn('[ALERTA] Arquivo .env não encontrado. Crie um manualmente baseado no .env.example.');
 }
 
 if (fs.existsSync(envPath)) {

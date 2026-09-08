@@ -35,3 +35,16 @@ services:
       mountPath: /opt/render/project/src/session
       sizeGB: 1
 
+  - type: web
+    name: precosmart-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    plan: free
+
+  - type: static
+    name: precosmart-frontend
+    buildCommand: cd frontend && npm install && npm run build
+    publishDir: frontend/dist
+

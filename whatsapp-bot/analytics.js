@@ -13,26 +13,31 @@ let data = {
   links: {}
 };
 
-function loadAnalytics() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const content = fs.readFileSync(DATA_FILE, 'utf8');
-      data = JSON.parse(content || '{"totalClicks":0,"links":{}}');
-    }
-  } catch (err) {
-    data = { totalClicks: 0, links: {} };
+let saveTimeout = null;
+
+try {
+  if (fs.existsSync(DATA_FILE)) {
+    const content = fs.readFileSync(DATA_FILE, 'utf8');
+    data = JSON.parse(content || '{"totalClicks":0,"links":{}}');
   }
+} catch (err) {
+  data = { totalClicks: 0, links: {} };
+}
+
+function loadAnalytics() {
+  return data;
 }
 
 function saveAnalytics() {
-  try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
-  } catch (err) {
-    // Silencioso em caso de falha de I/O
-  }
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      await fs.promises.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
+    } catch (err) {
+      // Silencioso em caso de falha de I/O
+    }
+  }, 1000);
 }
-
-loadAnalytics();
 
 function generateCode() {
   return crypto.randomBytes(3).toString('hex'); // 6 caracteres alfanuméricos
@@ -42,7 +47,6 @@ function generateCode() {
  * Cria ou recupera link curto para rastreamento de cliques
  */
 function createShortLink(targetUrl, title = 'Produto', store = 'Varejo', price = null) {
-  loadAnalytics();
 
   // Verifica se já existe link para essa URL exata
   for (const code in data.links) {
@@ -79,7 +83,6 @@ function createShortLink(targetUrl, title = 'Produto', store = 'Varejo', price =
  * Registra o clique e retorna a URL final de afiliado para redirecionamento
  */
 function recordClick(code) {
-  loadAnalytics();
   const link = data.links[code];
   if (!link) return null;
 
@@ -95,7 +98,6 @@ function recordClick(code) {
  * Retorna resumo executivo de métricas para o Dashboard
  */
 function getAnalyticsSummary() {
-  loadAnalytics();
   const allLinks = Object.values(data.links);
   const topLinks = [...allLinks]
     .sort((a, b) => (b.clicks || 0) - (a.clicks || 0))

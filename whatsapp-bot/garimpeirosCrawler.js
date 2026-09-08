@@ -5,22 +5,18 @@
  */
 'use strict';
 
-const https = require('https');
+const axios = require('axios');
 
-function fetchJson(url) {
-  return new Promise((resolve, reject) => {
-    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept': 'application/json' } }, (res) => {
-      let data = '';
-      res.on('data', c => data += c);
-      res.on('end', () => {
-        try {
-          resolve({ status: res.statusCode, data: JSON.parse(data) });
-        } catch (e) {
-          resolve({ status: res.statusCode, error: e.message });
-        }
-      });
-    }).on('error', reject);
-  });
+async function fetchJson(url) {
+  try {
+    const res = await axios.get(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept': 'application/json' },
+      timeout: 10000
+    });
+    return { status: res.status, data: res.data };
+  } catch (e) {
+    return { status: e.response?.status || 500, error: e.message };
+  }
 }
 
 /**
@@ -102,7 +98,9 @@ async function fetchAllGarimpeirosDeals(limitPerCategory = 5) {
             deals.push(p);
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Crawler error:', e.message);
+      }
     }
   } catch (err) {
     console.error('Erro ao coletar promoções do Garimpeiros:', err.message);

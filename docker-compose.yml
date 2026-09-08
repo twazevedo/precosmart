@@ -27,6 +27,12 @@ services:
     environment:
       - PORT=3001
       - NODE_ENV=production
+      - API_SECRET_KEY=${API_SECRET_KEY:-changeme}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # 🤖 Robô de Ofertas & Automação Inteligente (WhatsApp + Telegram + Instagram)
   whatsapp-bot:

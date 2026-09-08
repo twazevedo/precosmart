@@ -55,13 +55,26 @@ async function broadcastTelegramDeal(deal) {
       }, { timeout: 10000 });
       return { ok: true, messageId: resp.data.result.message_id };
     } else {
-      const resp = await axios.post(endpoint + '/sendMessage', {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: caption.substring(0, 4096),
-        parse_mode: 'Markdown',
-        reply_markup: inlineKeyboard
-      }, { timeout: 10000 });
-      return { ok: true, messageId: resp.data.result.message_id };
+      let text = caption;
+      if (text.length <= 4096) {
+        const resp = await axios.post(endpoint + '/sendMessage', {
+          chat_id: TELEGRAM_CHAT_ID,
+          text: text,
+          parse_mode: 'Markdown',
+          reply_markup: inlineKeyboard
+        }, { timeout: 10000 });
+        return { ok: true, messageId: resp.data.result.message_id };
+      } else {
+        let lastMessageId;
+        for (let i = 0; i < text.length; i += 4096) {
+          const chunk = text.substring(i, i + 4096);
+          const payload = { chat_id: TELEGRAM_CHAT_ID, text: chunk, parse_mode: 'Markdown' };
+          if (i + 4096 >= text.length) payload.reply_markup = inlineKeyboard;
+          const resp = await axios.post(endpoint + '/sendMessage', payload, { timeout: 10000 });
+          lastMessageId = resp.data.result.message_id;
+        }
+        return { ok: true, messageId: lastMessageId };
+      }
     }
   } catch (err) {
     console.error('Erro ao enviar oferta para Telegram:', err.response?.data?.description || err.message);

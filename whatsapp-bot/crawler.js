@@ -16,23 +16,22 @@ const RSS_SOURCES = [
   { name: 'Garimpeiros', url: 'https://www.garimpeiros.com.br/feed' }
 ];
 
+const cheerio = require('cheerio');
+
 /**
- * Extrai ofertas de um XML/RSS usando regex rápido e leve
+ * Extrai ofertas de um XML/RSS usando cheerio
  */
 function parseRssFeed(xmlText) {
   const items = [];
-  const itemMatches = xmlText.match(/<item[\s\S]*?<\/item>/gi) || [];
+  const $ = cheerio.load(xmlText, { xmlMode: true });
 
-  for (const itemXml of itemMatches) {
-    const titleMatch = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>/i) || itemXml.match(/<title>(.*?)<\/title>/i);
-    const linkMatch = itemXml.match(/<link><!\[CDATA\[(.*?)\]\]><\/link>/i) || itemXml.match(/<link>(.*?)<\/link>/i);
-    const descMatch = itemXml.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>/i) || itemXml.match(/<description>(.*?)<\/description>/i);
+  $('item').each((_, el) => {
+    const title = $(el).find('title').text().replace(/&amp;/g, '&').replace(/&#8211;/g, '-').trim();
+    const link = $(el).find('link').text().trim();
+    const descRaw = $(el).find('description').text() || '';
+    const desc = descRaw.replace(/<[^>]+>/g, '').trim();
 
-    if (titleMatch && linkMatch) {
-      const title = titleMatch[1].replace(/&amp;/g, '&').replace(/&#8211;/g, '-').trim();
-      const link = linkMatch[1].trim();
-      const desc = descMatch ? descMatch[1].replace(/<[^>]+>/g, '').trim() : '';
-
+    if (title && link) {
       // Filtra apenas notícias ou posts que contêm palavras de compras ou desconto
       const isOffer = /(?:oferta|desconto|menor preço|por apenas|promoção|cupom|compre|r\$)/i.test(title + ' ' + desc);
       if (isOffer) {
@@ -43,7 +42,7 @@ function parseRssFeed(xmlText) {
         });
       }
     }
-  }
+  });
 
   return items;
 }
@@ -71,7 +70,7 @@ async function fetchCuratedDeals() {
         }
       }
     } catch (e) {
-      // Continua para o próximo feed se um falhar
+      console.error('Crawler error:', e.message);
     }
   }
 

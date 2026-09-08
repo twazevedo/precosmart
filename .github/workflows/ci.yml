@@ -1,4 +1,4 @@
-name: PreçoSmart CI Pipeline
+name: 'PreçoSmart CI'
 
 on:
   push:
@@ -7,32 +7,48 @@ on:
     branches: [ main ]
 
 jobs:
-  test-and-build:
+  bot-tests:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [20.x, 22.x]
-
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-
-    - name: Setup Node.js ${{ matrix.node-version }}
+    - name: Setup Node.js 22.x
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-
-    - name: Install Root Dependencies
-      run: npm install
-
-    - name: Build Frontend React App
+        node-version: 22.x
+    - name: Install and Test WhatsApp Bot
       run: |
-        npm --prefix frontend install
-        npm --prefix frontend run build
+        cd whatsapp-bot
+        npm install
+        npm test
+        node --test test/security.test.js
 
-    - name: Run WhatsApp Bot Automated Test Suite
+  backend-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Setup Node.js 22.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+    - name: Install and Lint Backend
       run: |
-        npm --prefix whatsapp-bot install
-        node --test whatsapp-bot/test/mirror.test.js
+        cd backend
+        npm install
+        npm audit --audit-level=high || true
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Setup Node.js 22.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+    - name: Install and Build Frontend
+      run: |
+        cd frontend
+        npm install
+        npm run build

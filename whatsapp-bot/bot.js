@@ -55,11 +55,14 @@ const lastCommandExecution = new Map(); // key: senderPhone+command -> timestamp
 const recentDealCache = new Map(); // key -> timestamp
 const DEDUP_TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
-function isDuplicateDeal(canonicalIds, keyword, rawText) {
+setInterval(() => {
   const now = Date.now();
   for (const [key, ts] of recentDealCache.entries()) {
     if (now - ts > DEDUP_TTL_MS) recentDealCache.delete(key);
   }
+}, 5 * 60 * 1000);
+
+function isDuplicateDeal(canonicalIds, keyword, rawText) {
 
   for (const id of canonicalIds) {
     if (id && recentDealCache.has('id:' + id)) return true;
@@ -105,6 +108,10 @@ function registerSentDeal(canonicalIds, keyword, rawText) {
 const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'Lo3ONNfAXVh5cEe2Pg6gM7';
 
 // ── Estado Global ────────────────────────────────────────────────────────────
+function getTargetJids() {
+  const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
+  return envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+}
 let waSocket       = null;
 let qrCodeDataUrl  = null;
 let isConnected    = false;
@@ -210,6 +217,7 @@ const dashboardHtml = fs.readFileSync(path.join(__dirname, 'dashboard', 'index.h
 
 // ── Express Dashboard ────────────────────────────────────────────────────────
 const app = express();
+app.set('trust proxy', 1);
 app.use(securityHeaders);
 
 // 🛡️ Rate Limiting Anti-DoS
@@ -233,6 +241,15 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of botRequestCounts.entries()) {
+    if (now > record.resetTime) {
+      botRequestCounts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
 
 app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'dashboard')));
@@ -615,8 +632,7 @@ async function findGroupJid(sock) {
  * Envia produto como imagem + legenda. Fallback para texto se a imagem falhar.
  */
 async function sendProductMessage(product, caption) {
-  const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-  const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+  const jidsToSend = getTargetJids();
   
   if (jidsToSend.length === 0) return;
 
@@ -689,8 +705,7 @@ function setupCronJobs() {
   // 09:00 — Resumo matinal (O que esperar do dia)
   cron.schedule('0 9 * * *', async () => {
     if (!isConnected) return;
-    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    const jidsToSend = getTargetJids();
     for (const targetJid of jidsToSend) {
       try {
         await waSocket.sendMessage(targetJid, { text: buildMorningMessage() });
@@ -758,8 +773,7 @@ function setupCronJobs() {
     
     msgText += `Amanhã tem mais! Fique de olho no radar. 🎯`;
     
-    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    const jidsToSend = getTargetJids();
     
     for (const targetJid of jidsToSend) {
       try {
@@ -931,8 +945,7 @@ async function startBot() {
       const deal = dealQueue.shift();
       if (!deal || !waSocket) continue;
 
-      const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-      const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+      const jidsToSend = getTargetJids();
 
       if (jidsToSend.length === 0) {
         logEntry('WARN', 'Nenhum grupo VIP configurado para envio.');
@@ -990,8 +1003,7 @@ async function startBot() {
 
   sock.ev.on('group-participants.update', async (update) => {
     // Only process if it's the target VIP group
-    const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-    const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+    const jidsToSend = getTargetJids();
     
     if (!jidsToSend.includes(update.id)) return;
 
@@ -1313,8 +1325,7 @@ async function startBot() {
 
           const newText = await processMessageText(content || '');
           
-          const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
-          const jidsToSend = envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
+          const jidsToSend = getTargetJids();
 
           if (jidsToSend.length === 0) {
             await replyToUser({ text: '❌ Nenhum Grupo VIP configurado para postar.' });

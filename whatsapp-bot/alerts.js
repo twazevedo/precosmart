@@ -10,31 +10,36 @@ const ALERTS_FILE = path.join(__dirname, 'alerts.json');
 
 let alerts = [];
 
-function loadAlerts() {
-  try {
-    if (fs.existsSync(ALERTS_FILE)) {
-      const data = fs.readFileSync(ALERTS_FILE, 'utf8');
-      alerts = JSON.parse(data || '[]');
-    } else {
-      alerts = [];
-    }
-  } catch (err) {
+let saveTimeout = null;
+
+try {
+  if (fs.existsSync(ALERTS_FILE)) {
+    const data = fs.readFileSync(ALERTS_FILE, 'utf8');
+    alerts = JSON.parse(data || '[]');
+  } else {
     alerts = [];
   }
+} catch (err) {
+  alerts = [];
+}
+
+function loadAlerts() {
+  return alerts;
 }
 
 function saveAlerts() {
-  try {
-    fs.writeFileSync(ALERTS_FILE, JSON.stringify(alerts, null, 2), 'utf8');
-  } catch (err) {
-    console.error('Erro ao salvar alertas:', err.message);
-  }
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(async () => {
+    try {
+      await fs.promises.writeFile(ALERTS_FILE, JSON.stringify(alerts, null, 2), 'utf8');
+    } catch (err) {
+      console.error('Erro ao salvar alertas:', err.message);
+    }
+  }, 1000);
 }
 
-loadAlerts();
 
 function addAlert(userJid, phone, query, targetPrice = null) {
-  loadAlerts();
   const id = 'alt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
   const newAlert = {
     id,
@@ -52,7 +57,6 @@ function addAlert(userJid, phone, query, targetPrice = null) {
 }
 
 function removeAlert(userJid, queryOrId) {
-  loadAlerts();
   const q = queryOrId.toLowerCase().trim();
   const initialLen = alerts.length;
   alerts = alerts.filter(
@@ -63,7 +67,6 @@ function removeAlert(userJid, queryOrId) {
 }
 
 function getUserAlerts(userJid) {
-  loadAlerts();
   return alerts.filter((a) => a.userJid === userJid);
 }
 
@@ -102,7 +105,6 @@ function extractPriceFromText(text) {
 }
 
 function checkMatchingAlerts(offerText) {
-  loadAlerts();
   if (!offerText || alerts.length === 0) return [];
 
   const textLower = offerText.toLowerCase();
@@ -147,12 +149,10 @@ function checkMatchingAlerts(offerText) {
 }
 
 function countTotalAlerts() {
-  loadAlerts();
   return alerts.length;
 }
 
 function getAllAlerts() {
-  loadAlerts();
   return [...alerts];
 }
 

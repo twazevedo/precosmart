@@ -27,17 +27,28 @@ function extractProductKeyword(text) {
 }
 
 async function expandUrl(url) {
+  const options = {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    },
+    maxRedirects: 5,
+    timeout: 5000,
+    validateStatus: () => true
+  };
   try {
-    const res = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      },
-      maxRedirects: 8,
-      timeout: 6000,
-      validateStatus: () => true
-    });
-    return res.request?.res?.responseUrl || res.headers?.location || url;
+    const resHead = await axios.head(url, options);
+    const finalUrl = resHead.request?.res?.responseUrl || resHead.headers?.location || url;
+    if (finalUrl !== url) return finalUrl;
+  } catch (e) {}
+
+  try {
+    const res = await axios.get(url, { ...options, responseType: 'stream' });
+    const finalUrl = res.request?.res?.responseUrl || res.headers?.location || url;
+    if (res.data && typeof res.data.destroy === 'function') {
+      res.data.destroy();
+    }
+    return finalUrl;
   } catch (e) {
     return url;
   }

@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import compression from 'compression';
 import { db, initDB } from './db.js';
 
 initDB();
@@ -7,14 +10,10 @@ initDB();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// 🛡️ Blindagem de Headers HTTP (OWASP)
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.removeHeader('X-Powered-By');
-  next();
-});
+// 🛡️ Blindagem de Headers HTTP (OWASP) e Logs
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(morgan('combined'));
+app.use(compression());
 
 // 🛡️ Autenticação de Operações Administrativas (POST / DELETE / PUT)
 function requireAdminAuth(req, res, next) {
@@ -54,7 +53,7 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors());
+app.use(cors({ origin: ['https://precosmart.onrender.com', 'http://localhost:3000', 'http://localhost:5173'] }));
 app.use(express.json({ limit: '1mb' }));
 
 // 🛡️ Função Sanitizadora de Entradas do Usuário (Anti-XSS / Limite de Tamanho)
@@ -68,7 +67,7 @@ function cleanInput(str, max = 150) {
 // ==========================================
 app.get('/api/products', (req, res) => {
   try {
-    const { category, search } = req.query;
+    const { category, search, limit = 50, offset = 0 } = req.query;
     let query = 'SELECT * FROM products WHERE 1=1';
     const params = [];
 
@@ -82,7 +81,8 @@ app.get('/api/products', (req, res) => {
       params.push(term, term, term);
     }
 
-    query += ' ORDER BY id DESC';
+    query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
     const products = db.prepare(query).all(...params);
     res.json(products);
   } catch (error) {
@@ -124,7 +124,7 @@ app.delete('/api/products/:id', (req, res) => {
   try {
     const { id } = req.params;
     db.prepare('DELETE FROM products WHERE id = ?').run(id);
-    res.json({ success: true, message: 'Produto removido com sucesso' });
+    res.status(204).send();
   } catch (error) {
     console.error('[DB ERROR /api/products DELETE]:', error.message);
     res.status(500).json({ error: 'Erro interno ao remover produto.' });
@@ -166,7 +166,7 @@ app.delete('/api/stores/:id', (req, res) => {
   try {
     const { id } = req.params;
     db.prepare('DELETE FROM stores WHERE id = ?').run(id);
-    res.json({ success: true, message: 'Loja removida com sucesso' });
+    res.status(204).send();
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -487,6 +487,11 @@ app.use(express.static(frontendDist));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
   res.sendFile(path.join(frontendDist, 'index.html'));
+});
+
+app.use((err, req, res, next) => { 
+  console.error('Unhandled error:', err.message); 
+  res.status(500).json({ error: 'Erro interno do servidor.' }); 
 });
 
 app.listen(PORT, () => {
