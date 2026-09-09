@@ -132,3 +132,17 @@ test('11. Parser de Feeds RSS do Crawler Autônomo', () => {
   assert.equal(items.length, 1, 'Deve filtrar apenas itens que são ofertas reais');
   assert.ok(items[0].title.includes('RTX 4060'));
 });
+
+test('12. Injeção de Afiliado Grupo Boticário: Deve converter links para a loja oficial do consultor', async () => {
+  const msgBoticario = 'Promoção Perfume Malbec!\nhttps://www.boticario.com.br/malbec-desodorante-colonia-100ml';
+  const resBoticario = await processMessageText(msgBoticario);
+  assert.ok(resBoticario, 'Oferta do Boticário deve ser aceita');
+  assert.ok(resBoticario.includes('minhaloja.boticario.com.br/redirect/27065696'), 'Deve conter o redirect com ID do consultor');
+  assert.ok(resBoticario.includes('Consultor Autorizado Grupo Boticário'), 'Deve incluir rodapé do Grupo Boticário');
+
+  const msgEudora = 'Kit Siage Eudora em Promoção:\nhttps://minhaloja.eudora.com.br/redirect/99999999/?origin=boticario';
+  const resEudora = await processMessageText(msgEudora);
+  assert.ok(resEudora, 'Oferta da Eudora deve ser aceita');
+  assert.ok(resEudora.includes('minhaloja.eudora.com.br/redirect/27065696'), 'Deve substituir ID de outro revendedor pelo seu ID oficial');
+});
+

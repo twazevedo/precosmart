@@ -7,10 +7,11 @@
 require('./envLoader');
 
 const AFFILIATE = {
-  amazon:  process.env.AFFILIATE_AMAZON || '',
-  shopee:  process.env.AFFILIATE_SHOPEE || '',
-  ml:      process.env.AFFILIATE_ML     || '',
-  magalu:  process.env.AFFILIATE_MAGALU  || ''
+  amazon:     process.env.AFFILIATE_AMAZON || '',
+  shopee:     process.env.AFFILIATE_SHOPEE || '',
+  ml:         process.env.AFFILIATE_ML     || '',
+  magalu:     process.env.AFFILIATE_MAGALU  || '',
+  boticario:  process.env.AFFILIATE_BOTICARIO || '27065696'
 };
 
 const magTag = (process.env.AFFILIATE_MAGALU || 'PRECOSMARTVIP').toUpperCase();
@@ -246,7 +247,37 @@ const PRODUCTS = [
     "emoji": "🎮", 
     
   },
-  { "id": "ps5", "title": "Console PlayStation 5 Edição Digital", "category": "Games & Consoles", "history30dAvg": 3899, "quotes": [{"store": "Amazon", "pix": 3599}], "shipping": {"Amazon": "Prime"}, "emoji": "🎮", "imageUrl": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=600" }
+  { "id": "ps5", "title": "Console PlayStation 5 Edição Digital", "category": "Games & Consoles", "history30dAvg": 3899, "quotes": [{"store": "Amazon", "pix": 3599}], "shipping": {"Amazon": "Prime"}, "emoji": "🎮", "imageUrl": "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=600" },
+  {
+    "id": "malbec_tradicional",
+    "title": "Perfume Masculino Malbec Desodorante Colônia 100ml O Boticário",
+    "category": "Beleza & Perfumaria",
+    "history30dAvg": 219.90,
+    "quotes": [{"store": "O Boticário", "pix": 179.90}, {"store": "Shopee", "pix": 184.90}],
+    "shipping": {"O Boticário": "Frete Grátis ou Retire na Loja", "Shopee": "Frete Grátis"},
+    "emoji": "🍷",
+    "imageUrl": "https://res.cloudinary.com/beleza-na-web/image/upload/w_1500,f_auto,fl_progressive,q_auto:eco/v1/imagens/product/BOT72280/8cb91cb8-1604-4b55-a746-f94d30922883-malbec-desodorante-colonia-100ml.png"
+  },
+  {
+    "id": "lily_eaudeparfum",
+    "title": "Perfume Feminino Lily Eau de Parfum 75ml O Boticário",
+    "category": "Beleza & Perfumaria",
+    "history30dAvg": 319.90,
+    "quotes": [{"store": "O Boticário", "pix": 269.90}],
+    "shipping": {"O Boticário": "Entrega Oficial O Boticário"},
+    "emoji": "🌸",
+    "imageUrl": "https://res.cloudinary.com/beleza-na-web/image/upload/w_1500,f_auto,fl_progressive,q_auto:eco/v1/imagens/product/BOT72265/2822a101-1e9b-449e-ba5e-a6a3b2b1d0e5-lily-eau-de-parfum-75ml.png"
+  },
+  {
+    "id": "eudora_siage_kit",
+    "title": "Combo Siàge Reconstrói os Fios Eudora (Shampoo 250ml + Condicionador 200ml)",
+    "category": "Beleza & Perfumaria",
+    "history30dAvg": 109.90,
+    "quotes": [{"store": "Eudora", "pix": 79.90}],
+    "shipping": {"Eudora": "Entrega Rápida Eudora"},
+    "emoji": "✨",
+    "imageUrl": "https://res.cloudinary.com/beleza-na-web/image/upload/w_1500,f_auto,fl_progressive,q_auto:eco/v1/imagens/product/EUD50201/014b2d13-d096-419b-a3d8-5546b45f1b58-combo-siage-reconstroi-os-fios.png"
+  }
 ];
 
 
@@ -259,6 +290,13 @@ function getAffiliateUrl(store, title) {
     'Shopee': (urlEnc) => `https://shopee.com.br/search?keyword=${urlEnc}&order=desc&sortBy=sales&utm_source=an_${AFFILIATE.shopee}&utm_medium=affiliates`,
     'Mercado Livre': (urlEnc) => `https://lista.mercadolivre.com.br/${urlEnc}_OrderId_PRICE*DISCOUNT_NoIndex_True?matt_tool=${AFFILIATE.ml}`,
     'Magazine Luiza': (urlEnc) => `https://www.magazinevoce.com.br/${storeSlug}/busca/${urlEnc}/?sort=most-popular`,
+    'O Boticário': () => `https://minhaloja.boticario.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'Boticário': () => `https://minhaloja.boticario.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'Quem Disse, Berenice?': () => `https://minhaloja.quemdisseberenice.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'Quem Disse Berenice': () => `https://minhaloja.quemdisseberenice.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'Eudora': () => `https://minhaloja.eudora.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'O.U.i Paris': () => `https://minhaloja.ouiparis.com/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
+    'Oui Paris': () => `https://minhaloja.ouiparis.com/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
     'KaBuM!': (urlEnc) => `https://www.kabum.com.br/busca/${urlEnc}?ordem=mais_vendidos`,
     'AliExpress': (urlEnc) => `https://pt.aliexpress.com/wholesale?SearchText=${urlEnc}&sortType=total_tranpro_desc`
   };

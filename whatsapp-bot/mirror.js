@@ -155,7 +155,35 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return urlObj.toString();
     }
     
-    // 5. Domínios externos e intermediários:
+    // 5. Grupo Boticário (O Boticário, Eudora, Quem Disse Berenice, O.U.i Paris)
+    const host = urlObj.hostname.toLowerCase();
+    if (
+      host.includes('boticario.com') ||
+      host.includes('eudora.com') ||
+      host.includes('quemdisseberenice.com') ||
+      host.includes('ouiparis.com')
+    ) {
+      const botId = AFFILIATE.boticario || '27065696';
+      let brandHost = 'minhaloja.boticario.com.br';
+      if (host.includes('eudora.com')) brandHost = 'minhaloja.eudora.com.br';
+      else if (host.includes('quemdisseberenice.com')) brandHost = 'minhaloja.quemdisseberenice.com.br';
+      else if (host.includes('ouiparis.com')) brandHost = 'minhaloja.ouiparis.com.br';
+
+      if (host.startsWith('minhaloja.')) {
+        urlObj.pathname = urlObj.pathname.replace(/\/redirect\/[^\/]+/, `/redirect/${botId}`);
+        if (!urlObj.pathname.includes('/redirect/')) {
+          urlObj.pathname = `/redirect/${botId}/`;
+        }
+        urlObj.searchParams.set('origin', 'boticario');
+        urlObj.searchParams.set('utm_source', 'portal_bot');
+        urlObj.searchParams.set('utm_medium', 'precosmart');
+        return urlObj.toString();
+      }
+
+      return `https://${brandHost}/redirect/${botId}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`;
+    }
+
+    // 6. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
@@ -240,6 +268,10 @@ async function processMessageText(text) {
                     lowLong.includes('magazinevoce.') || 
                     lowLong.includes('magazineluiza.') || 
                     lowLong.includes('maga.lu') ||
+                    lowLong.includes('boticario.com') ||
+                    lowLong.includes('eudora.com') ||
+                    lowLong.includes('quemdisseberenice.com') ||
+                    lowLong.includes('ouiparis.com') ||
                     lowLong.includes('kabum.') ||
                     lowLong.includes('casasbahia.');
 
@@ -258,6 +290,7 @@ async function processMessageText(text) {
 
   const badge = detectUrgencyBadge(newText);
   const isMagalu = newText.includes('magazinevoce.com.br') || newText.includes('magazineluiza.com.br');
+  const isBoticario = newText.includes('boticario.com') || newText.includes('eudora.com') || newText.includes('quemdisseberenice.com') || newText.includes('ouiparis.com');
   const detectedPrice = extractPriceFromText(newText);
   let dealBadge = '';
   if (detectedPrice) {
@@ -267,9 +300,12 @@ async function processMessageText(text) {
     }
   }
 
-  const footer = isMagalu
-    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
-    : '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
+  let footer = '\n\n🔥 *Oferta Exclusiva PreçoSmart* 🔥';
+  if (isMagalu) {
+    footer = '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip';
+  } else if (isBoticario) {
+    footer = '\n\n🌸 *Consultor Autorizado Grupo Boticário* 🌸\n🔒 *Produtos 100% Originais Direto da Marca*\n✨ *Compre Online e Receba em Casa*';
+  }
 
   newText = badge + newText.trim() + dealBadge + footer;
   return newText;

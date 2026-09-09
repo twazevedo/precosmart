@@ -28,6 +28,8 @@ services:
         value: "precosmartvip"
       - key: AFFILIATE_AWIN
         value: "3077915"
+      - key: AFFILIATE_BOTICARIO
+        value: "27065696"
       - key: NODE_ENV
         value: production
       - key: TELEGRAM_BOT_TOKEN
