@@ -821,7 +821,7 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
-const { processMessageText, extractProductKeyword, extractCanonicalId } = require('./mirror');
+const { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage } = require('./mirror');
 
 const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
@@ -982,12 +982,32 @@ async function startBot() {
       }
 
       try {
+        // 📸 Garante que a oferta seja enviada com a foto oficial do produto
+        let imgPayload = null;
+        if (deal.buffer) {
+          imgPayload = deal.buffer;
+        } else if (deal.imageUrl) {
+          imgPayload = { url: deal.imageUrl };
+        } else if (deal.text) {
+          const urlMatch = deal.text.match(/(https?:\/\/[^\s]+)/);
+          if (urlMatch) {
+            try {
+              const ogImg = await fetchOgImage(urlMatch[1]);
+              if (ogImg) {
+                deal.imageUrl = ogImg;
+                imgPayload = { url: ogImg };
+                logEntry('IMG', `Foto oficial extraída do produto: ${ogImg.substring(0, 50)}...`);
+              }
+            } catch (ogErr) {}
+          }
+        }
+
         for (const targetJid of jidsToSend) {
           try {
-            if (deal.type === 'image' && deal.buffer) {
-              await waSocket.sendMessage(targetJid, { image: deal.buffer, caption: deal.text });
-            } else if (deal.type === 'video' && deal.buffer) {
+            if (deal.type === 'video' && deal.buffer) {
               await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
+            } else if (imgPayload) {
+              await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
             } else {
               await waSocket.sendMessage(targetJid, { text: deal.text });
             }
@@ -1003,7 +1023,7 @@ async function startBot() {
         broadcastTelegramDeal({
           text: deal.text,
           title: deal.keyword || 'Oferta PreçoSmart',
-          imageUrl: deal.imageUrl,
+          imageUrl: deal.imageUrl || (imgPayload && imgPayload.url ? imgPayload.url : null),
           url: deal.finalUrl || deal.url
         }).catch(() => {});
 
@@ -1012,8 +1032,8 @@ async function startBot() {
           const matchedAlerts = checkMatchingAlerts(deal.text);
           for (const m of matchedAlerts) {
             const alertNotice = `🔔 *ALERTA PREÇOSMART:* O produto que você estava monitorando (*${m.query}*) acabou de entrar em oferta!\n\n${deal.text}`;
-            if (deal.type === 'image' && deal.buffer) {
-              await waSocket.sendMessage(m.userJid, { image: deal.buffer, caption: alertNotice });
+            if (imgPayload) {
+              await waSocket.sendMessage(m.userJid, { image: imgPayload, caption: alertNotice });
             } else {
               await waSocket.sendMessage(m.userJid, { text: alertNotice });
             }
@@ -1354,6 +1374,20 @@ async function startBot() {
 
           const newText = await processMessageText(content || '');
           
+          let imgToSend = buffer;
+          if (!imgToSend && (newText || content)) {
+            const urlMatch = (newText || content).match(/(https?:\/\/[^\s]+)/);
+            if (urlMatch) {
+              try {
+                const foundOg = await fetchOgImage(urlMatch[1]);
+                if (foundOg) {
+                  imgToSend = { url: foundOg };
+                  mediaType = 'image';
+                }
+              } catch (e) {}
+            }
+          }
+
           const jidsToSend = getTargetJids();
 
           if (jidsToSend.length === 0) {
@@ -1364,8 +1398,8 @@ async function startBot() {
           // Prioridade do Dono: Fura a fila e envia imediatamente para todos os VIPs!
           for (const targetJid of jidsToSend) {
             try {
-              if (mediaType === 'image' && buffer) {
-                await waSocket.sendMessage(targetJid, { image: buffer, caption: newText || content });
+              if (mediaType === 'image' && imgToSend) {
+                await waSocket.sendMessage(targetJid, { image: imgToSend, caption: newText || content });
               } else if (mediaType === 'video' && buffer) {
                 await waSocket.sendMessage(targetJid, { video: buffer, caption: newText || content });
               } else {
@@ -1379,7 +1413,8 @@ async function startBot() {
           dispatchToInstagram({ type: mediaType, buffer, text: newText || content }).catch(() => {});
           broadcastTelegramDeal({
             text: newText || content,
-            title: 'Oferta PreçoSmart'
+            title: 'Oferta PreçoSmart',
+            imageUrl: imgToSend && imgToSend.url ? imgToSend.url : null
           }).catch(() => {});
 
           await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });

@@ -332,4 +332,24 @@ function extractCanonicalId(url) {
   return null;
 }
 
-module.exports = { processMessageText, extractProductKeyword, extractCanonicalId };
+async function fetchOgImage(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      timeout: 4500,
+      maxRedirects: 4
+    });
+    if (typeof res.data !== 'string') return null;
+    const match = res.data.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+                  res.data.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
+    return match ? match[1] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+module.exports = { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage };
