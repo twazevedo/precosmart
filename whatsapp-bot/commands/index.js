@@ -16,6 +16,7 @@ function registerCommand(cmdModule) {
 registerCommand(require('./shopee'));
 registerCommand(require('./magalu'));
 registerCommand(require('./boticario'));
+registerCommand(require('./catalogo'));
 registerCommand(require('./crawler'));
 registerCommand(require('./top'));
 registerCommand(require('./garimpar'));
