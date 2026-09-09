@@ -30,6 +30,10 @@ services:
         value: "3077915"
       - key: NODE_ENV
         value: production
+      - key: TELEGRAM_BOT_TOKEN
+        value: "8661370793:AAFsfY6NTmzGgxZMbrQ6Gr3SNvrZoyUiaWs"
+      - key: TELEGRAM_CHAT_ID
+        value: "@precosmart"
     disk:
       name: whatsapp-session
       mountPath: /opt/render/project/src/session
