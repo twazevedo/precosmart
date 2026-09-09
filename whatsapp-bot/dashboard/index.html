@@ -211,6 +211,9 @@
         <button class="btn btn-primary" id="btn-send-welcome" disabled onclick="sendWelcome()">
           👋 Enviar Boas-Vindas
         </button>
+        <button class="btn btn-primary" id="btn-send-boticario" style="background: linear-gradient(135deg, #be185d, #db2777); border: none;" disabled onclick="sendBoticario()">
+          🌸 Disparar O Boticário
+        </button>
         <button class="btn btn-outline" id="btn-run-crawler" onclick="runCrawler()">
           🕷️ Executar Crawler de Ofertas
         </button>
@@ -312,8 +315,8 @@
       $('stat-clicks').textContent = d.analytics?.totalClicks ?? 0;
 
       // Buttons
-      const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome'];
-      btns.forEach((id) => $(id).disabled = !d.connected);
+      const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome', 'btn-send-boticario'];
+      btns.forEach((id) => { const el = $(id); if (el) el.disabled = !d.connected; });
 
       // QR Section
       await fetchQR(d);
@@ -414,6 +417,19 @@
       else      toast(`❌ Erro: ${d.error}`, '#ef4444');
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '👋 Enviar Boas-Vindas';
+    fetchLogs();
+  }
+
+  async function sendBoticario() {
+    const btn = $('btn-send-boticario');
+    btn.disabled = true; btn.textContent = 'Enviando...';
+    try {
+      const r = await fetch('/api/send-boticario', { method: 'POST' });
+      const d = await r.json();
+      if (d.ok) toast(`🌸 Oferta Boticário Enviada: ${d.product}`, '#ec4899');
+      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+    } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
+    btn.disabled = false; btn.textContent = '🌸 Disparar O Boticário';
     fetchLogs();
   }
 

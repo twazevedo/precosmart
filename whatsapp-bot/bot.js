@@ -502,6 +502,26 @@ app.post('/api/send-magalu', requireApiAuth, async (req, res) => {
   }
 });
 
+app.post('/api/send-boticario', requireApiAuth, async (req, res) => {
+  if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
+  try {
+    const boticarioProducts = PRODUCTS.filter(p => 
+      p.quotes.some(q => q.store === 'O Boticário' || q.store === 'Boticário' || q.store === 'Eudora')
+    );
+    if (boticarioProducts.length === 0) return res.status(404).json({ error: 'Nenhum produto do Grupo Boticário encontrado' });
+
+    const product = boticarioProducts[Math.floor(Math.random() * boticarioProducts.length)];
+    registerSentDeal(['bot_' + product.id], product.title, product.title);
+
+    const caption = buildOfferMessage(product);
+    await sendProductMessage(product, caption);
+    logEntry('MANUAL', `Oferta Grupo Boticário enviada com foto oficial: ${product.title}`);
+    res.json({ ok: true, product: product.title, store: 'O Boticário' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/send-now', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
