@@ -381,14 +381,29 @@
     } catch(e) {}
   }
 
+  function authHeaders() {
+    const key = localStorage.getItem('precosmart_api_key') || '';
+    return key ? { 'X-API-KEY': key } : {};
+  }
+
+  function handleAuthError(d) {
+    if (d.error && (d.error.includes('Não autorizado') || d.error.includes('bloqueado'))) {
+      const k = prompt('🔒 Digite sua API_SECRET_KEY para autenticar as ações administrativas:');
+      if (k) {
+        localStorage.setItem('precosmart_api_key', k.trim());
+        toast('Chave de API salva no navegador!', '#10b981');
+      }
+    }
+  }
+
   async function sendNow() {
     const btn = $('btn-send-now');
     btn.disabled = true; btn.textContent = 'Enviando...';
     try {
-      const r = await fetch('/api/send-now', { method: 'POST' });
+      const r = await fetch('/api/send-now', { method: 'POST', headers: authHeaders() });
       const d = await r.json();
       if (d.ok) toast(`✅ Oferta enviada: ${d.product}`, '#10b981');
-      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+      else      { toast(`❌ Erro: ${d.error}`, '#ef4444'); handleAuthError(d); }
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '⚡ Enviar Oferta Agora';
     fetchLogs();
@@ -398,10 +413,10 @@
     const btn = $('btn-send-flash');
     btn.disabled = true; btn.textContent = 'Disparando...';
     try {
-      const r = await fetch('/api/send-flash', { method: 'POST' });
+      const r = await fetch('/api/send-flash', { method: 'POST', headers: authHeaders() });
       const d = await r.json();
       if (d.ok) toast(`🚨 Flash Sale: ${d.product}`, '#f59e0b');
-      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+      else      { toast(`❌ Erro: ${d.error}`, '#ef4444'); handleAuthError(d); }
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '🚨 Disparar Flash Sale';
     fetchLogs();
@@ -411,10 +426,10 @@
     const btn = $('btn-send-welcome');
     btn.disabled = true; btn.textContent = 'Enviando...';
     try {
-      const r = await fetch('/api/send-welcome', { method: 'POST' });
+      const r = await fetch('/api/send-welcome', { method: 'POST', headers: authHeaders() });
       const d = await r.json();
       if (d.ok) toast('👋 Boas-vindas enviadas!', '#6366f1');
-      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+      else      { toast(`❌ Erro: ${d.error}`, '#ef4444'); handleAuthError(d); }
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '👋 Enviar Boas-Vindas';
     fetchLogs();
@@ -424,10 +439,10 @@
     const btn = $('btn-send-boticario');
     btn.disabled = true; btn.textContent = 'Enviando...';
     try {
-      const r = await fetch('/api/send-boticario', { method: 'POST' });
+      const r = await fetch('/api/send-boticario', { method: 'POST', headers: authHeaders() });
       const d = await r.json();
       if (d.ok) toast(`🌸 Oferta Boticário Enviada: ${d.product}`, '#ec4899');
-      else      toast(`❌ Erro: ${d.error}`, '#ef4444');
+      else      { toast(`❌ Erro: ${d.error}`, '#ef4444'); handleAuthError(d); }
     } catch(e) { toast('❌ Falha na requisição', '#ef4444'); }
     btn.disabled = false; btn.textContent = '🌸 Disparar O Boticário';
     fetchLogs();
@@ -438,12 +453,13 @@
     btn.disabled = true; btn.textContent = 'Varrendo feeds...';
     toast('🕷️ Executando crawler de ofertas nos feeds...', '#6366f1');
     try {
-      const r = await fetch('/api/crawler/run', { method: 'POST' });
+      const r = await fetch('/api/crawler/run', { method: 'POST', headers: authHeaders() });
       const d = await r.json();
       if (d.ok) {
         toast(`✅ Crawler adicionou ${d.count} ofertas à fila!`, '#10b981');
       } else {
         toast(`❌ Erro: ${d.error}`, '#ef4444');
+        handleAuthError(d);
       }
     } catch(e) {
       toast('❌ Falha ao acionar crawler', '#ef4444');

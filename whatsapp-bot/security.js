@@ -121,10 +121,26 @@ function securityHeaders(req, res, next) {
   next();
 }
 
+/**
+ * Oculta dados pessoais sensíveis (como números de telefone em logs) para conformidade com a LGPD
+ */
+function maskSensitiveData(str) {
+  if (!str || typeof str !== 'string') return str;
+  return str.replace(/(\b55\d{2}\d{1,2})(\d{4})(\d{4}\b)/g, '$1****$3')
+            .replace(/(\b55\d{2})(\d{4,5})(\d{4}\b)/g, '$1****$3')
+            .replace(/(\d{8,15})@s\.whatsapp\.net/g, (match, p1) => {
+              const start = p1.substring(0, 4);
+              const end = p1.slice(-4);
+              return `${start}****${end}@s.whatsapp.net`;
+            });
+}
+
 module.exports = {
   encryptSecret,
   decryptSecret,
   generateSecureToken,
   requireApiAuth,
-  securityHeaders
+  securityHeaders,
+  maskSensitiveData
 };
+

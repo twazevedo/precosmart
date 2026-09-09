@@ -36,6 +36,10 @@ services:
         value: "8661370793:AAFsfY6NTmzGgxZMbrQ6Gr3SNvrZoyUiaWs"
       - key: TELEGRAM_CHAT_ID
         value: "@precosmart"
+      - key: ENCRYPTION_KEY
+        value: "613ee8b488f6adf14430be38095a042ea87d0ac6b68c26c4380e53529d43deb2"
+      - key: API_SECRET_KEY
+        value: "precosmart_adm_sec_994586"
     disk:
       name: whatsapp-session
       mountPath: /opt/render/project/src/session

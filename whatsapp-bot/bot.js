@@ -36,7 +36,7 @@ const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
-const { requireApiAuth, securityHeaders } = require('./security');
+const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -422,7 +422,7 @@ app.get('/api/status', (req, res) => res.json({
   version:     '2.2.0'
 }));
 
-app.get('/api/alerts', (req, res) => res.json(getAllAlerts()));
+app.get('/api/alerts', requireApiAuth, (req, res) => res.json(getAllAlerts()));
 
 app.get('/r/:code', (req, res) => {
   const target = recordClick(req.params.code);
@@ -434,7 +434,7 @@ app.get('/r/:code', (req, res) => {
 
 app.get('/api/analytics', (req, res) => res.json(getAnalyticsSummary()));
 
-app.post('/api/crawler/run', async (req, res) => {
+app.post('/api/crawler/run', requireApiAuth, async (req, res) => {
   try {
     const deals = await fetchCuratedDeals();
     let count = 0;
@@ -483,7 +483,13 @@ app.get('/api/qr', (req, res) => {
   res.json({ status: 'qr_ready', qr: qrCodeDataUrl });
 });
 
-app.get('/api/logs', (req, res) => res.json(messageLog));
+app.get('/api/logs', (req, res) => {
+  const sanitized = messageLog.map(l => ({
+    ...l,
+    text: maskSensitiveData(l.text)
+  }));
+  res.json(sanitized);
+});
 
 app.post('/api/send-magalu', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
