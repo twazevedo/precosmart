@@ -810,11 +810,12 @@ let sourceGroupJids = [];
 
 async function startBot() {
   let state, saveCreds;
+  let mongoClient = null;
 
   if (process.env.MONGO_URI) {
     try {
       logEntry('BOOT', 'Conectando ao MongoDB...');
-      const mongoClient = new MongoClient(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+      mongoClient = new MongoClient(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
       await mongoClient.connect();
       const collection = mongoClient.db('precosmart').collection('auth_info');
       const auth = await useMongoDBAuthState(collection);
@@ -910,8 +911,16 @@ async function startBot() {
       if (isLoggedOut) {
         try {
           fs.rmSync(SESSION_DIR, { recursive: true, force: true });
-          logEntry('BOOT', 'Pasta session limpa após logout 401. Gerando novo QR Code...');
-        } catch(e) {}
+          // Limpa sessão corrompida do MongoDB para evitar loop infinito de 401
+          if (mongoClient) {
+            await mongoClient.db('precosmart').collection('auth_info').deleteMany({});
+            logEntry('BOOT', 'Sessão limpa do MongoDB e pasta local após logout 401. Gerando novo QR Code...');
+          } else {
+            logEntry('BOOT', 'Pasta session limpa após logout 401. Gerando novo QR Code...');
+          }
+        } catch(e) {
+          logEntry('WARN', 'Erro ao limpar sessão: ' + e.message);
+        }
         setTimeout(startBot, 2000);
       } else {
         setTimeout(startBot, 5000);
