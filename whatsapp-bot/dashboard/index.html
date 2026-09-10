@@ -368,12 +368,22 @@
         SERVER: '#64748b', GROUP: '#10b981'
       };
 
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
       const html = logs.slice(0, 30).map((l) => {
         const color = badgeColors[l.type] || '#64748b';
-        return `<div class="log-item ${l.type}">
-          <span class="log-time">${fmtTime(l.time)}</span>
-          <span class="log-badge" style="background:${color}22; color:${color}">${l.type}</span>
-          <span class="log-text">${l.text}</span>
+        return `<div class="log-item ${escapeHtml(l.type)}">
+          <span class="log-time">${escapeHtml(fmtTime(l.time))}</span>
+          <span class="log-badge" style="background:${color}22; color:${color}">${escapeHtml(l.type)}</span>
+          <span class="log-text">${escapeHtml(l.text)}</span>
         </div>`;
       }).join('');
 

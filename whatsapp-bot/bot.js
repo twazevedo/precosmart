@@ -37,6 +37,7 @@ const { createShortLink, recordClick, getAnalyticsSummary } = require('./analyti
 const { fetchCuratedDeals } = require('./crawler');
 const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
+const { getNextAwinDeal } = require('./awinCatalog');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -477,13 +478,13 @@ app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
   }
 });
 
-app.get('/api/qr', (req, res) => {
+app.get('/api/qr', requireApiAuth, (req, res) => {
   if (isConnected)      return res.json({ status: 'connected', qr: null });
   if (!qrCodeDataUrl)   return res.json({ status: 'waiting',   qr: null });
   res.json({ status: 'qr_ready', qr: qrCodeDataUrl });
 });
 
-app.get('/api/logs', (req, res) => {
+app.get('/api/logs', requireApiAuth, (req, res) => {
   const sanitized = messageLog.map(l => ({
     ...l,
     text: maskSensitiveData(l.text)
@@ -585,7 +586,70 @@ app.post('/api/send-custom', requireApiAuth, async (req, res) => {
   }
 });
 
-app.post('/api/set-instagram-webhook', (req, res) => {
+// ── Rotação Automática de Ofertas AWIN a cada 3 Minutos ─────────────────────────
+async function dispatchNextAwinRotation() {
+  if (isNightQuietHours()) {
+    return null;
+  }
+  try {
+    const deal = await getNextAwinDeal();
+    if (!deal) return null;
+
+    logEntry('AWIN', `[Rotação 3min] Disparando oferta: ${deal.store} — ${deal.title}`);
+
+    // 1. WhatsApp
+    const jids = getTargetJids();
+    if (isConnected && waSocket && jids.length > 0) {
+      for (const jid of jids) {
+        try {
+          if (deal.imageUrl) {
+            await waSocket.sendMessage(jid, {
+              image: { url: deal.imageUrl },
+              caption: deal.text
+            });
+          } else {
+            await waSocket.sendMessage(jid, { text: deal.text });
+          }
+        } catch (waErr) {
+          logEntry('WARN', `Falha ao enviar AWIN no WhatsApp (${jid}): ${waErr.message}`);
+        }
+      }
+    }
+
+    // 2. Telegram
+    if (isTelegramConfigured()) {
+      await broadcastTelegramDeal({
+        title: deal.title,
+        price: deal.price,
+        url: deal.url,
+        imageUrl: deal.imageUrl,
+        text: deal.text
+      });
+    }
+
+    logEntry('AWIN', `✅ Oferta AWIN enviada com sucesso (${deal.store})`);
+    return deal;
+  } catch (err) {
+    logEntry('ERROR', `Erro na rotação AWIN de 3min: ${err.message}`);
+    return null;
+  }
+}
+
+// Inicia rotação automática contínua de 3 em 3 minutos
+const AWIN_INTERVAL_MS = 3 * 60 * 1000;
+setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
+
+app.post('/api/send-awin', requireApiAuth, async (req, res) => {
+  try {
+    const deal = await dispatchNextAwinRotation();
+    if (!deal) return res.status(500).json({ error: 'Não foi possível disparar oferta AWIN no momento (modo noturno ou desconectado)' });
+    res.json({ ok: true, store: deal.store, title: deal.title, url: deal.url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
   const { webhookUrl } = req.body;
   if (webhookUrl) {
     instagramWebhookUrl = webhookUrl;
@@ -1142,15 +1206,14 @@ async function startBot() {
       const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
       const senderPhone = (msg.key.fromMe ? (sock.user?.id || '') : senderJid).replace(/[^0-9]/g, '');
 
-      // Autorizado se enviado do próprio número (fromMe) OU se bater com qualquer OWNER_NUMBER da lista
-      const isAuthorized = msg.key.fromMe || 
-                           ownerList.length === 0 || 
-                           ownerList.some((owner) => {
-                             const last8 = owner.length >= 8 ? owner.slice(-8) : owner;
-                             return (last8 && senderPhone.includes(last8)) || 
-                                    senderPhone.includes(owner) || 
-                                    owner.includes(senderPhone);
-                           });
+      // Autorizado EXCLUSIVAMENTE se enviado do próprio número (fromMe) OU se constar na lista oficial de donos
+      const isAuthorized = Boolean(
+        msg.key.fromMe || 
+        (ownerList.length > 0 && ownerList.some((owner) => {
+          if (!owner || !senderPhone) return false;
+          return senderPhone === owner || (owner.length >= 10 && senderPhone.endsWith(owner));
+        }))
+      );
 
       logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
 

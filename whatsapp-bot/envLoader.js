@@ -13,12 +13,10 @@ const DEFAULTS = {
   WA_GROUP_NAME: 'PreçoSmart Ofertas 🔥',
   WA_GROUP_INVITE_CODE: 'Lo3ONNfAXVh5cEe2Pg6gM7',
   WA_GROUP_JID: '120363428098199018@g.us',
-  INSTAGRAM_WEBHOOK_URL: 'https://hook.us2.make.com/m4ofe3ag7teo1y5r6qgmxcl7y2igs2le',
   AFFILIATE_AMAZON: 'precosmartapp-20',
   AFFILIATE_ML: 'azs5603820',
   AFFILIATE_SHOPEE: '18361251220',
-  AFFILIATE_MAGALU: 'precosmartvip',
-  OWNER_NUMBER: '5511945868954,5511913157990'
+  AFFILIATE_MAGALU: 'precosmartvip'
 };
 
 const envPath = path.join(__dirname, '.env');

@@ -17,8 +17,8 @@ app.use(compression());
 
 // 🛡️ Autenticação de Operações Administrativas (POST / DELETE / PUT)
 function requireAdminAuth(req, res, next) {
-  // Consultas públicas (GET) continuam liberadas para os usuários do app
-  if (req.method === 'GET') return next();
+  // Consultas públicas (GET) e cálculo da cesta continuam liberadas
+  if (req.method === 'GET' || req.path === '/basket/optimize') return next();
 
   const apiKey = req.headers['x-api-key'] || (req.headers['authorization']?.replace(/^Bearer\s+/i, ''));
   const configuredKey = process.env.API_SECRET_KEY;
@@ -33,6 +33,13 @@ app.use('/api', requireAdminAuth);
 
 // 🛡️ Rate Limiting Leve (Anti-DoS e Anti-Bombardeio)
 const requestCounts = new Map();
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, r] of requestCounts.entries()) {
+    if (now > r.resetTime) requestCounts.delete(ip);
+  }
+}, 60 * 1000);
+
 app.use((req, res, next) => {
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
   const now = Date.now();

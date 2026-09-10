@@ -24,7 +24,8 @@ function getMasterKey() {
     console.warn('[ALERTA DE SEGURANÇA] ENCRYPTION_KEY não configurada! Usando chave gerada aleatoriamente em memória.');
   }
   const pass = secret || crypto.randomBytes(32).toString('hex');
-  cachedMasterKey = crypto.scryptSync(pass, 'precosmart_salt_fixed', 32);
+  const salt = process.env.ENCRYPTION_SALT || 'precosmart_salt_sec_2026';
+  cachedMasterKey = crypto.scryptSync(pass, salt, 32);
   return cachedMasterKey;
 }
 
@@ -95,8 +96,12 @@ function requireApiAuth(req, res, next) {
   const clientKey = req.headers['x-api-key'] || 
                    (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null);
 
-  if (clientKey && clientKey === configuredKey) {
-    return next();
+  if (clientKey && configuredKey) {
+    const bufClient = Buffer.from(String(clientKey));
+    const bufConfig = Buffer.from(String(configuredKey));
+    if (bufClient.length === bufConfig.length && crypto.timingSafeEqual(bufClient, bufConfig)) {
+      return next();
+    }
   }
 
   if (isLocalhost) {

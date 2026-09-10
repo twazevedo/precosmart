@@ -37,7 +37,7 @@ async function broadcastTelegramDeal(deal) {
       ],
       [
         { text: '🌐 Ver no PreçoSmart', url: 'https://precosmart.com.br' },
-        { text: '👥 Grupo VIP WhatsApp', url: 'https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7' }
+        { text: '👥 Grupo VIP WhatsApp', url: process.env.WA_GROUP_INVITE_CODE ? `https://chat.whatsapp.com/${process.env.WA_GROUP_INVITE_CODE}` : 'https://precosmart.com.br' }
       ]
     ]
   };

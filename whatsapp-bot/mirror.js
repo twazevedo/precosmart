@@ -26,7 +26,22 @@ function extractProductKeyword(text) {
   return 'Oferta';
 }
 
+function isSafePublicUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+    const h = parsed.hostname.toLowerCase();
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return false;
+    if (h.startsWith('10.') || h.startsWith('192.168.') || h.startsWith('169.254.')) return false;
+    if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)) return false;
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 async function expandUrl(url) {
+  if (!isSafePublicUrl(url)) return url;
   const options = {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -39,7 +54,7 @@ async function expandUrl(url) {
   try {
     const resHead = await axios.head(url, options);
     const finalUrl = resHead.request?.res?.responseUrl || resHead.headers?.location || url;
-    if (finalUrl !== url) return finalUrl;
+    if (finalUrl !== url && isSafePublicUrl(finalUrl)) return finalUrl;
   } catch (e) {}
 
   try {
@@ -48,7 +63,8 @@ async function expandUrl(url) {
     if (res.data && typeof res.data.destroy === 'function') {
       res.data.destroy();
     }
-    return finalUrl;
+    if (isSafePublicUrl(finalUrl)) return finalUrl;
+    return url;
   } catch (e) {
     return url;
   }
@@ -86,6 +102,11 @@ async function resolveMLSocialToDirect(socialUrl, keyword) {
 async function replaceAffiliateTags(longUrl, productKeyword) {
   try {
     const urlObj = new URL(longUrl);
+    
+    // 0. AWIN e links já encurtados/afiliados da rede AWIN
+    if (urlObj.hostname.includes('awin1.com') || urlObj.hostname.includes('tidd.ly')) {
+      return longUrl;
+    }
     
     // 1. Amazon
     if (urlObj.hostname.includes('amazon.')) {
