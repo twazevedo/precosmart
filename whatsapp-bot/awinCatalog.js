@@ -55,24 +55,7 @@ const AWIN_DEALS = [
     ]
   },
 
-  // 3. UNDER ARMOUR BR (INSCRITO OFICIAL - ID: 18864)
-  {
-    store: 'Under Armour Brasil',
-    mid: 18864,
-    targetUrl: 'https://www.underarmour.com.br',
-    title: 'Tênis de Treino, Corrida & Camisetas Compressão',
-    price: 'Tecnologia Oficial Under Armour',
-    discount: 'Até 40% OFF',
-    imageUrl: 'https://images.unsplash.com/photo-1579338559194-a162d19bf842?q=80&w=800',
-    badge: '🔥 *UNDER ARMOUR OFICIAL: ALTA PERFORMANCE* 🏋️‍♂️👟',
-    highlights: [
-      'Tênis de treino, academia e corrida com alta estabilidade',
-      'Camisetas de compressão HeatGear e vestuário esportivo',
-      'Loja oficial com garantia de procedência e entrega rápida'
-    ]
-  },
-
-  // 4. NIKE BR
+  // 3. NIKE BR
   {
     store: 'Nike Oficial',
     mid: 17652,
