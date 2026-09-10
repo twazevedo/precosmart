@@ -204,7 +204,21 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://${brandHost}/redirect/${botId}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`;
     }
 
-    // 6. Domínios externos e intermediários:
+    // 6. KaBuM! (AWIN - MID 17729)
+    if (urlObj.hostname.includes('kabum.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanKabum = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=17729&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanKabum)}`;
+    }
+
+    // 7. Clovis Calçados (AWIN - MID 107702)
+    if (urlObj.hostname.includes('clovis.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanClovis = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=107702&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanClovis)}`;
+    }
+
+    // 8. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
