@@ -102,9 +102,6 @@ Aqui você recebe automaticamente:
    🔔 18:00 — Oferta #2
    🌙 21:00 — Oferta #3 ou Flash Sale
 
-✈️ *Canal VIP Oficial no Telegram:*
-👉 https://t.me/+VLYDUl2KP78xNTg5
-
 Divulgue o grupo para seus amigos! 💚`;
 }
 
