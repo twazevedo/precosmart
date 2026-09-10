@@ -119,6 +119,9 @@ ${highlightsText}
 🛒 *Compre com desconto verificado aqui:*
 👉 ${shortUrl}
 
+✈️ *Mais ofertas e cupons exclusivos no Telegram:*
+👉 https://t.me/+VLYDUl2KP78xNTg5
+
 ⚠️ *Aviso:* Estoque e preços podem variar a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
 
   return {
