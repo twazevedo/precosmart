@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
+import crypto from 'node:crypto';
 import { db, initDB } from './db.js';
 
 initDB();
@@ -24,9 +25,18 @@ function requireAdminAuth(req, res, next) {
   const configuredKey = process.env.API_SECRET_KEY;
   const isLocal = req.ip?.includes('127.0.0.1') || req.ip?.includes('::1');
 
-  if ((configuredKey && apiKey === configuredKey) || isLocal) {
+  if (configuredKey && apiKey) {
+    const bufKey = Buffer.from(String(apiKey));
+    const bufConfig = Buffer.from(String(configuredKey));
+    if (bufKey.length === bufConfig.length && crypto.timingSafeEqual(bufKey, bufConfig)) {
+      return next();
+    }
+  }
+
+  if (isLocal) {
     return next();
   }
+
   return res.status(401).json({ error: 'Acesso não autorizado para alteração de dados.' });
 }
 app.use('/api', requireAdminAuth);

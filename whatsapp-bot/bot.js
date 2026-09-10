@@ -1637,7 +1637,13 @@ async function startBot() {
       const rawOwners = process.env.OWNER_NUMBER || '';
       const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
       const senderPhoneLocal = (msg.key.fromMe ? (sock.user?.id || '') : (msg.key.participant || msg.key.remoteJid)).replace(/[^0-9]/g, '');
-      const isSenderAuthorized = msg.key.fromMe || ownerList.length === 0 || ownerList.some((o) => senderPhoneLocal.includes(o));
+      const isSenderAuthorized = Boolean(
+        msg.key.fromMe || 
+        (ownerList.length > 0 && ownerList.some((owner) => {
+          if (!owner || !senderPhoneLocal) return false;
+          return senderPhoneLocal === owner || (owner.length >= 10 && senderPhoneLocal.endsWith(owner));
+        }))
+      );
 
       if (!isSenderAuthorized) {
         const msgText = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').toLowerCase();

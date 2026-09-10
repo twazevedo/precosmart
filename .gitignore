@@ -10,6 +10,8 @@ whatsapp-bot/node_modules/
 .env.*.local
 *.env
 whatsapp-bot/.env
+backend/.env
+frontend/.env
 
 # WhatsApp bot session & local state
 whatsapp-bot/session/

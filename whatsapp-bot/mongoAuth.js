@@ -1,15 +1,29 @@
 const { proto, initAuthCreds, BufferJSON } = require('@whiskeysockets/baileys');
+const { encryptSecret, decryptSecret } = require('./security');
 
 async function useMongoDBAuthState(collection) {
     const writeData = async (data, id) => {
-        const informationToStore = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
-        await collection.updateOne({ _id: id }, { $set: { ...informationToStore } }, { upsert: true });
+        try {
+            const raw = JSON.stringify(data, BufferJSON.replacer);
+            const encrypted = encryptSecret(raw);
+            await collection.updateOne({ _id: id }, { $set: { encryptedPayload: encrypted, updatedAt: new Date() } }, { upsert: true });
+        } catch (error) {
+            const informationToStore = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
+            await collection.updateOne({ _id: id }, { $set: { ...informationToStore } }, { upsert: true });
+        }
     };
 
     const readData = async (id) => {
         try {
             const data = await collection.findOne({ _id: id });
-            return data ? JSON.parse(JSON.stringify(data), BufferJSON.reviver) : null;
+            if (!data) return null;
+            if (data.encryptedPayload) {
+                const decrypted = decryptSecret(data.encryptedPayload);
+                if (decrypted) {
+                    return JSON.parse(decrypted, BufferJSON.reviver);
+                }
+            }
+            return JSON.parse(JSON.stringify(data), BufferJSON.reviver);
         } catch (error) {
             return null;
         }
