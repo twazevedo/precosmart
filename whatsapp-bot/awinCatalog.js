@@ -29,8 +29,8 @@ const AWIN_DEALS = [
     title: 'Queima de Estoque Outlet Clovis',
     price: 'A partir de R$ 29,90',
     discount: 'Até 75% OFF',
-    imageUrl: 'https://a1.awin1.com/ads/awin/107702/imgcarnavalofertascriativos1920x1080-1739886030337.jpg',
-    badge: '🚨 *ACHADINHO: OUTLET ABASTECIDO* 👟🔥',
+    imageUrl: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800',
+    badge: '🚨 *ACHADINHO: OUTLET CLOVIS ABASTECIDO* 👟🔥',
     highlights: [
       'Tênis, rasteirinhas e sandálias a preço de atacado',
       'Ponta de estoque com numerações limitadas',
