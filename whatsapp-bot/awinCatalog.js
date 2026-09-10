@@ -55,7 +55,24 @@ const AWIN_DEALS = [
     ]
   },
 
-  // 3. NIKE BR
+  // 3. KABUM! BR (INSCRITO OFICIAL - ID: 17729)
+  {
+    store: 'KaBuM! Brasil Oficial',
+    mid: 17729,
+    targetUrl: 'https://www.kabum.com.br',
+    title: 'Hardware, Periféricos Gamers & Eletrônicos',
+    price: 'Ofertas Ninja com Desconto no PIX',
+    discount: 'Até 60% OFF',
+    imageUrl: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?q=80&w=800',
+    badge: '🎮 *OFERTA NINJA KABUM! BRASIL* ⚡🖥️',
+    highlights: [
+      'SSDs, memórias, mouses, teclados mecânicos e monitores gamers',
+      'Maior e-commerce de tecnologia e games da América Latina',
+      'Descontos exclusivos no PIX e envio rápido com garantia'
+    ]
+  },
+
+  // 4. NIKE BR
   {
     store: 'Nike Oficial',
     mid: 17652,
