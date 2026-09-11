@@ -658,6 +658,30 @@ app.post('/api/send-awin', requireApiAuth, async (req, res) => {
   }
 });
 
+async function dispatchAwinBatch(count = 10, delayMs = 5000) {
+  logEntry('AWIN', `[Blast] Iniciando disparo em lote de ${count} ofertas AWIN seguidas...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await dispatchNextAwinRotation();
+      if (deal) results.push(deal);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} do blast: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('AWIN', `[Blast] Concluído disparo de ${results.length}/${count} ofertas AWIN.`);
+  return results;
+}
+
+app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.body?.count || 10, 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas AWIN iniciado em segundo plano!` });
+  dispatchAwinBatch(count, 5000).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
+});
+
 app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
   const { webhookUrl } = req.body;
   if (webhookUrl) {
@@ -1402,6 +1426,13 @@ async function startBot() {
         const count = dealQueue.length;
         dealQueue.length = 0;
         await replyToUser({ text: `🧹 *Fila Limpa!* Foram removidas ${count} ofertas da fila pendente.` });
+        return;
+      }
+
+      // 7.1 !lancar10 / !blast (Admin) - Dispara 10 ofertas AWIN seguidas com intervalo seguro
+      if (command === '!lancar10' || command === '!blast' || command === '!promocoes10') {
+        await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos para o Grupo VIP e Telegram com intervalo de segurança de 5s.' });
+        dispatchAwinBatch(10, 5000).catch((e) => logEntry('ERROR', 'Erro no !lancar10: ' + e.message));
         return;
       }
 
