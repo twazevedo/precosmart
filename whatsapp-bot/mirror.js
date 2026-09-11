@@ -367,24 +367,86 @@ function extractCanonicalId(url) {
   return null;
 }
 
-async function fetchOgImage(url) {
-  if (!url || typeof url !== 'string') return null;
-  try {
-    const res = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      },
-      timeout: 4500,
-      maxRedirects: 4
-    });
-    if (typeof res.data !== 'string') return null;
-    const match = res.data.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
-                  res.data.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i);
-    return match ? match[1] : null;
-  } catch (e) {
-    return null;
-  }
+const ogImageCache = new Map();
+
+function fetchOgImage(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return Promise.resolve(null);
+  if (ogImageCache.has(urlStr)) return Promise.resolve(ogImageCache.get(urlStr));
+
+  const https = require('https');
+  const http = require('http');
+
+  return new Promise((resolve) => {
+    let currentUrl = urlStr;
+    let redirects = 0;
+
+    function doReq(target) {
+      if (redirects > 6) {
+        ogImageCache.set(urlStr, null);
+        return resolve(null);
+      }
+      let u;
+      try {
+        u = new URL(target, currentUrl);
+        currentUrl = u.href;
+      } catch (e) {
+        ogImageCache.set(urlStr, null);
+        return resolve(null);
+      }
+
+      const client = u.protocol === 'http:' ? http : https;
+      const options = {
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'http:' ? 80 : 443),
+        path: u.pathname + u.search,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9'
+        },
+        timeout: 8000
+      };
+
+      const req = client.get(options, (res) => {
+        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+          redirects++;
+          const nextUrl = new URL(res.headers.location, u.href).href;
+          return doReq(nextUrl);
+        }
+        if (res.statusCode !== 200) {
+          ogImageCache.set(urlStr, null);
+          return resolve(null);
+        }
+
+        let html = '';
+        res.on('data', chunk => {
+          html += chunk;
+          if (html.length > 100000) req.destroy();
+        });
+        res.on('close', () => {
+          const m = html.match(/<meta[^>]*?property=["']og:image["'][^>]*?content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image["']/i) ||
+                    html.match(/<meta[^>]*?name=["']twitter:image["'][^>]*?content=["']([^"']+)["']/i) ||
+                    html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i);
+          const finalImg = m ? m[1] : null;
+          if (finalImg) ogImageCache.set(urlStr, finalImg);
+          resolve(finalImg);
+        });
+      });
+
+      req.on('error', () => {
+        ogImageCache.set(urlStr, null);
+        resolve(null);
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        ogImageCache.set(urlStr, null);
+        resolve(null);
+      });
+    }
+
+    doReq(urlStr);
+  });
 }
 
 module.exports = { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage };

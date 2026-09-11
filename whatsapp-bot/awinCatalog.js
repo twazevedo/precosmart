@@ -88,23 +88,11 @@ function getProductBadge(title = '') {
 }
 
 /**
- * Retorna uma imagem padrão de categoria caso o produto não tenha og:image
+ * Se o produto não tiver og:image oficial, NUNCA enviamos fotos genéricas ou falsas.
+ * Retorna null para que a mensagem seja enviada como texto verificado sem induzir o cliente a erro.
  */
-function getFallbackImage(title = '') {
-  const t = title.toLowerCase();
-  if (t.includes('monitor') || t.includes('tv')) {
-    return 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?q=80&w=800';
-  }
-  if (t.includes('mouse') || t.includes('teclado') || t.includes('headset') || t.includes('gamer')) {
-    return 'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?q=80&w=800';
-  }
-  if (t.includes('ssd') || t.includes('hardware') || t.includes('placa') || t.includes('ryzen') || t.includes('intel')) {
-    return 'https://images.unsplash.com/photo-1591799264318-7e6ef8ddb7ea?q=80&w=800';
-  }
-  if (t.includes('calçado') || t.includes('tênis') || t.includes('melissa')) {
-    return 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800';
-  }
-  return 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=800';
+function getFallbackImage() {
+  return null;
 }
 
 /**
@@ -130,9 +118,6 @@ async function getNextAwinDeal() {
       try {
         imageUrl = await fetchOgImage(v.deeplink);
       } catch (e) {}
-    }
-    if (!imageUrl) {
-      imageUrl = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=800';
     }
 
     const text = `🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥
@@ -167,7 +152,7 @@ async function getNextAwinDeal() {
   const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
 
-  // Tenta extrair a foto real da página do produto (OG Image)
+  // Tenta extrair a foto real da página do produto (OG Image oficial do lojista)
   let imageUrl = null;
   if (targetUrl) {
     try {
@@ -175,7 +160,7 @@ async function getNextAwinDeal() {
     } catch (e) {}
   }
   if (!imageUrl) {
-    imageUrl = getFallbackImage(p.title);
+    imageUrl = getFallbackImage();
   }
 
   const badge = getProductBadge(p.title);
