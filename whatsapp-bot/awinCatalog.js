@@ -144,25 +144,17 @@ async function getNextAwinDeal() {
     };
   }
 
-  // Vez de produto real
-  const p = awinMasterData.products[productIndex];
-  productIndex = (productIndex + 1) % awinMasterData.products.length;
+  // Vez de produto real: APENAS seleciona produtos com foto oficial verificada
+  const validProducts = (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
+  const list = validProducts.length > 0 ? validProducts : awinMasterData.products;
+  const p = list[productIndex % list.length];
+  productIndex = (productIndex + 1) % list.length;
 
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
 
-  // Tenta extrair a foto real da página do produto (OG Image oficial do lojista)
-  let imageUrl = null;
-  if (targetUrl) {
-    try {
-      imageUrl = await fetchOgImage(targetUrl);
-    } catch (e) {}
-  }
-  if (!imageUrl) {
-    imageUrl = getFallbackImage();
-  }
-
+  const imageUrl = p.imageUrl || null;
   const badge = getProductBadge(p.title);
   const storeName = p.advertiser || 'KaBuM! Brasil Oficial';
 
@@ -222,17 +214,14 @@ function formatVoucherList() {
  * Retorna uma oferta real e verificada da KaBuM com foto oficial em alta definição
  */
 async function getSpecificKabumDeal(index = 0) {
-  const kabumList = (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.deeplink);
-  const p = kabumList[index % kabumList.length] || awinMasterData.products[0];
+  const kabumList = (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.imageUrl && p.imageUrl.startsWith('http'));
+  const list = kabumList.length > 0 ? kabumList : (awinMasterData.products || []);
+  const p = list[index % list.length];
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl('17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
 
-  let imageUrl = null;
-  try {
-    imageUrl = await fetchOgImage(targetUrl);
-  } catch (e) {}
-
+  const imageUrl = p.imageUrl || null;
   const badge = getProductBadge(p.title);
   const text = `${badge}
 

@@ -677,6 +677,27 @@ app.get('/api/trigger-lancar', async (req, res) => {
 });
 
 // Endpoint direto para disparo de teste de 1 oferta oficial da KaBuM com foto real
+app.get('/api/debug-kabum', (req, res) => {
+  const https = require('https');
+  const target = req.query.url || 'https://www.kabum.com.br/produto/509367';
+  const reqKabum = https.get(target, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9'
+    },
+    timeout: 8000
+  }, (r) => {
+    let body = '';
+    r.on('data', c => { if (body.length < 2000) body += c; });
+    r.on('end', () => {
+      res.json({ statusCode: r.statusCode, location: r.headers.location, preview: body.substring(0, 500) });
+    });
+  });
+  reqKabum.on('error', e => res.json({ error: e.message }));
+  reqKabum.on('timeout', () => { reqKabum.destroy(); res.json({ error: 'timeout' }); });
+});
+
 app.get('/api/test-kabum', async (req, res) => {
   try {
     const idx = parseInt(req.query.i || '0', 10);
