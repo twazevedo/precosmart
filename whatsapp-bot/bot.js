@@ -36,9 +36,8 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
-const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
-const { getNextAwinDeal } = require('./awinCatalog');
+const { getNextAwinDeal, getSpecificKabumDeal } = require('./awinCatalog');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -675,6 +674,64 @@ app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
 app.get('/api/trigger-lancar', async (req, res) => {
   res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
+});
+
+// Endpoint direto para disparo de teste de 1 oferta oficial da KaBuM com foto real
+app.get('/api/test-kabum', async (req, res) => {
+  try {
+    const idx = parseInt(req.query.i || '0', 10);
+    const deal = await getSpecificKabumDeal(idx);
+    if (!deal) return res.status(500).json({ error: 'Oferta KaBuM não encontrada' });
+
+    let sent = false;
+    const jids = getTargetJids();
+    for (const jid of jids) {
+      if (!jid.endsWith('@g.us')) continue;
+      if (deal.imageUrl) {
+        try {
+          const imgRes = await axios.get(deal.imageUrl, {
+            responseType: 'arraybuffer',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            },
+            timeout: 7000
+          });
+          if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const resMsg = await waSocket.sendMessage(jid, {
+              image: Buffer.from(imgRes.data),
+              caption: deal.text
+            });
+            if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+            logEntry('AWIN_WA', `Foto oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
+            sent = true;
+          }
+        } catch (imgErr) {
+          logEntry('WARN', 'Falha ao baixar foto KaBuM: ' + imgErr.message);
+        }
+      }
+      if (!sent) {
+        const resMsg = await waSocket.sendMessage(jid, { text: deal.text });
+        if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+        sent = true;
+      }
+    }
+
+    if (isTelegramConfigured()) {
+      await broadcastTelegramDeal({
+        title: deal.title,
+        price: 'Oferta Especial',
+        url: deal.url,
+        imageUrl: deal.imageUrl,
+        text: deal.text
+      });
+    }
+
+    logEntry('AWIN', `[Teste KaBuM] Oferta postada: ${deal.title}`);
+    res.json({ ok: true, store: deal.store, title: deal.title, imageUrl: deal.imageUrl, sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Endpoint diagnóstico para inspeção de logs recentes

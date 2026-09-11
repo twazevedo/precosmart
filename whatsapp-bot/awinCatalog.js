@@ -218,9 +218,49 @@ function formatVoucherList() {
   return msg;
 }
 
+/**
+ * Retorna uma oferta real e verificada da KaBuM com foto oficial em alta definição
+ */
+async function getSpecificKabumDeal(index = 0) {
+  const kabumList = (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.deeplink);
+  const p = kabumList[index % kabumList.length] || awinMasterData.products[0];
+  const targetUrl = p.deeplink || 'https://www.kabum.com.br';
+  const rawUrl = p.deeplinkTracking || buildAwinUrl('17729', targetUrl);
+  const shortUrl = await shortenUrl(rawUrl);
+
+  let imageUrl = null;
+  try {
+    imageUrl = await fetchOgImage(targetUrl);
+  } catch (e) {}
+
+  const badge = getProductBadge(p.title);
+  const text = `${badge}
+
+🏷️ *${p.title}*
+🏪 *Loja:* KaBuM! Brasil Oficial
+💰 *Condição:* Desconto exclusivo no Pix ou Parcelado
+🚚 *Entrega:* Envio rápido e garantia oficial
+
+🛒 *Compre com desconto verificado aqui:*
+👉 ${shortUrl}
+
+⚠️ *Aviso:* Preço promocional e estoque podem variar a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'KaBuM! Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
+  getSpecificKabumDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData
