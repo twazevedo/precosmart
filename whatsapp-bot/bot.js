@@ -739,6 +739,79 @@ app.get('/api/test-send', async (req, res) => {
   }
 });
 
+// Endpoint diagnóstico completo de saúde do servidor, disco, memória e erros
+app.get('/api/server-health', async (req, res) => {
+  const os = require('os');
+  let diskRoot = null;
+  let diskSession = null;
+  try {
+    if (fs.statfsSync) {
+      const sRoot = fs.statfsSync('/');
+      diskRoot = {
+        totalGB: ((sRoot.bsize * sRoot.blocks) / 1024 / 1024 / 1024).toFixed(2),
+        freeGB: ((sRoot.bsize * sRoot.bfree) / 1024 / 1024 / 1024).toFixed(2),
+        availableGB: ((sRoot.bsize * sRoot.bavail) / 1024 / 1024 / 1024).toFixed(2)
+      };
+      if (fs.existsSync(SESSION_DIR)) {
+        const sSess = fs.statfsSync(SESSION_DIR);
+        diskSession = {
+          totalGB: ((sSess.bsize * sSess.blocks) / 1024 / 1024 / 1024).toFixed(2),
+          freeGB: ((sSess.bsize * sSess.bfree) / 1024 / 1024 / 1024).toFixed(2),
+          availableGB: ((sSess.bsize * sSess.bavail) / 1024 / 1024 / 1024).toFixed(2)
+        };
+      }
+    }
+  } catch (e) { diskRoot = { error: e.message }; }
+
+  let sessionFilesCount = 0;
+  let sessionSizeBytes = 0;
+  try {
+    if (fs.existsSync(SESSION_DIR)) {
+      const files = fs.readdirSync(SESSION_DIR);
+      sessionFilesCount = files.length;
+      for (const f of files) {
+        try { sessionSizeBytes += fs.statSync(path.join(SESSION_DIR, f)).size; } catch (e) {}
+      }
+    }
+  } catch (e) {}
+
+  res.json({
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime()),
+    os: {
+      platform: process.platform,
+      arch: process.arch,
+      totalMemMB: Math.round(os.totalmem() / 1024 / 1024),
+      freeMemMB: Math.round(os.freemem() / 1024 / 1024),
+      loadAvg: os.loadavg ? os.loadavg() : []
+    },
+    processMemoryMB: {
+      rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+      heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024)
+    },
+    disk: {
+      root: diskRoot,
+      sessionDisk: diskSession
+    },
+    storage: {
+      hasMongoUri: !!process.env.MONGO_URI,
+      sessionDir: SESSION_DIR,
+      sessionDirExists: fs.existsSync(SESSION_DIR),
+      sessionFilesCount,
+      sessionSizeMB: (sessionSizeBytes / 1024 / 1024).toFixed(2)
+    },
+    whatsapp: {
+      connected: isConnected,
+      user: waSocket?.user || null,
+      targetGroup: TARGET_GROUP,
+      groupJid,
+      wsState: waSocket?.ws?.readyState
+    },
+    recentErrors: messageLog.filter(l => l.type === 'ERROR' || l.type === 'WARN' || l.type === 'FATAL').slice(0, 15)
+  });
+});
+
 app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
   const { webhookUrl } = req.body;
   if (webhookUrl) {
