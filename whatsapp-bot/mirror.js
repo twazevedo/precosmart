@@ -379,19 +379,23 @@ function fetchOgImage(urlStr) {
   return new Promise((resolve) => {
     let currentUrl = urlStr;
     let redirects = 0;
+    let isSettled = false;
+
+    function finish(result) {
+      if (isSettled) return;
+      isSettled = true;
+      if (result) ogImageCache.set(urlStr, result);
+      resolve(result || null);
+    }
 
     function doReq(target) {
-      if (redirects > 6) {
-        ogImageCache.set(urlStr, null);
-        return resolve(null);
-      }
+      if (redirects > 6) return finish(null);
       let u;
       try {
         u = new URL(target, currentUrl);
         currentUrl = u.href;
       } catch (e) {
-        ogImageCache.set(urlStr, null);
-        return resolve(null);
+        return finish(null);
       }
 
       const client = u.protocol === 'http:' ? http : https;
@@ -404,44 +408,48 @@ function fetchOgImage(urlStr) {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'pt-BR,pt;q=0.9'
         },
-        timeout: 8000
+        timeout: 6000
       };
 
       const req = client.get(options, (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           redirects++;
           const nextUrl = new URL(res.headers.location, u.href).href;
+          req.destroy();
           return doReq(nextUrl);
         }
         if (res.statusCode !== 200) {
-          ogImageCache.set(urlStr, null);
-          return resolve(null);
+          req.destroy();
+          return finish(null);
         }
 
         let html = '';
         res.on('data', chunk => {
+          if (isSettled) return;
           html += chunk;
-          if (html.length > 100000) req.destroy();
-        });
-        res.on('close', () => {
           const m = html.match(/<meta[^>]*?property=["']og:image["'][^>]*?content=["']([^"']+)["']/i) ||
                     html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image["']/i) ||
                     html.match(/<meta[^>]*?name=["']twitter:image["'][^>]*?content=["']([^"']+)["']/i) ||
                     html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i);
-          const finalImg = m ? m[1] : null;
-          if (finalImg) ogImageCache.set(urlStr, finalImg);
-          resolve(finalImg);
+          if (m && m[1]) {
+            req.destroy();
+            return finish(m[1]);
+          }
+          if (html.length > 60000) {
+            req.destroy();
+            return finish(null);
+          }
+        });
+
+        res.on('end', () => {
+          if (!isSettled) finish(null);
         });
       });
 
-      req.on('error', () => {
-        ogImageCache.set(urlStr, null);
-        resolve(null);
-      });
+      req.on('error', () => finish(null));
       req.on('timeout', () => {
         req.destroy();
-        ogImageCache.set(urlStr, null);
-        resolve(null);
+        finish(null);
       });
     }
 
