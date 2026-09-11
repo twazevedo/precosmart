@@ -23,7 +23,7 @@ function getMasterKey() {
   if (!secret) {
     console.warn('[ALERTA DE SEGURANÇA] ENCRYPTION_KEY não configurada! Usando chave gerada aleatoriamente em memória.');
   }
-  const pass = secret || crypto.randomBytes(32).toString('hex');
+  const pass = secret || process.env.SESSION_SECRET || 'precosmart_persistent_auth_key_2026_sec';
   const salt = process.env.ENCRYPTION_SALT || 'precosmart_salt_sec_2026';
   cachedMasterKey = crypto.scryptSync(pass, salt, 32);
   return cachedMasterKey;

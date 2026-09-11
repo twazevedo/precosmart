@@ -119,6 +119,8 @@ let qrCodeDataUrl  = null;
 let isConnected    = false;
 let groupJid       = null;
 const messageLog   = [];
+const messageStore = new Map();
+const groupMetadataCache = new Map();
 
 // ── Sistema Anti-Flood e Deduplicação ─────────────────────────────────────────
 const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
@@ -565,6 +567,7 @@ async function dispatchNextAwinRotation(options = {}) {
                 image: Buffer.from(imgRes.data),
                 caption: deal.text
               });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
               logEntry('AWIN_WA', `Foto enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
               sent = true;
             }
@@ -577,6 +580,7 @@ async function dispatchNextAwinRotation(options = {}) {
         if (!sent) {
           try {
             const resMsg = await waSocket.sendMessage(jid, { text: deal.text });
+            if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
             logEntry('AWIN_WA', `Texto enviado para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
             sent = true;
           } catch (waErr) {
@@ -721,6 +725,7 @@ app.get('/api/test-send', async (req, res) => {
   const msg = req.query.text || '🧪 Mensagem de Teste PreçoSmart Bot';
   try {
     const result = await waSocket.sendMessage(target, { text: msg });
+    if (result?.key?.id && result?.message) messageStore.set(result.key.id, result);
     logEntry('TEST_SEND', `Teste enviado para ${target}, id: ${result?.key?.id}`);
     res.json({
       ok: true,
@@ -1028,15 +1033,37 @@ async function startBot() {
   const sock = makeWASocket({
     version,
     auth:         state,
-    logger:       pino({ level: 'silent' }),
+    logger:       pino({ level: 'warn' }),
     printQRInTerminal: true,
     browser:      ['PreçoSmart Bot', 'Chrome', '120.0.0'],
-    syncFullHistory: false
+    syncFullHistory: false,
+    getMessage: async (key) => {
+      const stored = messageStore.get(key.id);
+      return stored?.message || undefined;
+    },
+    cachedGroupMetadata: async (jid) => {
+      if (groupMetadataCache.has(jid)) return groupMetadataCache.get(jid);
+      try {
+        const meta = await sock.groupMetadata(jid);
+        groupMetadataCache.set(jid, meta);
+        return meta;
+      } catch (e) {
+        return undefined;
+      }
+    }
   });
 
   waSocket = sock;
 
   sock.ev.on('creds.update', saveCreds);
+
+  sock.ev.on('messages.update', (updates) => {
+    for (const u of updates) {
+      if (u.update?.status) {
+        logEntry('MSG_STATUS', `Msg ${u.key.id?.substring(0, 12)} status: ${u.update.status}`);
+      }
+    }
+  });
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
@@ -1239,6 +1266,15 @@ async function startBot() {
   });
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
+    for (const m of messages) {
+      if (m?.key?.id && m?.message) {
+        messageStore.set(m.key.id, m);
+        if (messageStore.size > 1000) {
+          const first = messageStore.keys().next().value;
+          messageStore.delete(first);
+        }
+      }
+    }
     const msg = messages[0];
     if (!msg?.message) return;
 
@@ -1275,7 +1311,8 @@ async function startBot() {
 
     async function replyToUser(content) {
       try {
-        await waSocket.sendMessage(cleanReplyJid, content);
+        const res = await waSocket.sendMessage(cleanReplyJid, content);
+        if (res?.key?.id && res?.message) messageStore.set(res.key.id, res);
         logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
       } catch (replyErr) {
         logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
