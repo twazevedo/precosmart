@@ -1127,27 +1127,13 @@ async function startBot() {
     if (!jidsToSend.includes(update.id)) return;
 
     if (update.action === 'add') {
-      for (const participant of update.participants) {
-        try {
-          // Send private welcome message
-          const welcomeMsg = `👋 Olá! Vi que você acabou de entrar no nosso grupo VIP de ofertas do *PreçoSmart*!\n\n` +
-            `Aqui vai uma dica de ouro: sabia que você pode me pedir para vigiar o preço de qualquer produto?\n\n` +
-            `👉 Basta me mandar (aqui no privado ou lá no grupo) o comando:\n` +
-            `*!alerta <nome do produto>*\n\n` +
-            `Exemplo: *!alerta iphone 15*\n\n` +
-            `Assim que a oferta bater na internet, eu te aviso aqui na hora! ⚡\n\n` +
-            `E se você costuma comprar muito na Amazon, aproveite para assinar o Prime por apenas R$ 19,90 e ter Frete Grátis em quase tudo:\n` +
-            `🔗 https://amzn.to/${process.env.AFFILIATE_AMAZON || 'precosmartapp-20'}\n\n` +
-            `Boas compras! 🛒`;
-          
-          await waSocket.sendMessage(participant, { text: welcomeMsg });
-          logEntry('WELCOME', `Mensagem de boas-vindas enviada no privado para ${participant}`);
-          
-          // Delay to avoid spam filters if multiple people join
-          await new Promise(r => setTimeout(r, 2000));
-        } catch (err) {
-          logEntry('WARN', `Falha ao enviar boas-vindas para ${participant}: ${err.message}`);
-        }
+      try {
+        const welcomeMsg = `👋 Bem-vindo(a) ao *PreçoSmart Ofertas*! 🔥\n` +
+          `Acompanhe aqui os melhores descontos, cupons e achadinhos da internet em tempo real! 🛒`;
+        await waSocket.sendMessage(update.id, { text: welcomeMsg, mentions: update.participants });
+        logEntry('WELCOME', `Boas-vindas enviadas no grupo VIP`);
+      } catch (err) {
+        logEntry('WARN', `Falha ao dar boas-vindas no grupo VIP: ${err.message}`);
       }
     }
   });
@@ -1160,6 +1146,13 @@ async function startBot() {
     const senderJid = msg.key.participant || remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
 
+    // 🛡️ BLINDAGEM TOTAL DE PRIVACIDADE:
+    // O robô NUNCA deve responder, ler ou interferir em conversas particulares/privadas.
+    // Ignora 100% de qualquer mensagem em chats individuais para proteger as conversas pessoais do usuário.
+    if (!isGroup) {
+      return;
+    }
+
     const text = (
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text ||
@@ -1169,9 +1162,6 @@ async function startBot() {
     ).trim();
 
     let cleanReplyJid = remoteJid;
-    if (remoteJid.includes('@s.whatsapp.net')) {
-      cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
-    }
 
     async function replyToUser(content) {
       try {
@@ -1594,37 +1584,7 @@ async function startBot() {
       }
     }
 
-    // Assistente de Vendas (Tira-teima com IA no Privado)
-    if (!isGroup) {
-      if (msg.message.imageMessage) {
-        try {
-          await replyToUser({ text: '👀 Analisando a sua foto, um momento...' });
-          
-          const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
-          const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-          let buffer = Buffer.from([]);
-          for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-          
-          const { extractOfferFromImage } = require('./geminiVision');
-          const aiData = await extractOfferFromImage(buffer);
-          
-          if (aiData && aiData.title) {
-            const reply = `🎯 *Produto Identificado:*\n${aiData.title}\n\n` +
-                          `💰 *Preço na foto:* ${aiData.newPrice || aiData.oldPrice || 'Não identificado'}\n\n` +
-                          `Pesquisando o melhor preço pra você nas lojas parceiras...\n` +
-                          `🔗 *Link na Amazon:* https://www.amazon.com.br/s?k=${encodeURIComponent(aiData.title)}&tag=${process.env.AFFILIATE_AMAZON || 'precosmartapp-20'}\n\n` +
-                          `Se o preço estiver mais barato ou igual na Amazon, compre por lá para garantir o frete grátis do Prime! 📦`;
-            await replyToUser({ text: reply });
-          } else {
-            await replyToUser({ text: '🤔 Hmm, não consegui identificar um produto claro nessa imagem. Tente mandar um print mais nítido do anúncio ou o link direto!' });
-          }
-        } catch (err) {
-          logEntry('ERROR', `Falha ao analisar imagem do usuário: ${err.message}`);
-        }
-      }
-      // Ignora mensagens de texto comuns no privado
-      return;
-    }
+
 
     if (msg.key.fromMe) return;
 
