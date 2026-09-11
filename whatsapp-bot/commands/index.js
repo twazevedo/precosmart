@@ -20,6 +20,7 @@ registerCommand(require('./catalogo'));
 registerCommand(require('./crawler'));
 registerCommand(require('./top'));
 registerCommand(require('./garimpar'));
+registerCommand(require('./cupons'));
 
 function getCommand(name) {
   return commands.get(name.toLowerCase());

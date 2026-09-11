@@ -595,7 +595,7 @@ async function dispatchNextAwinRotation() {
     const deal = await getNextAwinDeal();
     if (!deal) return null;
 
-    logEntry('AWIN', `[Rotação 3min] Disparando oferta: ${deal.store} — ${deal.title}`);
+    logEntry('AWIN', `[Piloto Automático] Disparando oferta/cupom: ${deal.store} — ${deal.title}`);
 
     // 1. WhatsApp
     const jids = getTargetJids();
@@ -620,24 +620,33 @@ async function dispatchNextAwinRotation() {
     if (isTelegramConfigured()) {
       await broadcastTelegramDeal({
         title: deal.title,
-        price: deal.price,
+        price: deal.price || 'Oferta Especial',
         url: deal.url,
         imageUrl: deal.imageUrl,
         text: deal.text
       });
     }
 
-    logEntry('AWIN', `✅ Oferta AWIN enviada com sucesso (${deal.store})`);
+    logEntry('AWIN', `✅ Oferta/Cupom AWIN enviado com sucesso (${deal.store})`);
     return deal;
   } catch (err) {
-    logEntry('ERROR', `Erro na rotação AWIN de 3min: ${err.message}`);
+    logEntry('ERROR', `Erro na rotação AWIN: ${err.message}`);
     return null;
   }
 }
 
-// Inicia rotação automática contínua de 3 em 3 minutos
-const AWIN_INTERVAL_MS = 3 * 60 * 1000;
+// ── Rotação Automática Contínua no Piloto Automático ─────────────────────────
+// Por padrão roda a cada 25 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
+const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '25', 10);
+const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
+
+// Disparo inicial autônomo 30s após boot para aquecer o canal/grupo se estiver conectado
+setTimeout(() => {
+  if (isConnected && waSocket) {
+    dispatchNextAwinRotation().catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
+  }
+}, 30 * 1000);
 
 app.post('/api/send-awin', requireApiAuth, async (req, res) => {
   try {
@@ -1351,6 +1360,7 @@ async function startBot() {
           `🔔 *!alerta <produto> [preço]*\nCria um alerta personalizado e te avisa no privado quando o preço cair!\n\n` +
           `📋 *!alertas*\nLista todos os seus alertas ativos.\n\n` +
           `🗑️ *!remover <produto>*\nRemove um alerta cadastrado.\n\n` +
+          `🎟️ *!cupons [loja]*\nLista cupons de desconto oficiais ativos (KaBuM! e Clovis).\n\n` +
           `🔍 *!buscar <produto>*\nBusca ofertas disponíveis agora no catálogo.\n`;
 
         if (isAuthorized) {
