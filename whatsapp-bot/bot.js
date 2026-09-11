@@ -628,13 +628,7 @@ const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '25'
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
-// Disparo inicial autônomo: dispara 10 ofertas/cupons AWIN em sequência logo após o boot
-setTimeout(() => {
-  if (isConnected && waSocket) {
-    logEntry('AWIN', '🚀 Disparo inicial de 10 ofertas AWIN seguidas iniciando...');
-    dispatchAwinBatch(10, 5000, { force: true }).catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
-  }
-}, 10 * 1000);
+// Disparo inicial desativado: respeita horário de silêncio e evita flood ao iniciar o servidor
 
 app.post('/api/send-awin', requireApiAuth, async (req, res) => {
   try {
@@ -1294,11 +1288,7 @@ async function startBot() {
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
 
-      // 🚀 Disparo inicial de 10 ofertas/cupons AWIN logo após confirmação do grupo
-      setTimeout(() => {
-        logEntry('AWIN', '🚀 Conexão estabelecida! Disparando sequência de 10 ofertas AWIN no Grupo VIP e Telegram...');
-        dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('WARN', 'Erro no lote AWIN pós-conexão: ' + e.message));
-      }, 3000);
+      // Respeita horário de silêncio (23:30 às 07:30 de Brasília) e evita disparos automáticos indevidos ao conectar
 
       // Carrega canais de ofertas, filtrando apenas grupos de promoções
       // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
