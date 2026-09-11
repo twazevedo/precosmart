@@ -641,12 +641,13 @@ const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '25'
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
-// Disparo inicial autônomo 30s após boot para aquecer o canal/grupo se estiver conectado
+// Disparo inicial autônomo: dispara 10 ofertas/cupons AWIN em sequência logo após o boot
 setTimeout(() => {
   if (isConnected && waSocket) {
-    dispatchNextAwinRotation().catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
+    logEntry('AWIN', '🚀 Disparo inicial de 10 ofertas AWIN seguidas iniciando...');
+    dispatchAwinBatch(10, 5000).catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
   }
-}, 30 * 1000);
+}, 10 * 1000);
 
 app.post('/api/send-awin', requireApiAuth, async (req, res) => {
   try {
@@ -987,6 +988,12 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
+
+      // 🚀 Disparo inicial de 10 ofertas/cupons AWIN logo após confirmação do grupo
+      setTimeout(() => {
+        logEntry('AWIN', '🚀 Conexão estabelecida! Disparando sequência de 10 ofertas AWIN no Grupo VIP e Telegram...');
+        dispatchAwinBatch(10, 5000).catch((e) => logEntry('WARN', 'Erro no lote AWIN pós-conexão: ' + e.message));
+      }, 5000);
 
       // Carrega canais de ofertas, filtrando apenas grupos de promoções
       // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
@@ -1429,10 +1436,10 @@ async function startBot() {
         return;
       }
 
-      // 7.1 !lancar10 / !blast (Admin) - Dispara 10 ofertas AWIN seguidas com intervalo seguro
-      if (command === '!lancar10' || command === '!blast' || command === '!promocoes10') {
+      // 7.1 !lancar / !lancar10 / !blast (Admin) - Dispara 10 ofertas AWIN seguidas com intervalo seguro
+      if (command === '!lancar' || command === '!lancar10' || command === '!blast' || command === '!promocoes10') {
         await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos para o Grupo VIP e Telegram com intervalo de segurança de 5s.' });
-        dispatchAwinBatch(10, 5000).catch((e) => logEntry('ERROR', 'Erro no !lancar10: ' + e.message));
+        dispatchAwinBatch(10, 5000).catch((e) => logEntry('ERROR', 'Erro no !lancar: ' + e.message));
         return;
       }
 
