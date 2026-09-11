@@ -351,8 +351,10 @@ app.get('/dashboard', (req, res) => {
 
 app.get('/api/status', (req, res) => res.json({
   connected:   isConnected,
+  botUser:     waSocket?.user || null,
   groupName:   TARGET_GROUP,
   groupJid,
+  targetJids:  getTargetJids(),
   qrReady:     !!qrCodeDataUrl && !isConnected,
   uptime:      Math.floor(process.uptime()),
   logCount:    messageLog.length,
@@ -559,10 +561,11 @@ async function dispatchNextAwinRotation(options = {}) {
               timeout: 7000
             });
             if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
-              await waSocket.sendMessage(jid, {
+              const resMsg = await waSocket.sendMessage(jid, {
                 image: Buffer.from(imgRes.data),
                 caption: deal.text
               });
+              logEntry('AWIN_WA', `Foto enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
               sent = true;
             }
           } catch (imgErr) {
@@ -573,7 +576,8 @@ async function dispatchNextAwinRotation(options = {}) {
         // Fallback 100% garantido: se a imagem falhar ou não existir, envia o texto com o link e cupom
         if (!sent) {
           try {
-            await waSocket.sendMessage(jid, { text: deal.text });
+            const resMsg = await waSocket.sendMessage(jid, { text: deal.text });
+            logEntry('AWIN_WA', `Texto enviado para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
             sent = true;
           } catch (waErr) {
             logEntry('ERROR', `Falha ao enviar texto AWIN no WhatsApp (${jid}): ${waErr.message}`);
@@ -677,6 +681,56 @@ app.get('/api/groups', async (req, res) => {
     res.json({ activeGroupJid: groupJid, count: list.length, groups: list });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint diagnóstico para detalhes de metadados de grupo (participantes, admin, announce)
+app.get('/api/group-details', async (req, res) => {
+  if (!waSocket) return res.status(503).json({ error: 'Socket offline' });
+  const target = req.query.jid || groupJid;
+  if (!target) return res.status(400).json({ error: 'Nenhum JID fornecido' });
+  try {
+    const meta = await waSocket.groupMetadata(target);
+    const myId = waSocket.user?.id ? waSocket.user.id.split(':')[0] : null;
+    const meParticipant = meta.participants?.find(p => myId && p.id.startsWith(myId));
+    res.json({
+      id: meta.id,
+      subject: meta.subject,
+      owner: meta.owner,
+      creation: meta.creation,
+      desc: meta.desc?.toString(),
+      restrict: meta.restrict,
+      announce: meta.announce,
+      botPhone: myId,
+      botIsAdmin: !!(meParticipant && (meParticipant.admin === 'admin' || meParticipant.admin === 'superadmin')),
+      participantsCount: meta.participants?.length || 0,
+      participants: (meta.participants || []).map(p => ({
+        id: p.id,
+        admin: p.admin || null
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint diagnóstico para testar envio no WhatsApp e retornar chave de confirmação
+app.get('/api/test-send', async (req, res) => {
+  if (!waSocket || !isConnected) return res.status(503).json({ error: 'Socket offline ou não conectado' });
+  const target = req.query.jid || groupJid;
+  const msg = req.query.text || '🧪 Mensagem de Teste PreçoSmart Bot';
+  try {
+    const result = await waSocket.sendMessage(target, { text: msg });
+    logEntry('TEST_SEND', `Teste enviado para ${target}, id: ${result?.key?.id}`);
+    res.json({
+      ok: true,
+      target,
+      key: result?.key,
+      status: result?.status
+    });
+  } catch (err) {
+    logEntry('ERROR', `Erro no teste de envio para ${target}: ${err.message}`);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -1199,6 +1253,10 @@ async function startBot() {
       msg.message.videoMessage?.caption ||
       ''
     ).trim();
+
+    if (text) {
+      logEntry('MSG_RECV', `[${isGroup ? 'GRUPO' : 'PRIVADO'}] de: ${senderJid} (fromMe: ${!!msg.key.fromMe}) text: "${text.substring(0, 45)}"`);
+    }
 
     // 🛡️ BLINDAGEM TOTAL DE PRIVACIDADE:
     // O robô NUNCA responde conversas comuns, áudios ou fotos em conversas particulares.
