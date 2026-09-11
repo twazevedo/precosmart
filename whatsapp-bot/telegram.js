@@ -13,7 +13,8 @@ function isTelegramConfigured() {
 }
 
 /**
- * Envia uma oferta formatada com botões inline para o canal do Telegram
+ * Envia uma oferta formatada com botões inline para o canal do Telegram.
+ * Possui múltiplos fallbacks contra erros de Markdown e links de imagens externos.
  * @param {object} deal - { title, price, oldPrice, url, imageUrl, text, badge }
  */
 async function broadcastTelegramDeal(deal) {
@@ -44,8 +45,9 @@ async function broadcastTelegramDeal(deal) {
 
   const caption = deal.text || ('🔥 *' + (deal.title || 'Oferta') + '*\n\n💰 Por apenas: *' + (deal.price || '') + '*\n\n🔗 ' + (deal.url || ''));
 
-  try {
-    if (deal.imageUrl) {
+  // 1. Tenta envio com foto (se fornecida)
+  if (deal.imageUrl) {
+    try {
       const resp = await axios.post(endpoint + '/sendPhoto', {
         chat_id: TELEGRAM_CHAT_ID,
         photo: deal.imageUrl,
@@ -53,32 +55,46 @@ async function broadcastTelegramDeal(deal) {
         parse_mode: 'Markdown',
         reply_markup: inlineKeyboard
       }, { timeout: 10000 });
-      return { ok: true, messageId: resp.data.result.message_id };
-    } else {
-      let text = caption;
-      if (text.length <= 4096) {
-        const resp = await axios.post(endpoint + '/sendMessage', {
+      return { ok: true, messageId: resp.data.result?.message_id };
+    } catch (photoErr) {
+      // Se falhou com Markdown, tenta sem Markdown
+      try {
+        const resp = await axios.post(endpoint + '/sendPhoto', {
           chat_id: TELEGRAM_CHAT_ID,
-          text: text,
-          parse_mode: 'Markdown',
+          photo: deal.imageUrl,
+          caption: caption.substring(0, 1024),
           reply_markup: inlineKeyboard
         }, { timeout: 10000 });
-        return { ok: true, messageId: resp.data.result.message_id };
-      } else {
-        let lastMessageId;
-        for (let i = 0; i < text.length; i += 4096) {
-          const chunk = text.substring(i, i + 4096);
-          const payload = { chat_id: TELEGRAM_CHAT_ID, text: chunk, parse_mode: 'Markdown' };
-          if (i + 4096 >= text.length) payload.reply_markup = inlineKeyboard;
-          const resp = await axios.post(endpoint + '/sendMessage', payload, { timeout: 10000 });
-          lastMessageId = resp.data.result.message_id;
-        }
-        return { ok: true, messageId: lastMessageId };
+        return { ok: true, messageId: resp.data.result?.message_id };
+      } catch (photoErr2) {
+        // Foto falhou (link inválido ou timeout do Telegram). Prossegue para envio de texto.
+        console.warn('[TELEGRAM] Falha ao enviar foto, tentando texto:', photoErr2.response?.data?.description || photoErr2.message);
       }
     }
-  } catch (err) {
-    console.error('Erro ao enviar oferta para Telegram:', err.response?.data?.description || err.message);
-    return { ok: false, error: err.message };
+  }
+
+  // 2. Envio de texto (com fallback garantido)
+  try {
+    const resp = await axios.post(endpoint + '/sendMessage', {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: caption.substring(0, 4096),
+      parse_mode: 'Markdown',
+      reply_markup: inlineKeyboard
+    }, { timeout: 10000 });
+    return { ok: true, messageId: resp.data.result?.message_id };
+  } catch (textErr) {
+    // Fallback final: envia texto sem formatação caso Markdown tenha quebrado
+    try {
+      const resp = await axios.post(endpoint + '/sendMessage', {
+        chat_id: TELEGRAM_CHAT_ID,
+        text: caption.substring(0, 4096),
+        reply_markup: inlineKeyboard
+      }, { timeout: 10000 });
+      return { ok: true, messageId: resp.data.result?.message_id };
+    } catch (finalErr) {
+      console.error('[TELEGRAM] Erro crítico ao enviar mensagem:', finalErr.response?.data?.description || finalErr.message);
+      return { ok: false, error: finalErr.message };
+    }
   }
 }
 

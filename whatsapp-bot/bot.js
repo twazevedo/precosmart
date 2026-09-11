@@ -20,6 +20,7 @@ const fs               = require('fs');
 const QRCode           = require('qrcode');
 const cron             = require('node-cron');
 const express          = require('express');
+const axios            = require('axios');
 const pino             = require('pino');
 const {
   default: makeWASocket,
@@ -144,66 +145,8 @@ function isNightQuietHours() {
 const mediaCache = new Map();
 
 async function dispatchToInstagram(deal) {
-  if (!instagramWebhookUrl) return;
-  try {
-    const axios = require('axios');
-    const urlMatch = deal.text ? deal.text.match(/(https?:\/\/[^\s]+)/i) : null;
-    const link = urlMatch ? urlMatch[1] : '';
-
-    // Limpa e formata o texto especificamente para o padrão nativo do Instagram
-    const rawLines = deal.text ? deal.text.split('\n') : [];
-    const cleanLines = rawLines.filter((l) => {
-      const low = l.toLowerCase();
-      if (low.includes('oferta exclusiva') || low.includes('compre aqui') || low.includes('link do produto')) return false;
-      if (low.includes('acesse:') || low.includes('http') || low.includes('grupo') || low.includes('canal')) return false;
-      if (low.includes('divulgador autorizado') || low.includes('compra 100% segura')) return false;
-      if (low.includes('no mercado livre') || low.includes('na shopee') || low.includes('na amazon')) return false;
-      return true;
-    }).map((l) => {
-      // Remove caracteres especiais de markdown do WhatsApp (*, ~, _, `)
-      return l.replace(/[*~_`]/g, '')
-              .replace(/\uFFFD+/g, '')
-              .replace(/(\?{3,})/g, '')
-              .trim();
-    }).filter(Boolean);
-
-    const titleLine = cleanLines[0] || '🔥 SUPER OFERTA IMPERDÍVEL';
-    const bodyLines = cleanLines.slice(1).join('\n');
-
-    const igCaption = `${titleLine}\n\n${bodyLines}\n\n💬 Comente "EU QUERO" que te envio o link com desconto exclusivo no seu Direct agora mesmo! 🚀\n\n⚠️ Oferta por tempo limitado sujeita a alteração de preço e estoque.\n\n#achadinhos #promocoes #ofertas #descontos #comprasonline #magalu #amazonbrasil #mercadolivre #shopee`;
-
-    // Garante que a foto REAL da oferta seja servida com URL pública direta
-        let resolvedImageUrl = deal.imageUrl;
-    if (!resolvedImageUrl && link) {
-      try {
-        const og = await getOgImage(link);
-        if (og) resolvedImageUrl = og;
-      } catch(e) {}
-    }
-    if (deal.buffer && Buffer.isBuffer(deal.buffer)) {
-      const mediaId = 'deal_' + Date.now();
-      mediaCache.set(mediaId, { buffer: deal.buffer, createdAt: Date.now() });
-      if (mediaCache.size > 50) {
-        const oldestKey = mediaCache.keys().next().value;
-        mediaCache.delete(oldestKey);
-      }
-      resolvedImageUrl = `https://precosmart.onrender.com/media/${mediaId}.jpg`;
-    }
-
-    await axios.post(instagramWebhookUrl, {
-      text: igCaption,
-      caption: igCaption,
-      link: link,
-      image_url: resolvedImageUrl,
-      imageUrl: resolvedImageUrl,
-      photo_url: resolvedImageUrl,
-      type: deal.type,
-      timestamp: new Date().toISOString()
-    }, { timeout: 8000 });
-    logEntry('INSTAGRAM', `Oferta com foto real disparada para o Instagram (${resolvedImageUrl})!`);
-  } catch (e) {
-    logEntry('WARN', 'Falha ao notificar Webhook do Instagram: ' + e.message);
-  }
+  // Desativado: Canal desabilitado. O sistema posta EXCLUSIVAMENTE no Grupo VIP WhatsApp e no Telegram.
+  return;
 }
 
 function logEntry(type, text) {
@@ -586,9 +529,10 @@ app.post('/api/send-custom', requireApiAuth, async (req, res) => {
   }
 });
 
-// ── Rotação Automática de Ofertas AWIN a cada 3 Minutos ─────────────────────────
-async function dispatchNextAwinRotation() {
-  if (isNightQuietHours()) {
+// ── Rotação Automática de Ofertas AWIN (EXCLUSIVAMENTE Grupo WhatsApp e Telegram) ─────
+async function dispatchNextAwinRotation(options = {}) {
+  const force = options.force || false;
+  if (!force && isNightQuietHours()) {
     return null;
   }
   try {
@@ -597,26 +541,48 @@ async function dispatchNextAwinRotation() {
 
     logEntry('AWIN', `[Piloto Automático] Disparando oferta/cupom: ${deal.store} — ${deal.title}`);
 
-    // 1. WhatsApp
+    // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us)
     const jids = getTargetJids();
     if (isConnected && waSocket && jids.length > 0) {
       for (const jid of jids) {
-        try {
-          if (deal.imageUrl) {
-            await waSocket.sendMessage(jid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text
+        if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
+
+        let sent = false;
+        if (deal.imageUrl) {
+          try {
+            const imgRes = await axios.get(deal.imageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
             });
-          } else {
-            await waSocket.sendMessage(jid, { text: deal.text });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text
+              });
+              sent = true;
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao baixar/enviar foto AWIN (${jid}), usando fallback de texto: ${imgErr.message}`);
           }
-        } catch (waErr) {
-          logEntry('WARN', `Falha ao enviar AWIN no WhatsApp (${jid}): ${waErr.message}`);
+        }
+
+        // Fallback 100% garantido: se a imagem falhar ou não existir, envia o texto com o link e cupom
+        if (!sent) {
+          try {
+            await waSocket.sendMessage(jid, { text: deal.text });
+            sent = true;
+          } catch (waErr) {
+            logEntry('ERROR', `Falha ao enviar texto AWIN no WhatsApp (${jid}): ${waErr.message}`);
+          }
         }
       }
     }
 
-    // 2. Telegram
+    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM)
     if (isTelegramConfigured()) {
       await broadcastTelegramDeal({
         title: deal.title,
@@ -645,26 +611,26 @@ setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 setTimeout(() => {
   if (isConnected && waSocket) {
     logEntry('AWIN', '🚀 Disparo inicial de 10 ofertas AWIN seguidas iniciando...');
-    dispatchAwinBatch(10, 5000).catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
+    dispatchAwinBatch(10, 5000, { force: true }).catch((e) => logEntry('WARN', 'Erro no disparo inicial AWIN: ' + e.message));
   }
 }, 10 * 1000);
 
 app.post('/api/send-awin', requireApiAuth, async (req, res) => {
   try {
-    const deal = await dispatchNextAwinRotation();
-    if (!deal) return res.status(500).json({ error: 'Não foi possível disparar oferta AWIN no momento (modo noturno ou desconectado)' });
+    const deal = await dispatchNextAwinRotation({ force: true });
+    if (!deal) return res.status(500).json({ error: 'Não foi possível disparar oferta AWIN no momento (desconectado)' });
     res.json({ ok: true, store: deal.store, title: deal.title, url: deal.url });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-async function dispatchAwinBatch(count = 10, delayMs = 5000) {
-  logEntry('AWIN', `[Blast] Iniciando disparo em lote de ${count} ofertas AWIN seguidas...`);
+async function dispatchAwinBatch(count = 10, delayMs = 5000, options = {}) {
+  logEntry('AWIN', `[Blast] Iniciando disparo em lote de ${count} ofertas AWIN (SOMENTE WhatsApp e Telegram)...`);
   const results = [];
   for (let i = 0; i < count; i++) {
     try {
-      const deal = await dispatchNextAwinRotation();
+      const deal = await dispatchNextAwinRotation({ force: true, ...options });
       if (deal) results.push(deal);
     } catch (e) {
       logEntry('WARN', `Erro no disparo #${i + 1} do blast: ${e.message}`);
@@ -680,7 +646,13 @@ async function dispatchAwinBatch(count = 10, delayMs = 5000) {
 app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
   const count = parseInt(req.body?.count || 10, 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas AWIN iniciado em segundo plano!` });
-  dispatchAwinBatch(count, 5000).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
+  dispatchAwinBatch(count, 5000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
+});
+
+// Endpoint direto para disparo imediato de 10 ofertas no WhatsApp e Telegram (sem travas)
+app.get('/api/trigger-lancar', async (req, res) => {
+  res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
+  dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
 app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
@@ -761,6 +733,8 @@ async function sendProductMessage(product, caption) {
   if (jidsToSend.length === 0) return;
 
   for (const targetJid of jidsToSend) {
+    if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
+
     let mentions = [];
     try {
       // MEGA-ALERTA (Marcação Fantasma) para descontos acima de 40%
@@ -807,7 +781,16 @@ async function sendProductMessage(product, caption) {
     } catch (txtErr) {}
   }
   
-  dispatchToInstagram({ type: product.videoUrl ? 'video' : (product.imageUrl ? 'image' : 'text'), imageUrl: product.imageUrl, text: caption }).catch(() => {});
+  // Transmissão simultânea garantida no Telegram
+  if (isTelegramConfigured()) {
+    broadcastTelegramDeal({
+      title: product.title,
+      price: product.quotes?.[0]?.pix ? `R$ ${product.quotes[0].pix.toFixed(2).replace('.', ',')}` : '',
+      url: product.finalUrl || product.url,
+      imageUrl: product.imageUrl,
+      text: caption
+    }).catch(() => {});
+  }
 }
 
 async function sendScheduledOffer(label, productFn) {
@@ -992,8 +975,8 @@ async function startBot() {
       // 🚀 Disparo inicial de 10 ofertas/cupons AWIN logo após confirmação do grupo
       setTimeout(() => {
         logEntry('AWIN', '🚀 Conexão estabelecida! Disparando sequência de 10 ofertas AWIN no Grupo VIP e Telegram...');
-        dispatchAwinBatch(10, 5000).catch((e) => logEntry('WARN', 'Erro no lote AWIN pós-conexão: ' + e.message));
-      }, 5000);
+        dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('WARN', 'Erro no lote AWIN pós-conexão: ' + e.message));
+      }, 3000);
 
       // Carrega canais de ofertas, filtrando apenas grupos de promoções
       // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
@@ -1113,11 +1096,17 @@ async function startBot() {
         }
 
         for (const targetJid of jidsToSend) {
+          if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
           try {
             if (deal.type === 'video' && deal.buffer) {
               await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
             } else if (imgPayload) {
-              await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
+              try {
+                await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
+              } catch (imgFail) {
+                // Fallback de texto se a imagem falhar
+                await waSocket.sendMessage(targetJid, { text: deal.text });
+              }
             } else {
               await waSocket.sendMessage(targetJid, { text: deal.text });
             }
@@ -1127,9 +1116,7 @@ async function startBot() {
         }
         logEntry('MIRROR', `Oferta postada via Anti-Flood para ${jidsToSend.length} grupo(s)! Restam na fila: ${dealQueue.length}`);
         lastDealSentAt = Date.now();
-        // Dispara simultaneamente para o Instagram se webhook estiver conectado
-        dispatchToInstagram(deal).catch(() => {});
-        // Dispara simultaneamente para o Canal do Telegram
+        // Dispara simultaneamente para o Canal do Telegram (exclusivo WPP + Telegram)
         broadcastTelegramDeal({
           text: deal.text,
           title: deal.keyword || 'Oferta PreçoSmart',
@@ -1137,17 +1124,11 @@ async function startBot() {
           url: deal.finalUrl || deal.url
         }).catch(() => {});
 
-        // 🔔 DISPARO DE ALERTAS PERSONALIZADOS PARA USUÁRIOS
+        // 🔔 Log de alertas monitorados (envio privado suspenso para respeitar privacidade total)
         try {
           const matchedAlerts = checkMatchingAlerts(deal.text);
           for (const m of matchedAlerts) {
-            const alertNotice = `🔔 *ALERTA PREÇOSMART:* O produto que você estava monitorando (*${m.query}*) acabou de entrar em oferta!\n\n${deal.text}`;
-            if (imgPayload) {
-              await waSocket.sendMessage(m.userJid, { image: imgPayload, caption: alertNotice });
-            } else {
-              await waSocket.sendMessage(m.userJid, { text: alertNotice });
-            }
-            logEntry('ALERT_SENT', `Alerta de "${m.query}" enviado no privado para ${m.phone}`);
+            logEntry('ALERT_MATCH', `Alerta de "${m.query}" acionado no radar (privado desativado por privacidade)`);
           }
         } catch (alertErr) {
           logEntry('WARN', 'Falha ao notificar alertas: ' + alertErr.message);
@@ -1236,9 +1217,22 @@ async function startBot() {
       const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
       const senderPhone = (msg.key.fromMe ? (sock.user?.id || '') : senderJid).replace(/[^0-9]/g, '');
 
-      // Autorizado EXCLUSIVAMENTE se enviado do próprio número (fromMe) OU se constar na lista oficial de donos
+      // Verifica se o remetente é admin do grupo VIP
+      let isGroupAdmin = false;
+      try {
+        if (isGroup && remoteJid) {
+          const groupMeta = await sock.groupMetadata(remoteJid);
+          const found = groupMeta.participants.find(p => p.id.includes(senderPhone) || p.id === senderJid);
+          if (found && (found.admin === 'admin' || found.admin === 'superadmin')) {
+            isGroupAdmin = true;
+          }
+        }
+      } catch (e) {}
+
+      // Autorizado se enviado do próprio número (fromMe), admin do grupo VIP, ou da lista oficial de donos
       const isAuthorized = Boolean(
         msg.key.fromMe || 
+        isGroupAdmin ||
         (ownerList.length > 0 && ownerList.some((owner) => {
           if (!owner || !senderPhone) return false;
           return senderPhone === owner || (owner.length >= 10 && senderPhone.endsWith(owner));
@@ -1436,10 +1430,10 @@ async function startBot() {
         return;
       }
 
-      // 7.1 !lancar / !lancar10 / !blast (Admin) - Dispara 10 ofertas AWIN seguidas com intervalo seguro
-      if (command === '!lancar' || command === '!lancar10' || command === '!blast' || command === '!promocoes10') {
-        await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos para o Grupo VIP e Telegram com intervalo de segurança de 5s.' });
-        dispatchAwinBatch(10, 5000).catch((e) => logEntry('ERROR', 'Erro no !lancar: ' + e.message));
+      // 7.1 !lancar / !lancar10 / !blast / !promos (Admin) - Dispara 10 ofertas AWIN seguidas
+      if (command === '!lancar' || command === '!lancar10' || command === '!blast' || command === '!promocoes10' || command === '!promos' || command === '!ofertas10') {
+        await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos EXCLUSIVAMENTE para o Grupo VIP e Telegram com intervalo de segurança.' });
+        dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no !lancar: ' + e.message));
         return;
       }
 
@@ -1504,9 +1498,14 @@ async function startBot() {
 
           // Prioridade do Dono: Fura a fila e envia imediatamente para todos os VIPs!
           for (const targetJid of jidsToSend) {
+            if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
             try {
               if (mediaType === 'image' && imgToSend) {
-                await waSocket.sendMessage(targetJid, { image: imgToSend, caption: newText || content });
+                try {
+                  await waSocket.sendMessage(targetJid, { image: imgToSend, caption: newText || content });
+                } catch (imgFail) {
+                  await waSocket.sendMessage(targetJid, { text: newText || content });
+                }
               } else if (mediaType === 'video' && buffer) {
                 await waSocket.sendMessage(targetJid, { video: buffer, caption: newText || content });
               } else {
@@ -1517,15 +1516,14 @@ async function startBot() {
             }
           }
 
-          dispatchToInstagram({ type: mediaType, buffer, text: newText || content }).catch(() => {});
           broadcastTelegramDeal({
             text: newText || content,
             title: 'Oferta PreçoSmart',
             imageUrl: imgToSend && imgToSend.url ? imgToSend.url : null
           }).catch(() => {});
 
-          await replyToUser({ text: `👑 *Oferta do Dono Postada!*\n\nA sua promoção acabou de ser enviada com prioridade máxima para o grupo VIP e para o Instagram com a sua comissão embutida! 🚀` });
-          logEntry('ADMIN', 'Comando !postar executado pelo dono com sucesso!');
+          await replyToUser({ text: `👑 *Oferta Postada!*\n\nA sua promoção acabou de ser enviada para o Grupo VIP e para o Canal do Telegram com a sua comissão embutida! 🚀` });
+          logEntry('ADMIN', 'Comando !postar executado com sucesso (Grupo VIP + Telegram)!');
           return;
         } catch (postErr) {
           await replyToUser({ text: `❌ Erro ao postar: ${postErr.message}` });
@@ -1546,9 +1544,7 @@ async function startBot() {
 
           const caption = buildOfferMessage(product);
           await sendProductMessage(product, caption);
-          if (!isGroup) {
-            await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Instagram!` });
-          }
+          await replyToUser({ text: `💙 *Oferta Magalu Postada!*\n\nPostei a oferta de *${product.title}* no Grupo VIP e no Telegram!` });
           logEntry('ADMIN', `Comando !magalu executado: ${product.title}`);
           return;
         } catch (magErr) {
