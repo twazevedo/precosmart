@@ -655,6 +655,31 @@ app.get('/api/trigger-lancar', async (req, res) => {
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
+// Endpoint diagnóstico para inspeção de logs recentes
+app.get('/api/recent-logs', (req, res) => {
+  res.json({
+    totalLogs: messageLog.length,
+    logs: messageLog.slice(0, 40)
+  });
+});
+
+// Endpoint diagnóstico para listar grupos conectados
+app.get('/api/groups', async (req, res) => {
+  if (!waSocket) return res.json({ error: 'Socket offline' });
+  try {
+    const groups = await waSocket.groupFetchAllParticipating();
+    const list = Object.values(groups).map(g => ({
+      id: g.id,
+      subject: g.subject,
+      participantsCount: g.participants?.length || 0,
+      isTarget: g.id === groupJid
+    }));
+    res.json({ activeGroupJid: groupJid, count: list.length, groups: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
   const { webhookUrl } = req.body;
   if (webhookUrl) {
@@ -1167,13 +1192,6 @@ async function startBot() {
     const senderJid = msg.key.participant || remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
 
-    // 🛡️ BLINDAGEM TOTAL DE PRIVACIDADE:
-    // O robô NUNCA deve responder, ler ou interferir em conversas particulares/privadas.
-    // Ignora 100% de qualquer mensagem em chats individuais para proteger as conversas pessoais do usuário.
-    if (!isGroup) {
-      return;
-    }
-
     const text = (
       msg.message.conversation ||
       msg.message.extendedTextMessage?.text ||
@@ -1182,7 +1200,20 @@ async function startBot() {
       ''
     ).trim();
 
+    // 🛡️ BLINDAGEM TOTAL DE PRIVACIDADE:
+    // O robô NUNCA responde conversas comuns, áudios ou fotos em conversas particulares.
+    // Ignora 100% de conversas pessoais para não atrapalhar conversas do usuário.
+    // SOMENTE processa se for um comando explícito de controle do bot (iniciando com '!' ou 'lancar')
+    const lowerText = text.toLowerCase().trim();
+    const isExplicitCmd = text.startsWith('!') || ['lancar', 'lancar10', 'status', 'promocoes', 'cupons', 'ajuda'].includes(lowerText);
+    if (!isGroup && !isExplicitCmd) {
+      return;
+    }
+
     let cleanReplyJid = remoteJid;
+    if (remoteJid.includes('@s.whatsapp.net')) {
+      cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
+    }
 
     async function replyToUser(content) {
       try {
@@ -1190,20 +1221,11 @@ async function startBot() {
         logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
       } catch (replyErr) {
         logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
-        if (msg.key.fromMe && sock.user?.id) {
-          const myPhoneJid = sock.user.id.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
-          try {
-            await waSocket.sendMessage(myPhoneJid, content);
-            logEntry('CMD_SENT', `Resposta enviada via fallback para ${myPhoneJid}`);
-          } catch (e2) {
-            logEntry('CMD_ERR', `Fallback falhou: ${e2.message}`);
-          }
-        }
       }
     }
 
-    // ── 👑 COMANDOS DO DONO (PRIVADO OU GRUPO VIP) ──
-    if (text.startsWith('!')) {
+    // ── 👑 COMANDOS (GRUPO VIP OU PRIVADO) ──
+    if (text.startsWith('!') || isExplicitCmd) {
       if (msg.key.id) {
         if (processedCommandIds.has(msg.key.id)) return;
         processedCommandIds.add(msg.key.id);
@@ -1279,7 +1301,15 @@ async function startBot() {
         logEntry('ERROR', `Erro no comando modular ${command}: ${modErr.message}`);
       }
 
-      // ── 👥 COMANDOS PÚBLICOS (QUALQUER MEMBRO) ──
+      // ── 👥 COMANDOS PÚBLICOS (QUALQUER MEMBRO / DONO) ──
+
+      // 0. !lancar / lancar — Dispara lote de 10 ofertas AWIN no Grupo VIP e Telegram
+      if (['!lancar', '!lancar10', '!blast', '!promocoes10', '!promos', '!ofertas10', 'lancar', 'lancar10', 'blast'].includes(command)) {
+        logEntry('CMD', `🚀 Disparo manual de 10 ofertas acionado por ${senderPhone} (chat: ${remoteJid})`);
+        await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos EXCLUSIVAMENTE para o Grupo VIP e Telegram.' });
+        dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no !lancar: ' + e.message));
+        return;
+      }
 
       // 1. !alerta <produto> [preço]
       if (command === '!alerta') {
@@ -1430,12 +1460,6 @@ async function startBot() {
         return;
       }
 
-      // 7.1 !lancar / !lancar10 / !blast / !promos (Admin) - Dispara 10 ofertas AWIN seguidas
-      if (command === '!lancar' || command === '!lancar10' || command === '!blast' || command === '!promocoes10' || command === '!promos' || command === '!ofertas10') {
-        await replyToUser({ text: '🚀 *Disparo em lote iniciado!* Enviando 10 ofertas e cupons AWIN seguidos EXCLUSIVAMENTE para o Grupo VIP e Telegram com intervalo de segurança.' });
-        dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no !lancar: ' + e.message));
-        return;
-      }
 
       // 8. !postar <link ou imagem> (Admin)
       if (command === '!postar') {
