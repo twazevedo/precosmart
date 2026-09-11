@@ -121,6 +121,7 @@ let groupJid       = null;
 const messageLog   = [];
 const messageStore = new Map();
 const groupMetadataCache = new Map();
+let mongoClient = null;
 
 // ── Sistema Anti-Flood e Deduplicação ─────────────────────────────────────────
 const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
@@ -822,6 +823,58 @@ app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
   res.status(400).json({ error: 'URL do webhook ausente' });
 });
 
+// Endpoint diagnóstico da saúde da sessão do MongoDB
+app.get('/api/auth-debug', async (req, res) => {
+  if (!mongoClient) return res.json({ storage: 'local', isConnected });
+  try {
+    const coll = mongoClient.db('precosmart').collection('auth_info');
+    const totalDocs = await coll.countDocuments();
+    const credsDoc = await coll.findOne({ _id: 'creds' });
+    const sampleKeys = await coll.find({}, { projection: { _id: 1, updatedAt: 1, encryptedPayload: 1 } }).limit(10).toArray();
+    res.json({
+      totalDocs,
+      hasCreds: !!credsDoc,
+      credsHasEncryptedPayload: !!credsDoc?.encryptedPayload,
+      sampleKeys: sampleKeys.map(k => ({
+        id: k._id,
+        isEncrypted: !!k.encryptedPayload,
+        updatedAt: k.updatedAt
+      }))
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Endpoint para resetar a sessão caso esteja corrompida (permite GET e POST)
+app.all('/api/reset-session', async (req, res) => {
+  try {
+    logEntry('AUTH', '⚠️ Reset manual de sessão solicitado via API...');
+    if (mongoClient) {
+      await mongoClient.db('precosmart').collection('auth_info').deleteMany({});
+      logEntry('AUTH', '🗑️ Coleção auth_info apagada do MongoDB com sucesso!');
+    }
+    if (fs.existsSync(SESSION_DIR)) {
+      fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+      logEntry('AUTH', '🗑️ Pasta de sessão local removida!');
+    }
+    isConnected = false;
+    qrCodeDataUrl = null;
+    if (waSocket) {
+      try { waSocket.end(); } catch(e) {}
+    }
+    setTimeout(() => {
+      startBot().catch(e => logEntry('FATAL', e.message));
+    }, 1500);
+    res.json({
+      ok: true,
+      message: 'Sessão resetada com sucesso! Abra https://precosmart.onrender.com/ no navegador para escanear o novo QR Code.'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost:${PORT}`));
 
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
@@ -1074,7 +1127,6 @@ let sourceGroupJids = [];
 
 async function startBot() {
   let state, saveCreds;
-  let mongoClient = null;
 
   if (process.env.MONGO_URI) {
     try {
