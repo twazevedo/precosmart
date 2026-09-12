@@ -38,6 +38,7 @@ const { createShortLink, recordClick, getAnalyticsSummary } = require('./analyti
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
 const { getNextAwinDeal, getSpecificKabumDeal } = require('./awinCatalog');
+const { syncAwinPromotions } = require('./awinApiSync');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -669,6 +670,23 @@ app.get('/api/trigger-lancar', async (req, res) => {
   res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
+
+// Endpoint para sincronização manual ou por webhook da API AWIN
+app.get('/api/sync-awin-api', async (req, res) => {
+  try {
+    const result = await syncAwinPromotions();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sincronização automática a cada 6 horas se o token estiver configurado
+setInterval(() => {
+  if (process.env.AWIN_API_TOKEN) {
+    syncAwinPromotions().catch((e) => logEntry('WARN', '[AWIN-API] Falha no sync periódico: ' + e.message));
+  }
+}, 6 * 60 * 60 * 1000);
 
 // Endpoint direto para disparo de teste de 1 oferta oficial da KaBuM com foto real
 app.get('/api/debug-kabum', (req, res) => {
