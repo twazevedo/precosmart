@@ -81,8 +81,17 @@ function getProductBadge(title = '') {
   if (t.includes('smartwatch') || t.includes('xiaomi') || t.includes('celular') || t.includes('smartphone') || t.includes('redmi') || t.includes('poco') || t.includes('alexa') || t.includes('echo')) {
     return '📱 *ACHADINHO TECH & SMART DEVICES* ⌚✨';
   }
-  if (t.includes('calçados') || t.includes('melissa') || t.includes('via marte') || t.includes('tênis') || t.includes('sandália')) {
+  if (t.includes('calçados') || t.includes('melissa') || t.includes('via marte') || t.includes('sandália')) {
     return '🚨 *CLOVIS CALÇADOS — QUEIMA DE ESTOQUE TOTAL!* 👠👟';
+  }
+  if (t.includes('olympikus') || t.includes('corre vento') || t.includes('corre grafeno') || t.includes('tênis corre') || t.includes('ultraleve')) {
+    return '🏃 *OLYMPIKUS BRASIL — TÊNIS DE CORRIDA & TREINO* 👟⚡';
+  }
+  if (t.includes('adidas') || t.includes('samba') || t.includes('gazelle') || t.includes('ultraboost') || t.includes('adizero')) {
+    return '⚡ *ADIDAS BRASIL OFICIAL — SNEAKERS & ESPORTES* 👟🔥';
+  }
+  if (t.includes('lacoste') || t.includes('crocodilo') || t.includes('polo lacoste')) {
+    return '🐊 *LACOSTE BRASIL OFICIAL — MODA & ELEGÂNCIA* 👕✨';
   }
   return '🔥 *OFERTA EXCLUSIVA VERIFICADA PREÇOSMART* 🛒⚡';
 }
@@ -113,30 +122,42 @@ async function getNextAwinDeal() {
     const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
     const shortUrl = await shortenUrl(rawUrl);
 
-    let imageUrl = null;
-    if (v.deeplink) {
+    let imageUrl = v.imageUrl || null;
+    if (!imageUrl && v.deeplink) {
       try {
         imageUrl = await fetchOgImage(v.deeplink);
       } catch (e) {}
     }
 
-    const text = `🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥
+    const hasCode = v.code && v.code.trim().length > 0;
+    const header = hasCode 
+      ? '🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥'
+      : '🚨 *OFERTA & PROMOÇÃO OFICIAL LIBERADA!* 💥';
 
-🏷️ *Cupom:* \`${v.code}\`
+    const codeSection = hasCode
+      ? `\n🏷️ *Cupom:* \`${v.code}\``
+      : '';
+
+    const howToUse = hasCode
+      ? `⚡ *Como usar:* Clique no link, escolha os produtos participantes e insira o cupom \`${v.code}\` no carrinho antes de pagar!`
+      : `⚡ *Como aproveitar:* Acesse pelo link oficial e aproveite os descontos direto no carrinho ou no Pix!`;
+
+    const text = `${header}
+${codeSection}
 🏪 *Loja:* ${v.advertiser || 'KaBuM! Oficial'}
 📝 *Benefício:* ${v.description}
 
 🛒 *Ative seu desconto pelo link oficial da promoção:*
 👉 ${shortUrl}
 
-⚡ *Como usar:* Clique no link, escolha os produtos participantes e insira o cupom \`${v.code}\` no carrinho antes de pagar!
-⚠️ *Aviso:* Cupons oficiais possuem limite de usos e data de validade. Aproveite antes de esgotar.`;
+${howToUse}
+⚠️ *Aviso:* Promoções e cupons oficiais possuem limite de usos e validade. Oferta oficial verificada pelo PreçoSmart.`;
 
     return {
-      type: 'voucher',
-      code: v.code,
+      type: v.type || 'voucher',
+      code: v.code || '',
       store: v.advertiser || 'KaBuM!',
-      title: `Cupom ${v.code} - ${v.advertiser}`,
+      title: hasCode ? `Cupom ${v.code} - ${v.advertiser}` : (v.title || v.description),
       url: shortUrl,
       rawUrl,
       imageUrl,

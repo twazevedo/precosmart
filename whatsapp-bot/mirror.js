@@ -218,7 +218,28 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=107702&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanClovis)}`;
     }
 
-    // 8. Domínios externos e intermediários:
+    // 8. Olympikus BR (AWIN - MID 17698 - 8% CPA)
+    if (urlObj.hostname.includes('olympikus.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanOlympikus = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=17698&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanOlympikus)}`;
+    }
+
+    // 9. adidas BR (AWIN - MID 79976 - 7% CPA)
+    if (urlObj.hostname.includes('adidas.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanAdidas = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=79976&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAdidas)}`;
+    }
+
+    // 10. Lacoste BR (AWIN - MID 112756)
+    if (urlObj.hostname.includes('lacoste.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanLacoste = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
+    }
+
+    // 11. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
@@ -308,6 +329,10 @@ async function processMessageText(text) {
                     lowLong.includes('quemdisseberenice.com') ||
                     lowLong.includes('ouiparis.com') ||
                     lowLong.includes('kabum.') ||
+                    lowLong.includes('clovis.') ||
+                    lowLong.includes('olympikus.') ||
+                    lowLong.includes('adidas.') ||
+                    lowLong.includes('lacoste.') ||
                     lowLong.includes('casasbahia.');
 
     if (isStore) {

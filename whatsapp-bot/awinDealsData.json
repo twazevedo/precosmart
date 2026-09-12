@@ -1,6 +1,36 @@
 {
   "vouchers": [
     {
+      "id": "3979345",
+      "advertiser": "Olympikus BR",
+      "advertiserId": "17698",
+      "type": "voucher",
+      "code": "AQUECE20",
+      "description": "Liquida Inverno com desconto progressivo sendo 10% OFF em 1 peça, 15% OFF em 2 peças e 20% OFF em 3 ou mais itens usando o cupom AQUECE20 aproveite a campanha especial de inverno.",
+      "starts": "30/06/2026 00:00:00",
+      "ends": "30/09/2026 23:59:59",
+      "categories": "Clothing & Accessories",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=17698&awinaffid=3077915&ued=https%3A%2F%2Fwww.olympikus.com.br%2Fliquida-inverno",
+      "deeplink": "https://www.olympikus.com.br/liquida-inverno",
+      "title": "Liquida Inverno | Até 20% OFF progressivo com cupom AQUECE20",
+      "imageUrl": "https://olympikus.vtexassets.com/assets/vtex.file-manager-graphql/images/6c5b9253-86da-4325-aee6-a9a0abe5e2fd___c35e6a3b282c04ae9e12695341d9fae6.jpg"
+    },
+    {
+      "id": "4047623",
+      "advertiser": "Clovis Calçados BR",
+      "advertiserId": "107702",
+      "type": "promotion",
+      "code": "",
+      "description": "Aproveite o Outlet Melissa na Clovis Calçados e encontre modelos icônicos com preços imperdíveis, a partir de R$ 49,90. Além disso, ganhe 5% de desconto em pagamentos realizados via Pix. Renove seu estilo com produtos originais Melissa por tempo limitado.",
+      "starts": "06/08/2026 10:29:00",
+      "ends": "31/12/2026 10:26:00",
+      "categories": "Women's Footwear,Children's Footwear",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=107702&awinaffid=3077915&ued=https%3A%2F%2Fwww.clovis.com.br%2Fmelissa",
+      "deeplink": "https://www.clovis.com.br/melissa",
+      "title": "Outlet Melissa | Produtos a partir de R$ 49,90 + 5% OFF no Pix",
+      "imageUrl": "https://media.clovis.com.br/engine/0FHwi5YIGfqLQKt_66DKdZO8ljXIgrI9xM8RidE3E-8/019c7cd1-dc5f-747d-8731-27be9e5b1727"
+    },
+    {
       "id": "4047593",
       "advertiser": "Clovis Calçados BR",
       "advertiserId": "107702",
