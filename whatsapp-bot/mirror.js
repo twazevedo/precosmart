@@ -239,7 +239,14 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
     }
 
-    // 11. Domínios externos e intermediários:
+    // 11. Nike BR (AWIN - MID 17652)
+    if (urlObj.hostname.includes('nike.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanNike = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=17652&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanNike)}`;
+    }
+
+    // 12. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
     return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
@@ -333,6 +340,7 @@ async function processMessageText(text) {
                     lowLong.includes('olympikus.') ||
                     lowLong.includes('adidas.') ||
                     lowLong.includes('lacoste.') ||
+                    lowLong.includes('nike.') ||
                     lowLong.includes('casasbahia.');
 
     if (isStore) {

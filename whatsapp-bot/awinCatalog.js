@@ -121,6 +121,9 @@ function getProductBadge(title = '') {
   if (t.includes('lacoste') || t.includes('crocodilo') || t.includes('polo lacoste')) {
     return '🐊 *LACOSTE BRASIL OFICIAL — MODA & ELEGÂNCIA* 👕✨';
   }
+  if (t.includes('nike') || t.includes('air max') || t.includes('air force') || t.includes('dunk') || t.includes('jordan')) {
+    return '✔️ *NIKE BRASIL OFICIAL — JUST DO IT* 👟🔥';
+  }
   return '🔥 *OFERTA EXCLUSIVA VERIFICADA PREÇOSMART* 🛒⚡';
 }
 
