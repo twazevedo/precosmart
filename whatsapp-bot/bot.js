@@ -291,6 +291,16 @@ app.get('/dashboard', (req, res) => {
     <script>
       let chartInstance = null;
 
+      function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
       async function loadDashboard() {
         try {
           const res = await fetch('/api/analytics');
@@ -302,7 +312,7 @@ app.get('/dashboard', (req, res) => {
           document.getElementById('est-conv').innerText = convRate;
 
           // Gráfico
-          const labels = (data.topLinks || []).map(l => l.title.substring(0, 18) + '...');
+          const labels = (data.topLinks || []).map(l => (l.title || '').substring(0, 18) + '...');
           const values = (data.topLinks || []).map(l => l.clicks);
 
           const ctx = document.getElementById('clicksChart').getContext('2d');
@@ -333,7 +343,7 @@ app.get('/dashboard', (req, res) => {
           if (data.topLinks && data.topLinks.length > 0) {
             let tHtml = '<table><thead><tr><th>Produto</th><th>Loja</th><th>Cliques</th><th>Ação</th></tr></thead><tbody>';
             data.topLinks.forEach(l => {
-              tHtml += '<tr><td><b>' + l.title + '</b></td><td>' + (l.store || 'Varejo') + '</td><td><span style="color:#10b981; font-weight:700;">' + l.clicks + '</span></td><td><a href="' + l.shortUrl + '" target="_blank">Testar Link ↗</a></td></tr>';
+              tHtml += '<tr><td><b>' + escapeHtml(l.title) + '</b></td><td>' + escapeHtml(l.store || 'Varejo') + '</td><td><span style="color:#10b981; font-weight:700;">' + Number(l.clicks || 0) + '</span></td><td><a href="' + encodeURI(l.shortUrl || '#') + '" target="_blank" rel="noopener noreferrer">Testar Link ↗</a></td></tr>';
             });
             tHtml += '</tbody></table>';
             document.getElementById('table-container').innerHTML = tHtml;
@@ -666,13 +676,13 @@ app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
 });
 
 // Endpoint direto para disparo imediato de 10 ofertas no WhatsApp e Telegram (sem travas)
-app.get('/api/trigger-lancar', async (req, res) => {
+app.get('/api/trigger-lancar', requireApiAuth, async (req, res) => {
   res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
 // Endpoint para sincronização manual ou por webhook da API AWIN
-app.get('/api/sync-awin-api', async (req, res) => {
+app.get('/api/sync-awin-api', requireApiAuth, async (req, res) => {
   try {
     const result = await syncAwinPromotions();
     res.json(result);
@@ -689,7 +699,7 @@ setInterval(() => {
 }, 6 * 60 * 60 * 1000);
 
 // Endpoint direto para disparo de teste de 1 oferta oficial da KaBuM com foto real
-app.get('/api/debug-kabum', (req, res) => {
+app.get('/api/debug-kabum', requireApiAuth, (req, res) => {
   const https = require('https');
   const target = req.query.url || 'https://www.kabum.com.br/produto/509367';
   const reqKabum = https.get(target, {
@@ -710,7 +720,7 @@ app.get('/api/debug-kabum', (req, res) => {
   reqKabum.on('timeout', () => { reqKabum.destroy(); res.json({ error: 'timeout' }); });
 });
 
-app.get('/api/test-kabum', async (req, res) => {
+app.get('/api/test-kabum', requireApiAuth, async (req, res) => {
   try {
     const idx = parseInt(req.query.i || '0', 10);
     const deal = await getSpecificKabumDeal(idx);
@@ -768,7 +778,7 @@ app.get('/api/test-kabum', async (req, res) => {
 });
 
 // Endpoint diagnóstico para inspeção de logs recentes
-app.get('/api/recent-logs', (req, res) => {
+app.get('/api/recent-logs', requireApiAuth, (req, res) => {
   res.json({
     totalLogs: messageLog.length,
     logs: messageLog.slice(0, 40)
@@ -776,7 +786,7 @@ app.get('/api/recent-logs', (req, res) => {
 });
 
 // Endpoint diagnóstico para listar grupos conectados
-app.get('/api/groups', async (req, res) => {
+app.get('/api/groups', requireApiAuth, async (req, res) => {
   if (!waSocket) return res.json({ error: 'Socket offline' });
   try {
     const groups = await waSocket.groupFetchAllParticipating();
@@ -793,7 +803,7 @@ app.get('/api/groups', async (req, res) => {
 });
 
 // Endpoint diagnóstico para detalhes de metadados de grupo (participantes, admin, announce)
-app.get('/api/group-details', async (req, res) => {
+app.get('/api/group-details', requireApiAuth, async (req, res) => {
   if (!waSocket) return res.status(503).json({ error: 'Socket offline' });
   const target = req.query.jid || groupJid;
   if (!target) return res.status(400).json({ error: 'Nenhum JID fornecido' });
@@ -823,7 +833,7 @@ app.get('/api/group-details', async (req, res) => {
 });
 
 // Endpoint diagnóstico para testar envio no WhatsApp e retornar chave de confirmação
-app.get('/api/test-send', async (req, res) => {
+app.get('/api/test-send', requireApiAuth, async (req, res) => {
   if (!waSocket || !isConnected) return res.status(503).json({ error: 'Socket offline ou não conectado' });
   const target = req.query.jid || groupJid;
   const msg = req.query.text || '🧪 Mensagem de Teste PreçoSmart Bot';
@@ -927,7 +937,7 @@ app.post('/api/set-instagram-webhook', requireApiAuth, (req, res) => {
 });
 
 // Endpoint diagnóstico da saúde da sessão do MongoDB
-app.get('/api/auth-debug', async (req, res) => {
+app.get('/api/auth-debug', requireApiAuth, async (req, res) => {
   if (!mongoClient) return res.json({ storage: 'local', isConnected });
   try {
     const coll = mongoClient.db('precosmart').collection('auth_info');

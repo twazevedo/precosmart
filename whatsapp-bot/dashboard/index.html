@@ -357,7 +357,8 @@
 
   async function fetchLogs() {
     try {
-      const r = await fetch('/api/logs');
+      const r = await fetch('/api/logs', { headers: authHeaders() });
+      if (!r.ok) return;
       const logs = await r.json();
       if (!logs.length) return;
 

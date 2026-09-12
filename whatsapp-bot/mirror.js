@@ -225,18 +225,28 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=17698&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanOlympikus)}`;
     }
 
-    // 9. adidas BR (AWIN - MID 79976 - 7% CPA)
+    // 9. adidas BR (AWIN - MID 79976) - Redireciona com segurança até ser aprovado
     if (urlObj.hostname.includes('adidas.com.br')) {
-      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
-      const cleanAdidas = `${urlObj.origin}${urlObj.pathname}`;
-      return `https://www.awin1.com/cread.php?awinmid=79976&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAdidas)}`;
+      if (process.env.ADIDAS_APPROVED === 'true') {
+        const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+        const cleanAdidas = `${urlObj.origin}${urlObj.pathname}`;
+        return `https://www.awin1.com/cread.php?awinmid=79976&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAdidas)}`;
+      }
+      // Ainda não aprovado na Awin: garante comissão pela loja oficial na Amazon
+      const query = encodeURIComponent(productKeyword || 'adidas');
+      return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
     }
 
-    // 10. Lacoste BR (AWIN - MID 112756)
+    // 10. Lacoste BR (AWIN - MID 112756) - Redireciona com segurança até ser aprovado
     if (urlObj.hostname.includes('lacoste.com')) {
-      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
-      const cleanLacoste = `${urlObj.origin}${urlObj.pathname}`;
-      return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
+      if (process.env.LACOSTE_APPROVED === 'true') {
+        const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+        const cleanLacoste = `${urlObj.origin}${urlObj.pathname}`;
+        return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
+      }
+      // Ainda não aprovado na Awin: garante comissão pela loja oficial na Amazon
+      const query = encodeURIComponent(productKeyword || 'lacoste');
+      return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
     }
 
     // 11. Nike BR (AWIN - MID 17652)
