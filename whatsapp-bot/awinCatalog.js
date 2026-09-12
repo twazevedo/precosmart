@@ -57,8 +57,36 @@ if (!awinMasterData.products || awinMasterData.products.length === 0) {
   ];
 }
 
-let productIndex = 0;
-let voucherIndex = 0;
+// Fisher-Yates Shuffle para garantir variedade absoluta e nunca começar no mesmo item
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Histórico de ofertas enviadas para BLOQUEAR repetições (Anti-Flood / Anti-Duplicação)
+const recentSentSet = new Set();
+const MAX_RECENT_HISTORY = 60;
+
+function markAsSent(key) {
+  if (!key) return;
+  recentSentSet.add(key);
+  if (recentSentSet.size > MAX_RECENT_HISTORY) {
+    const firstItem = recentSentSet.values().next().value;
+    recentSentSet.delete(firstItem);
+  }
+}
+
+// Inicializa listas dinâmicas embaralhadas
+const validInitialProducts = (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
+let shuffledProducts = shuffleArray(validInitialProducts.length > 0 ? validInitialProducts : awinMasterData.products);
+let shuffledVouchers = shuffleArray(awinMasterData.vouchers || []);
+
+let productIndex = Math.floor(Math.random() * Math.max(1, shuffledProducts.length));
+let voucherIndex = Math.floor(Math.random() * Math.max(1, shuffledVouchers.length));
 let rotationCounter = 0;
 
 /**
@@ -113,11 +141,23 @@ async function getNextAwinDeal() {
   rotationCounter++;
 
   // A cada 4 produtos, dispara um cupom oficial em destaque (se houver cupons)
-  const isVoucherTurn = rotationCounter % 4 === 0 && awinMasterData.vouchers.length > 0;
-
+  const isVoucherTurn = rotationCounter % 4 === 0 && shuffledVouchers.length > 0;
   if (isVoucherTurn) {
-    const v = awinMasterData.vouchers[voucherIndex];
-    voucherIndex = (voucherIndex + 1) % awinMasterData.vouchers.length;
+    let v = null;
+    for (let attempts = 0; attempts < shuffledVouchers.length; attempts++) {
+      const candidate = shuffledVouchers[voucherIndex % shuffledVouchers.length];
+      voucherIndex = (voucherIndex + 1) % shuffledVouchers.length;
+      const key = `voucher:${candidate.id || candidate.code || candidate.title}`;
+      if (!recentSentSet.has(key)) {
+        v = candidate;
+        markAsSent(key);
+        break;
+      }
+    }
+    if (!v) {
+      v = shuffledVouchers[voucherIndex % shuffledVouchers.length];
+      voucherIndex = (voucherIndex + 1) % shuffledVouchers.length;
+    }
 
     const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
     const shortUrl = await shortenUrl(rawUrl);
@@ -165,11 +205,23 @@ ${howToUse}
     };
   }
 
-  // Vez de produto real: APENAS seleciona produtos com foto oficial verificada
-  const validProducts = (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
-  const list = validProducts.length > 0 ? validProducts : awinMasterData.products;
-  const p = list[productIndex % list.length];
-  productIndex = (productIndex + 1) % list.length;
+  // Vez de produto real: APENAS seleciona produtos com foto oficial verificada e sem repetição
+  const list = shuffledProducts.length > 0 ? shuffledProducts : awinMasterData.products;
+  let p = null;
+  for (let attempts = 0; attempts < list.length; attempts++) {
+    const candidate = list[productIndex % list.length];
+    productIndex = (productIndex + 1) % list.length;
+    const key = `prod:${candidate.id || candidate.title}`;
+    if (!recentSentSet.has(key)) {
+      p = candidate;
+      markAsSent(key);
+      break;
+    }
+  }
+  if (!p) {
+    p = list[productIndex % list.length];
+    productIndex = (productIndex + 1) % list.length;
+  }
 
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
