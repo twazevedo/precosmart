@@ -1530,7 +1530,15 @@ async function startBot() {
     if (qr) {
       qrCodeDataUrl = await QRCode.toDataURL(qr);
       isConnected   = false;
-      logEntry('QR', 'Novo QR Code gerado — acesse /qr no dashboard para escanear');
+      logEntry('QR', 'Novo QR Code gerado! Abra http://localhost:3002/qr no navegador para escanear.');
+      try {
+        const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
+        console.log('\n📲 ESCANEIE O QR CODE ABAIXO COM SEU WHATSAPP (Aparelhos Conectados):\n');
+        console.log(terminalQr);
+        console.log('\nOu acesse no navegador: http://localhost:3002/qr\n');
+      } catch (tQrErr) {
+        console.log('Acesse http://localhost:3002/qr no navegador para escanear.');
+      }
     }
 
     if (connection === 'open') {
