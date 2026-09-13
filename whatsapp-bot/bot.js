@@ -691,7 +691,13 @@ app.get('/api/sync-awin-api', requireApiAuth, async (req, res) => {
   }
 });
 
-// Sincronização automática a cada 6 horas se o token estiver configurado
+// Sincronização inicial na inicialização e a cada 6 horas se o token estiver configurado
+if (process.env.AWIN_API_TOKEN) {
+  setTimeout(() => {
+    syncAwinPromotions().catch((e) => logEntry('WARN', '[AWIN-API] Falha no sync inicial: ' + e.message));
+  }, 12000);
+}
+
 setInterval(() => {
   if (process.env.AWIN_API_TOKEN) {
     syncAwinPromotions().catch((e) => logEntry('WARN', '[AWIN-API] Falha no sync periódico: ' + e.message));
