@@ -69,8 +69,17 @@ async function syncAwinPromotions() {
   console.log(`[AWIN-API] Conectando à API da AWIN para o Publisher ID ${publisherId}...`);
 
   try {
-    // Busca promoções dos anunciantes vinculados
-    const res = await fetchAwinApi(`/publisher/${publisherId}/promotions?membership=joined`, token);
+    // Busca promoções dos anunciantes vinculados (tenta /publishers/ e fallback /publisher/)
+    let res;
+    try {
+      res = await fetchAwinApi(`/publishers/${publisherId}/promotions?membership=joined`, token);
+    } catch (apiErr) {
+      if (apiErr.message.includes('404')) {
+        res = await fetchAwinApi(`/publisher/${publisherId}/promotions?membership=joined`, token);
+      } else {
+        throw apiErr;
+      }
+    }
     const apiVouchers = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
 
     console.log(`[AWIN-API] Recebidas ${apiVouchers.length} promoções/cupons ativos da AWIN.`);
