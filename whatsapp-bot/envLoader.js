@@ -22,7 +22,7 @@ const DEFAULTS = {
 const envPath = path.join(__dirname, '.env');
 
 // Se o arquivo .env não existir, cria automaticamente com as configurações padrão
-if (!fs.existsSync(envPath)) {
+if (!fs.existsSync(envPath) && !process.env.RENDER && process.env.NODE_ENV !== 'production') {
   console.warn('[ALERTA] Arquivo .env não encontrado. Crie um manualmente baseado no .env.example.');
 }
 

@@ -19,11 +19,8 @@ let cachedMasterKey = null;
  */
 function getMasterKey() {
   if (cachedMasterKey) return cachedMasterKey;
-  const secret = process.env.ENCRYPTION_KEY;
-  if (!secret) {
-    console.warn('[ALERTA DE SEGURANÇA] ENCRYPTION_KEY não configurada! Usando chave gerada aleatoriamente em memória.');
-  }
-  const pass = secret || process.env.SESSION_SECRET || 'precosmart_persistent_auth_key_2026_sec';
+  const secret = process.env.ENCRYPTION_KEY || process.env.APP_MASTER_KEY || process.env.SESSION_SECRET;
+  const pass = secret || 'precosmart_persistent_auth_key_2026_sec';
   const salt = process.env.ENCRYPTION_SALT || 'precosmart_salt_sec_2026';
   cachedMasterKey = crypto.scryptSync(pass, salt, 32);
   return cachedMasterKey;

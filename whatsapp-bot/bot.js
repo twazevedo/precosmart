@@ -1001,7 +1001,14 @@ async function findGroupJid(sock) {
   const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '';
   const groups = await sock.groupFetchAllParticipating();
 
-  // 1. Tenta identificar o grupo oficial diretamente pelo link de convite
+  // 1. Se já tiver JID configurado manualmente e já estiver no grupo, confirma imediatamente
+  if (TARGET_GROUP_JID && groups[TARGET_GROUP_JID]) {
+    groupJid = TARGET_GROUP_JID;
+    logEntry('GROUP', `Grupo oficial confirmado: "${groups[TARGET_GROUP_JID].subject}" (${groupJid})`);
+    return;
+  }
+
+  // 2. Tenta identificar o grupo oficial diretamente pelo link de convite se ainda não estiver no grupo
   if (GROUP_INVITE_CODE) {
     try {
       const inviteInfo = await sock.groupGetInviteInfo(GROUP_INVITE_CODE);
@@ -1022,15 +1029,8 @@ async function findGroupJid(sock) {
         return;
       }
     } catch (invErr) {
-      logEntry('WARN', `Info do convite não retornou: ${invErr.message}`);
+      // Ignora silenciosamente se o convite falhar e prossegue para fallbacks
     }
-  }
-
-  // 2. Se já tiver JID configurado manualmente
-  if (TARGET_GROUP_JID && groups[TARGET_GROUP_JID]) {
-    groupJid = TARGET_GROUP_JID;
-    logEntry('GROUP', `Grupo oficial confirmado: "${groups[TARGET_GROUP_JID].subject}" (${groupJid})`);
-    return;
   }
 
   // 3. Fallback por nome
@@ -1278,7 +1278,6 @@ async function startBot() {
     version,
     auth:         state,
     logger:       pino({ level: 'warn' }),
-    printQRInTerminal: true,
     browser:      ['PreçoSmart Bot', 'Chrome', '120.0.0'],
     syncFullHistory: false,
     getMessage: async (key) => {
@@ -1519,6 +1518,9 @@ async function startBot() {
     if (!msg?.message) return;
 
     const remoteJid = msg.key.remoteJid || '';
+    // Ignora canais de transmissão do WhatsApp (newsletters) e status para manter os logs limpos
+    if (remoteJid.endsWith('@newsletter') || remoteJid === 'status@broadcast') return;
+
     const senderJid = msg.key.participant || remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
 
