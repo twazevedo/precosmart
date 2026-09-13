@@ -95,3 +95,18 @@ module.exports = {
   runGitSync,
   startHourlyGitSync
 };
+
+// Se executado diretamente via terminal ou agendador (node autoGitSync.js)
+if (require.main === module) {
+  const isDaemon = process.argv.includes('--daemon') || process.argv.includes('-d');
+  if (isDaemon) {
+    console.log('🚀 [GitSync] Iniciando monitoramento contínuo a cada 1 hora...');
+    runGitSync().then(() => startHourlyGitSync());
+  } else {
+    console.log('⚡ [GitSync] Executando sincronização imediata com o GitHub...');
+    runGitSync().then((res) => {
+      console.log('Resultado:', res);
+      process.exit(res.ok ? 0 : 1);
+    });
+  }
+}
