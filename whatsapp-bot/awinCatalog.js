@@ -249,21 +249,26 @@ ${howToUse}
   }
 
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
-  const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
-  const shortUrl = await shortenUrl(rawUrl);
+  const rawUrl = p.deeplinkTracking || (p.advertiserId && p.advertiserId !== 'amazon' && p.advertiserId !== 'mercadolivre' ? buildAwinUrl(p.advertiserId, targetUrl) : targetUrl);
+  const shortUrl = p.shortUrl || await shortenUrl(rawUrl);
   const badge = getProductBadge(p.title);
-  const storeName = p.advertiser || 'KaBuM! Brasil Oficial';
+  const storeName = p.advertiser ? `${p.advertiser} Oficial` : 'PreçoSmart Oficial';
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* Apenas *${p.priceCurrent}*\n` : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`);
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const couponSection = p.code ? `🏷️ *Cupom:* \`${p.code}\` (insira no carrinho)\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
 
   const text = `${badge}
 
 🏷️ *${p.title}*
 🏪 *Loja:* ${storeName}
-💰 *Condição:* Desconto exclusivo no Pix ou Parcelado
-🚚 *Entrega:* Envio rápido e garantia oficial
-
-🛒 *Compre com desconto verificado aqui:*
+${priceSection}${discountSection}${couponSection}${descSection}🛒 *Compre com desconto verificado aqui:*
 👉 ${shortUrl}
 
+🚚 *Envio rápido com garantia oficial.*
 ⚠️ *Aviso:* Preço promocional e estoque podem variar a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
 
   return {
@@ -389,11 +394,93 @@ ${priceSection}${discountSection}${couponSection}📝 ${p.description}
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Amazon Brasil com foto Full HD e tag de associado
+ */
+async function getSpecificAmazonDeal(index = 0) {
+  const amzList = awinMasterData.amazonDeals && awinMasterData.amazonDeals.length > 0
+    ? awinMasterData.amazonDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === 'amazon' || (p.advertiser && p.advertiser.toLowerCase().includes('amazon')));
+
+  if (amzList.length === 0) return null;
+  const p = amzList[index % amzList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || p.deeplink;
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* Apenas *${p.priceCurrent}*\n` : `💰 *Condição:* Desconto exclusivo no Pix ou Boleto/Cartão\n`);
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `📦 *OFERTA OFICIAL AMAZON BRASIL!* ⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Amazon Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garantido na Amazon:*
+👉 ${shortUrl}
+
+🚚 *Frete Grátis com Amazon Prime e garantia de entrega rápida.*
+⚠️ *Aviso:* Preço promocional sujeito a alteração a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'Amazon Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial do Mercado Livre com foto Full HD e tag de afiliado
+ */
+async function getSpecificMLDeal(index = 0) {
+  const mlList = awinMasterData.mlDeals && awinMasterData.mlDeals.length > 0
+    ? awinMasterData.mlDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === 'mercadolivre' || (p.advertiser && p.advertiser.toLowerCase().includes('mercado livre')));
+
+  if (mlList.length === 0) return null;
+  const p = mlList[index % mlList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || p.deeplink;
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* Apenas *${p.priceCurrent}*\n` : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`);
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🟡 *OFERTA OFICIAL MERCADO LIVRE!* ⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Mercado Livre Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre pelo link verificado do Mercado Livre:*
+👉 ${shortUrl}
+
+🚚 *Entrega Full mais rápida do Brasil e compra 100% garantida.*
+⚠️ *Aviso:* Preço promocional sujeito a alteração a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'Mercado Livre Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
   getSpecificNikeDeal,
+  getSpecificAmazonDeal,
+  getSpecificMLDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData

@@ -37,7 +37,7 @@ const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
-const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal } = require('./awinCatalog');
+const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal, getSpecificAmazonDeal, getSpecificMLDeal } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
 
@@ -746,6 +746,142 @@ app.post('/api/send-nike', requireApiAuth, async (req, res) => {
   const count = parseInt(req.body?.count || req.query.count || '10', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike iniciado com sucesso no WhatsApp e Telegram!` });
   dispatchNikeBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais Amazon Brasil ────────────────────────
+async function dispatchAmazonBatch(count = 5, delayMs = 4000) {
+  logEntry('AMAZON', `[Blast] Iniciando disparo de ${count} ofertas oficiais da Amazon Brasil...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificAmazonDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('AMAZON_WA', `Foto HD Amazon enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD Amazon (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Oferta Exclusiva',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text
+        });
+      }
+
+      results.push(deal);
+      logEntry('AMAZON', `✅ [${i + 1}/${count}] Oferta Amazon enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} da Amazon: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('AMAZON', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Amazon.`);
+  return results;
+}
+
+app.get('/api/trigger-amazon', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '2', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais da Amazon iniciado com sucesso!` });
+  dispatchAmazonBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Amazon: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais Mercado Livre ─────────────────────────
+async function dispatchMLBatch(count = 5, delayMs = 4000) {
+  logEntry('ML', `[Blast] Iniciando disparo de ${count} ofertas oficiais do Mercado Livre...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificMLDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('ML_WA', `Foto HD Mercado Livre enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD Mercado Livre (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Oferta Exclusiva',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text
+        });
+      }
+
+      results.push(deal);
+      logEntry('ML', `✅ [${i + 1}/${count}] Oferta Mercado Livre enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} do Mercado Livre: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('ML', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Mercado Livre.`);
+  return results;
+}
+
+app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais do Mercado Livre iniciado com sucesso!` });
+  dispatchMLBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Mercado Livre: ' + e.message));
 });
 
 // Endpoint para sincronização manual ou por webhook da API AWIN
