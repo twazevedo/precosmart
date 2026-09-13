@@ -424,6 +424,45 @@ function extractCanonicalId(url) {
   return null;
 }
 
+/**
+ * Converte URLs de imagens de produtos para versões em Alta Resolução (Full HD).
+ * Elimina miniaturas (_m.jpg, /medium/, -I.jpg, _tn) e rejeita banners minúsculos (320x50, 300x50).
+ */
+function upgradeToHdImage(url) {
+  if (!url || typeof url !== 'string') return null;
+
+  // 1. Rejeita banners de anúncios horizontais minúsculos
+  if (/(320x50|300x50|320x100|468x60|728x90|120x600)/i.test(url)) {
+    return null;
+  }
+
+  let hd = url.trim();
+
+  // 2. KaBuM: eleva de /medium/ para /large/ e de _m.jpg para _gg.jpg (Full HD)
+  if (hd.includes('kabum.com.br')) {
+    hd = hd.replace(/\/medium\//g, '/large/');
+    hd = hd.replace(/_m\.(jpe?g|png|webp)/i, '_gg.$1');
+    hd = hd.replace(/_p\.(jpe?g|png|webp)/i, '_gg.$1');
+  }
+
+  // 3. Mercado Livre: eleva de thumbnail (-I.jpg) para original (-O.jpg)
+  if (hd.includes('mlstatic.com') || hd.includes('mercadolivre.com')) {
+    hd = hd.replace(/-[IV]\.(jpe?g|png|webp)/i, '-O.$1');
+  }
+
+  // 4. Shopee: remove sufixo de miniatura _tn
+  if (hd.includes('shopee.com') || hd.includes('susercontent.com')) {
+    hd = hd.replace(/_tn\b/i, '');
+  }
+
+  // 5. Magazine Luiza: eleva miniaturas para 800x800
+  if (hd.includes('magazineluiza.com.br') || hd.includes('magalu.com')) {
+    hd = hd.replace(/\/\d+x\d+\//g, '/800x800/');
+  }
+
+  return hd;
+}
+
 const ogImageCache = new Map();
 
 function fetchOgImage(urlStr) {
@@ -441,8 +480,9 @@ function fetchOgImage(urlStr) {
     function finish(result) {
       if (isSettled) return;
       isSettled = true;
-      if (result) ogImageCache.set(urlStr, result);
-      resolve(result || null);
+      const finalResult = upgradeToHdImage(result);
+      if (finalResult) ogImageCache.set(urlStr, finalResult);
+      resolve(finalResult || null);
     }
 
     function doReq(target) {
@@ -514,4 +554,10 @@ function fetchOgImage(urlStr) {
   });
 }
 
-module.exports = { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage };
+module.exports = {
+  processMessageText,
+  extractProductKeyword,
+  extractCanonicalId,
+  fetchOgImage,
+  upgradeToHdImage
+};

@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { upgradeToHdImage } = require('./mirror');
 
 const DATA_PATH = path.join(__dirname, 'awinDealsData.json');
 
@@ -150,7 +151,7 @@ async function syncAwinPromotions() {
         deeplinkTracking: trackingLink,
         deeplink: item.url || trackingLink,
         title: item.title || `${couponCode ? 'Cupom ' + couponCode : 'Promoção'} | ${advertiserName}`,
-        imageUrl: item.imageUrl || null
+        imageUrl: upgradeToHdImage(item.imageUrl) || null
       });
 
       existingIds.add(id);

@@ -39,6 +39,7 @@ const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
 const { getNextAwinDeal, getSpecificKabumDeal } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
+const { upgradeToHdImage } = require('./mirror');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -569,6 +570,8 @@ async function dispatchNextAwinRotation(options = {}) {
 
     logEntry('AWIN', `[Piloto Automático] Disparando oferta/cupom: ${deal.store} — ${deal.title}`);
 
+    const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+
     // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us)
     const jids = getTargetJids();
     if (isConnected && waSocket && jids.length > 0) {
@@ -576,12 +579,12 @@ async function dispatchNextAwinRotation(options = {}) {
         if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
 
         let sent = false;
-        if (deal.imageUrl) {
+        if (hdImageUrl) {
           try {
-            const imgRes = await axios.get(deal.imageUrl, {
+            const imgRes = await axios.get(hdImageUrl, {
               responseType: 'arraybuffer',
               headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                 'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
               },
               timeout: 7000
@@ -592,11 +595,11 @@ async function dispatchNextAwinRotation(options = {}) {
                 caption: deal.text
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('AWIN_WA', `Foto enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
+              logEntry('AWIN_WA', `Foto HD enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
               sent = true;
             }
           } catch (imgErr) {
-            logEntry('WARN', `Falha ao baixar/enviar foto AWIN (${jid}), usando fallback de texto: ${imgErr.message}`);
+            logEntry('WARN', `Falha ao baixar/enviar foto HD AWIN (${jid}), usando fallback de texto: ${imgErr.message}`);
           }
         }
 
@@ -620,7 +623,7 @@ async function dispatchNextAwinRotation(options = {}) {
         title: deal.title,
         price: deal.price || 'Oferta Especial',
         url: deal.url,
-        imageUrl: deal.imageUrl,
+        imageUrl: hdImageUrl,
         text: deal.text
       });
     }
@@ -733,12 +736,13 @@ app.get('/api/test-kabum', requireApiAuth, async (req, res) => {
     if (!deal) return res.status(500).json({ error: 'Oferta KaBuM não encontrada' });
 
     let sent = false;
+    const hdImageUrl = upgradeToHdImage(deal.imageUrl);
     const jids = getTargetJids();
     for (const jid of jids) {
       if (!jid.endsWith('@g.us')) continue;
-      if (deal.imageUrl) {
+      if (hdImageUrl) {
         try {
-          const imgRes = await axios.get(deal.imageUrl, {
+          const imgRes = await axios.get(hdImageUrl, {
             responseType: 'arraybuffer',
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -752,11 +756,11 @@ app.get('/api/test-kabum', requireApiAuth, async (req, res) => {
               caption: deal.text
             });
             if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-            logEntry('AWIN_WA', `Foto oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
+            logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
             sent = true;
           }
         } catch (imgErr) {
-          logEntry('WARN', 'Falha ao baixar foto KaBuM: ' + imgErr.message);
+          logEntry('WARN', 'Falha ao baixar foto KaBuM HD: ' + imgErr.message);
         }
       }
       if (!sent) {
@@ -771,13 +775,13 @@ app.get('/api/test-kabum', requireApiAuth, async (req, res) => {
         title: deal.title,
         price: 'Oferta Especial',
         url: deal.url,
-        imageUrl: deal.imageUrl,
+        imageUrl: hdImageUrl,
         text: deal.text
       });
     }
 
     logEntry('AWIN', `[Teste KaBuM] Oferta postada: ${deal.title}`);
-    res.json({ ok: true, store: deal.store, title: deal.title, imageUrl: deal.imageUrl, sent });
+    res.json({ ok: true, store: deal.store, title: deal.title, imageUrl: hdImageUrl, sent });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1420,21 +1424,32 @@ async function startBot() {
       }
 
       try {
-        // 📸 Garante que a oferta seja enviada com a foto oficial do produto
+        // 📸 Garante que a oferta seja enviada com a foto oficial do produto em ALTA DEFINIÇÃO
         let imgPayload = null;
         if (deal.buffer) {
           imgPayload = deal.buffer;
         } else if (deal.imageUrl) {
-          imgPayload = { url: deal.imageUrl };
-        } else if (deal.text) {
+          const hdUrl = upgradeToHdImage(deal.imageUrl);
+          if (hdUrl) {
+            deal.imageUrl = hdUrl;
+            imgPayload = { url: hdUrl };
+          } else {
+            deal.imageUrl = null;
+          }
+        }
+        
+        if (!imgPayload && deal.text) {
           const urlMatch = deal.text.match(/(https?:\/\/[^\s]+)/);
           if (urlMatch) {
             try {
               const ogImg = await fetchOgImage(urlMatch[1]);
               if (ogImg) {
-                deal.imageUrl = ogImg;
-                imgPayload = { url: ogImg };
-                logEntry('IMG', `Foto oficial extraída do produto: ${ogImg.substring(0, 50)}...`);
+                const hdOgImg = upgradeToHdImage(ogImg);
+                if (hdOgImg) {
+                  deal.imageUrl = hdOgImg;
+                  imgPayload = { url: hdOgImg };
+                  logEntry('IMG', `Foto oficial HD extraída do produto: ${hdOgImg.substring(0, 60)}...`);
+                }
               }
             } catch (ogErr) {}
           }

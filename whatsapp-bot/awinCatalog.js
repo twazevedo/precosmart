@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { shortenUrl } = require('./linkShortener');
-const { fetchOgImage } = require('./mirror');
+const { fetchOgImage, upgradeToHdImage } = require('./mirror');
 
 const AWIN_PUBLISHER_ID = process.env.AWIN_PUBLISHER_ID || '3077915';
 const CLICKREF = 'PILOTO_AUTO';
@@ -165,7 +165,7 @@ async function getNextAwinDeal() {
     const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
     const shortUrl = await shortenUrl(rawUrl);
 
-    let imageUrl = v.imageUrl || null;
+    let imageUrl = upgradeToHdImage(v.imageUrl);
     if (!imageUrl && v.deeplink) {
       try {
         imageUrl = await fetchOgImage(v.deeplink);
@@ -230,7 +230,12 @@ ${howToUse}
   const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
 
-  const imageUrl = p.imageUrl || null;
+  let imageUrl = upgradeToHdImage(p.imageUrl);
+  if (!imageUrl && targetUrl) {
+    try {
+      imageUrl = await fetchOgImage(targetUrl);
+    } catch (e) {}
+  }
   const badge = getProductBadge(p.title);
   const storeName = p.advertiser || 'KaBuM! Brasil Oficial';
 
@@ -297,7 +302,12 @@ async function getSpecificKabumDeal(index = 0) {
   const rawUrl = p.deeplinkTracking || buildAwinUrl('17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
 
-  const imageUrl = p.imageUrl || null;
+  let imageUrl = upgradeToHdImage(p.imageUrl);
+  if (!imageUrl && targetUrl) {
+    try {
+      imageUrl = await fetchOgImage(targetUrl);
+    } catch (e) {}
+  }
   const badge = getProductBadge(p.title);
   const text = `${badge}
 
