@@ -225,12 +225,12 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=17698&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanOlympikus)}`;
     }
 
-    // 9. adidas BR (AWIN - MID 79976) - Redireciona com segurança até ser aprovado
+    // 9. adidas BR (AWIN - MID 79926) - Redireciona com segurança até ser aprovado
     if (urlObj.hostname.includes('adidas.com.br')) {
       if (process.env.ADIDAS_APPROVED === 'true') {
         const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
         const cleanAdidas = `${urlObj.origin}${urlObj.pathname}`;
-        return `https://www.awin1.com/cread.php?awinmid=79976&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAdidas)}`;
+        return `https://www.awin1.com/cread.php?awinmid=79926&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAdidas)}`;
       }
       // Ainda não aprovado na Awin: garante comissão pela loja oficial na Amazon
       const query = encodeURIComponent(productKeyword || 'adidas');
@@ -249,11 +249,25 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
     }
 
-    // 11. Nike BR (AWIN - MID 17652)
+    // 11. Nike BR (AWIN - MID 17652 - 7.5% a 14% CPA)
     if (urlObj.hostname.includes('nike.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanNike = `${urlObj.origin}${urlObj.pathname}`;
       return `https://www.awin1.com/cread.php?awinmid=17652&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanNike)}`;
+    }
+
+    // 12. Under Armour BR (AWIN - MID 18864 - 6% CPA)
+    if (urlObj.hostname.includes('underarmour.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanUA = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=18864&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanUA)}`;
+    }
+
+    // 13. Clovis Calçados BR (AWIN - MID 107702 - 8% CPA)
+    if (urlObj.hostname.includes('clovis.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanClovis = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=107702&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanClovis)}`;
     }
 
     // 12. Domínios externos e intermediários:

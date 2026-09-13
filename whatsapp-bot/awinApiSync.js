@@ -15,12 +15,13 @@ const DATA_PATH = path.join(__dirname, 'awinDealsData.json');
 /**
  * Faz requisição HTTPS nativa para a API da AWIN
  */
-function fetchAwinApi(endpoint, token) {
+function fetchAwinApi(endpoint, token, method = 'GET', body = null) {
   return new Promise((resolve, reject) => {
+    const postData = body ? JSON.stringify(body) : null;
     const options = {
       hostname: 'api.awin.com',
       path: endpoint,
-      method: 'GET',
+      method: method,
       headers: {
         'Authorization': `Bearer ${token.trim()}`,
         'Accept': 'application/json',
@@ -28,6 +29,11 @@ function fetchAwinApi(endpoint, token) {
       },
       timeout: 15000
     };
+
+    if (postData) {
+      options.headers['Content-Type'] = 'application/json';
+      options.headers['Content-Length'] = Buffer.byteLength(postData);
+    }
 
     const req = https.request(options, (res) => {
       let data = '';
@@ -50,8 +56,35 @@ function fetchAwinApi(endpoint, token) {
       req.destroy();
       reject(new Error('Timeout ao conectar na API da AWIN'));
     });
+    if (postData) req.write(postData);
     req.end();
   });
+}
+
+/**
+ * Verifica programas aprovados e ativa parceiros pendentes automaticamente
+ */
+async function checkProgramApprovals(token, publisherId) {
+  try {
+    const res = await fetchAwinApi(`/publishers/${publisherId}/programmes?relationship=joined`, token);
+    const joinedList = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+    
+    for (const prog of joinedList) {
+      const id = Number(prog.id);
+      if (id === 79926 && process.env.ADIDAS_APPROVED !== 'true') {
+        process.env.ADIDAS_APPROVED = 'true';
+        console.log('[AWIN-API] 🎉 Notícia fantástica: adidas BR APROVADA na Awin! Links comissionados ativados!');
+      }
+      if (id === 112756 && process.env.LACOSTE_APPROVED !== 'true') {
+        process.env.LACOSTE_APPROVED = 'true';
+        console.log('[AWIN-API] 🎉 Notícia fantástica: Lacoste BR APROVADA na Awin! Links comissionados ativados!');
+      }
+    }
+    return joinedList;
+  } catch (err) {
+    console.warn('[AWIN-API] Aviso ao verificar aprovação de programas:', err.message);
+    return [];
+  }
 }
 
 /**
@@ -69,18 +102,14 @@ async function syncAwinPromotions() {
   console.log(`[AWIN-API] Conectando à API da AWIN para o Publisher ID ${publisherId}...`);
 
   try {
-    // Busca promoções dos anunciantes vinculados (tenta /publishers/ e fallback /publisher/)
-    let res;
-    try {
-      res = await fetchAwinApi(`/publishers/${publisherId}/promotions?membership=joined`, token);
-    } catch (apiErr) {
-      if (apiErr.message.includes('404')) {
-        res = await fetchAwinApi(`/publisher/${publisherId}/promotions?membership=joined`, token);
-      } else {
-        throw apiErr;
-      }
-    }
-    const apiVouchers = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []);
+    // 1. Verifica anunciantes aprovados
+    await checkProgramApprovals(token, publisherId);
+
+    // 2. Busca promoções e cupons oficiais de parceiros afiliados
+    const res = await fetchAwinApi(`/publisher/${publisherId}/promotions`, token, 'POST', {
+      filters: { membership: 'joined' }
+    });
+    const apiVouchers = Array.isArray(res?.data) ? res.data : [];
 
     console.log(`[AWIN-API] Recebidas ${apiVouchers.length} promoções/cupons ativos da AWIN.`);
 
@@ -100,25 +129,27 @@ async function syncAwinPromotions() {
     const existingIds = new Set((currentData.vouchers || []).map(v => String(v.id)));
 
     for (const item of apiVouchers) {
-      const id = String(item.id || item.promotionId);
+      const id = String(item.promotionId || item.id);
       if (!id || existingIds.has(id)) continue;
 
       const advertiserName = item.advertiser?.name || item.advertiserName || 'Loja Parceira';
       const advertiserId = String(item.advertiser?.id || item.advertiserId || '');
+      const couponCode = item.voucher?.code || item.code || '';
+      const trackingLink = item.urlTracking || item.url || '';
 
       currentData.vouchers.unshift({
         id,
         advertiser: advertiserName,
         advertiserId,
-        type: item.type || (item.code ? 'voucher' : 'promotion'),
-        code: item.code || '',
+        type: item.type || (couponCode ? 'voucher' : 'promotion'),
+        code: couponCode,
         description: item.description || item.title || '',
         starts: item.startDate || '',
         ends: item.endDate || '',
-        categories: item.category || '',
-        deeplinkTracking: item.url || item.trackingUrl || '',
-        deeplink: item.deeplink || item.url || '',
-        title: item.title || `${item.code ? 'Cupom ' + item.code : 'Promoção'} | ${advertiserName}`,
+        categories: Array.isArray(item.categories) ? item.categories.map(c => c.name).join(', ') : '',
+        deeplinkTracking: trackingLink,
+        deeplink: item.url || trackingLink,
+        title: item.title || `${couponCode ? 'Cupom ' + couponCode : 'Promoção'} | ${advertiserName}`,
         imageUrl: item.imageUrl || null
       });
 
@@ -142,5 +173,6 @@ async function syncAwinPromotions() {
 
 module.exports = {
   syncAwinPromotions,
-  fetchAwinApi
+  fetchAwinApi,
+  checkProgramApprovals
 };
