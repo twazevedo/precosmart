@@ -40,6 +40,7 @@ const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./securi
 const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal, getSpecificAmazonDeal, getSpecificMLDeal } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
+const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
@@ -883,6 +884,19 @@ app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais do Mercado Livre iniciado com sucesso!` });
   dispatchMLBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Mercado Livre: ' + e.message));
 });
+
+// Endpoint para sincronização manual imediata com o GitHub
+app.get('/api/trigger-git-sync', requireApiAuth, async (req, res) => {
+  try {
+    const result = await runGitSync();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Inicia o sincronizador automático com o GitHub a cada 1 hora
+startHourlyGitSync();
 
 // Endpoint para sincronização manual ou por webhook da API AWIN
 app.get('/api/sync-awin-api', requireApiAuth, async (req, res) => {
