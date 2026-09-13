@@ -80,10 +80,12 @@ function markAsSent(key) {
   }
 }
 
-// Inicializa listas dinâmicas embaralhadas
+// Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD
 const validInitialProducts = (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
-let shuffledProducts = shuffleArray(validInitialProducts.length > 0 ? validInitialProducts : awinMasterData.products);
-let shuffledVouchers = shuffleArray(awinMasterData.vouchers || []);
+let shuffledProducts = shuffleArray(validInitialProducts);
+
+const validInitialVouchers = (awinMasterData.vouchers || []).filter(v => v.imageUrl && v.imageUrl.startsWith('http'));
+let shuffledVouchers = shuffleArray(validInitialVouchers);
 
 let productIndex = Math.floor(Math.random() * Math.max(1, shuffledProducts.length));
 let voucherIndex = Math.floor(Math.random() * Math.max(1, shuffledVouchers.length));
@@ -143,49 +145,43 @@ function getFallbackImage() {
 async function getNextAwinDeal() {
   rotationCounter++;
 
-  // A cada 4 produtos, dispara um cupom oficial em destaque (se houver cupons)
+  // 1. Rotação de Cupom: APENAS se houver cupom com foto oficial verificada
   const isVoucherTurn = rotationCounter % 4 === 0 && shuffledVouchers.length > 0;
   if (isVoucherTurn) {
     let v = null;
+    let voucherImg = null;
     for (let attempts = 0; attempts < shuffledVouchers.length; attempts++) {
       const candidate = shuffledVouchers[voucherIndex % shuffledVouchers.length];
       voucherIndex = (voucherIndex + 1) % shuffledVouchers.length;
-      const key = `voucher:${candidate.id || candidate.code || candidate.title}`;
-      if (!recentSentSet.has(key)) {
-        v = candidate;
-        markAsSent(key);
-        break;
+      let img = upgradeToHdImage(candidate.imageUrl);
+      if (!img && candidate.deeplink) {
+        try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
+      }
+      if (img) {
+        const key = `voucher:${candidate.id || candidate.code || candidate.title}`;
+        if (!recentSentSet.has(key)) {
+          v = candidate;
+          voucherImg = img;
+          markAsSent(key);
+          break;
+        }
       }
     }
-    if (!v) {
-      v = shuffledVouchers[voucherIndex % shuffledVouchers.length];
-      voucherIndex = (voucherIndex + 1) % shuffledVouchers.length;
-    }
 
-    const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
-    const shortUrl = await shortenUrl(rawUrl);
+    if (v && voucherImg) {
+      const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
+      const shortUrl = await shortenUrl(rawUrl);
+      const hasCode = v.code && v.code.trim().length > 0;
+      const header = hasCode 
+        ? '🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥'
+        : '🚨 *OFERTA & PROMOÇÃO OFICIAL LIBERADA!* 💥';
 
-    let imageUrl = upgradeToHdImage(v.imageUrl);
-    if (!imageUrl && v.deeplink) {
-      try {
-        imageUrl = await fetchOgImage(v.deeplink);
-      } catch (e) {}
-    }
+      const codeSection = hasCode ? `\n🏷️ *Cupom:* \`${v.code}\`` : '';
+      const howToUse = hasCode
+        ? `⚡ *Como usar:* Clique no link, escolha os produtos participantes e insira o cupom \`${v.code}\` no carrinho antes de pagar!`
+        : `⚡ *Como aproveitar:* Acesse pelo link oficial e aproveite os descontos direto no carrinho ou no Pix!`;
 
-    const hasCode = v.code && v.code.trim().length > 0;
-    const header = hasCode 
-      ? '🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥'
-      : '🚨 *OFERTA & PROMOÇÃO OFICIAL LIBERADA!* 💥';
-
-    const codeSection = hasCode
-      ? `\n🏷️ *Cupom:* \`${v.code}\``
-      : '';
-
-    const howToUse = hasCode
-      ? `⚡ *Como usar:* Clique no link, escolha os produtos participantes e insira o cupom \`${v.code}\` no carrinho antes de pagar!`
-      : `⚡ *Como aproveitar:* Acesse pelo link oficial e aproveite os descontos direto no carrinho ou no Pix!`;
-
-    const text = `${header}
+      const text = `${header}
 ${codeSection}
 🏪 *Loja:* ${v.advertiser || 'KaBuM! Oficial'}
 📝 *Benefício:* ${v.description}
@@ -196,46 +192,65 @@ ${codeSection}
 ${howToUse}
 ⚠️ *Aviso:* Promoções e cupons oficiais possuem limite de usos e validade. Oferta oficial verificada pelo PreçoSmart.`;
 
-    return {
-      type: v.type || 'voucher',
-      code: v.code || '',
-      store: v.advertiser || 'KaBuM!',
-      title: hasCode ? `Cupom ${v.code} - ${v.advertiser}` : (v.title || v.description),
-      url: shortUrl,
-      rawUrl,
-      imageUrl,
-      text
-    };
+      return {
+        type: v.type || 'voucher',
+        code: v.code || '',
+        store: v.advertiser || 'KaBuM!',
+        title: hasCode ? `Cupom ${v.code} - ${v.advertiser}` : (v.title || v.description),
+        url: shortUrl,
+        rawUrl,
+        imageUrl: voucherImg,
+        text
+      };
+    }
   }
 
-  // Vez de produto real: APENAS seleciona produtos com foto oficial verificada e sem repetição
-  const list = shuffledProducts.length > 0 ? shuffledProducts : awinMasterData.products;
+  // 2. Vez de produto real: APENAS seleciona produtos com foto oficial Full HD
+  const list = shuffledProducts.length > 0 ? shuffledProducts : (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
   let p = null;
+  let productImg = null;
+
   for (let attempts = 0; attempts < list.length; attempts++) {
     const candidate = list[productIndex % list.length];
     productIndex = (productIndex + 1) % list.length;
-    const key = `prod:${candidate.id || candidate.title}`;
-    if (!recentSentSet.has(key)) {
-      p = candidate;
-      markAsSent(key);
-      break;
+    let img = upgradeToHdImage(candidate.imageUrl);
+    if (!img && candidate.deeplink) {
+      try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
+    }
+    if (img) {
+      const key = `prod:${candidate.id || candidate.title}`;
+      if (!recentSentSet.has(key)) {
+        p = candidate;
+        productImg = img;
+        markAsSent(key);
+        break;
+      }
     }
   }
-  if (!p) {
-    p = list[productIndex % list.length];
-    productIndex = (productIndex + 1) % list.length;
+
+  // Se todos foram enviados recentemente, seleciona qualquer produto COM FOTO OFICIAL
+  if (!p || !productImg) {
+    for (let attempts = 0; attempts < list.length; attempts++) {
+      const candidate = list[productIndex % list.length];
+      productIndex = (productIndex + 1) % list.length;
+      let img = upgradeToHdImage(candidate.imageUrl);
+      if (img) {
+        p = candidate;
+        productImg = img;
+        break;
+      }
+    }
+  }
+
+  // Garantia absoluta: NUNCA envia sem foto oficial
+  if (!p || !productImg) {
+    console.warn('[AWIN] Nenhuma oferta com foto oficial disponível no momento.');
+    return null;
   }
 
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl(p.advertiserId || '17729', targetUrl);
   const shortUrl = await shortenUrl(rawUrl);
-
-  let imageUrl = upgradeToHdImage(p.imageUrl);
-  if (!imageUrl && targetUrl) {
-    try {
-      imageUrl = await fetchOgImage(targetUrl);
-    } catch (e) {}
-  }
   const badge = getProductBadge(p.title);
   const storeName = p.advertiser || 'KaBuM! Brasil Oficial';
 
@@ -257,7 +272,7 @@ ${howToUse}
     title: p.title,
     url: shortUrl,
     rawUrl,
-    imageUrl,
+    imageUrl: productImg,
     text
   };
 }

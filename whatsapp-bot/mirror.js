@@ -431,8 +431,11 @@ function extractCanonicalId(url) {
 function upgradeToHdImage(url) {
   if (!url || typeof url !== 'string') return null;
 
-  // 1. Rejeita banners de anúncios horizontais minúsculos
+  // 1. Rejeita banners de anúncios horizontais minúsculos e logos genéricos
   if (/(320x50|300x50|320x100|468x60|728x90|120x600)/i.test(url)) {
+    return null;
+  }
+  if (/(favicon|apple-touch-icon|logo[-_]?placeholder|brand-logo|site-logo)/i.test(url)) {
     return null;
   }
 
@@ -467,13 +470,28 @@ const ogImageCache = new Map();
 
 function fetchOgImage(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return Promise.resolve(null);
-  if (ogImageCache.has(urlStr)) return Promise.resolve(ogImageCache.get(urlStr));
+
+  // Desempacota links de afiliados AWIN diretamente para a URL do lojista
+  let cleanUrl = urlStr.trim();
+  if (cleanUrl.includes('ued=')) {
+    const m = cleanUrl.match(/[?&]ued=([^&]+)/);
+    if (m) {
+      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) {}
+    }
+  } else if (cleanUrl.includes('awin1.com') && cleanUrl.includes('url=')) {
+    const m = cleanUrl.match(/[?&]url=([^&]+)/);
+    if (m) {
+      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) {}
+    }
+  }
+
+  if (ogImageCache.has(cleanUrl)) return Promise.resolve(ogImageCache.get(cleanUrl));
 
   const https = require('https');
   const http = require('http');
 
   return new Promise((resolve) => {
-    let currentUrl = urlStr;
+    let currentUrl = cleanUrl;
     let redirects = 0;
     let isSettled = false;
 
@@ -481,7 +499,10 @@ function fetchOgImage(urlStr) {
       if (isSettled) return;
       isSettled = true;
       const finalResult = upgradeToHdImage(result);
-      if (finalResult) ogImageCache.set(urlStr, finalResult);
+      if (finalResult) {
+        ogImageCache.set(cleanUrl, finalResult);
+        ogImageCache.set(urlStr, finalResult);
+      }
       resolve(finalResult || null);
     }
 
@@ -505,7 +526,7 @@ function fetchOgImage(urlStr) {
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
           'Accept-Language': 'pt-BR,pt;q=0.9'
         },
-        timeout: 6000
+        timeout: 8000
       };
 
       const req = client.get(options, (res) => {
@@ -524,15 +545,26 @@ function fetchOgImage(urlStr) {
         res.on('data', chunk => {
           if (isSettled) return;
           html += chunk;
-          const m = html.match(/<meta[^>]*?property=["']og:image["'][^>]*?content=["']([^"']+)["']/i) ||
-                    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image["']/i) ||
+          const m = html.match(/<meta[^>]*?property=["']og:image(?::secure_url)?["'][^>]*?content=["']([^"']+)["']/i) ||
+                    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image(?::secure_url)?["']/i) ||
                     html.match(/<meta[^>]*?name=["']twitter:image["'][^>]*?content=["']([^"']+)["']/i) ||
-                    html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i);
+                    html.match(/<link[^>]*?rel=["']image_src["'][^>]*?href=["']([^"']+)["']/i) ||
+                    html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+                    html.match(/"image"\s*:\s*["'](https?:\/\/[^"']+)["']/i) ||
+                    html.match(/"image"\s*:\s*\[\s*["'](https?:\/\/[^"']+)["']/i);
           if (m && m[1]) {
             req.destroy();
             return finish(m[1]);
           }
-          if (html.length > 60000) {
+
+          // Checa se há meta refresh
+          const refreshMatch = html.match(/<meta[^>]*?http-equiv=["']refresh["'][^>]*?content=["']\d+;\s*url=([^"'>]+)["']/i);
+          if (refreshMatch && refreshMatch[1]) {
+            req.destroy();
+            return doReq(refreshMatch[1]);
+          }
+
+          if (html.length > 400000) {
             req.destroy();
             return finish(null);
           }

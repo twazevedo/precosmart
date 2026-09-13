@@ -571,54 +571,42 @@ async function dispatchNextAwinRotation(options = {}) {
     logEntry('AWIN', `[Piloto Automático] Disparando oferta/cupom: ${deal.store} — ${deal.title}`);
 
     const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+    if (!hdImageUrl) {
+      logEntry('AWIN', `[Piloto Automático] Envio abortado: oferta sem foto oficial do produto (${deal.title}).`);
+      return null;
+    }
 
-    // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us)
+    // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us COM FOTO OFICIAL OBRIGATÓRIA)
     const jids = getTargetJids();
     if (isConnected && waSocket && jids.length > 0) {
       for (const jid of jids) {
         if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
 
-        let sent = false;
-        if (hdImageUrl) {
-          try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
+        try {
+          const imgRes = await axios.get(hdImageUrl, {
+            responseType: 'arraybuffer',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            },
+            timeout: 7000
+          });
+          if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const resMsg = await waSocket.sendMessage(jid, {
+              image: Buffer.from(imgRes.data),
+              caption: deal.text
             });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
-                caption: deal.text
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('AWIN_WA', `Foto HD enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
-              sent = true;
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao baixar/enviar foto HD AWIN (${jid}), usando fallback de texto: ${imgErr.message}`);
-          }
-        }
-
-        // Fallback 100% garantido: se a imagem falhar ou não existir, envia o texto com o link e cupom
-        if (!sent) {
-          try {
-            const resMsg = await waSocket.sendMessage(jid, { text: deal.text });
             if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-            logEntry('AWIN_WA', `Texto enviado para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
-            sent = true;
-          } catch (waErr) {
-            logEntry('ERROR', `Falha ao enviar texto AWIN no WhatsApp (${jid}): ${waErr.message}`);
+            logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
           }
+        } catch (imgErr) {
+          logEntry('WARN', `Falha ao baixar/enviar foto HD AWIN (${jid}): ${imgErr.message}. Mensagem não enviada sem foto.`);
         }
       }
     }
 
-    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM)
-    if (isTelegramConfigured()) {
+    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM COM FOTO OFICIAL)
+    if (isTelegramConfigured() && hdImageUrl) {
       await broadcastTelegramDeal({
         title: deal.title,
         price: deal.price || 'Oferta Especial',
@@ -1455,20 +1443,19 @@ async function startBot() {
           }
         }
 
+        // Regra Absoluta: NENHUMA oferta pode ser postada sem foto oficial do produto
+        if (!deal.buffer && !imgPayload) {
+          logEntry('MIRROR', `⚠️ Oferta descartada: sem foto oficial do produto (${deal.keyword || 'oferta'}).`);
+          continue;
+        }
+
         for (const targetJid of jidsToSend) {
           if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
           try {
             if (deal.type === 'video' && deal.buffer) {
               await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
             } else if (imgPayload) {
-              try {
-                await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
-              } catch (imgFail) {
-                // Fallback de texto se a imagem falhar
-                await waSocket.sendMessage(targetJid, { text: deal.text });
-              }
-            } else {
-              await waSocket.sendMessage(targetJid, { text: deal.text });
+              await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
             }
           } catch (sendErr) {
              logEntry('WARN', `Erro ao postar via Anti-Flood no grupo ${targetJid}: ${sendErr.message}`);
