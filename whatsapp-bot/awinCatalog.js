@@ -347,10 +347,53 @@ async function getSpecificKabumDeal(index = 0) {
   };
 }
 
+/**
+ * Retorna uma oferta real e verificada da Nike Brasil com foto Full HD e link tidd.ly
+ */
+async function getSpecificNikeDeal(index = 0) {
+  const nikeList = awinMasterData.nikeDeals && awinMasterData.nikeDeals.length > 0 
+    ? awinMasterData.nikeDeals 
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '17652' || (p.advertiser && p.advertiser.toLowerCase().includes('nike')));
+  
+  if (nikeList.length === 0) return null;
+  const p = nikeList[index % nikeList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const priceSection = p.priceOriginal && p.priceCurrent 
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo oficial no Pix ou Cartão\n`;
+  const couponSection = p.code ? `🏷️ *Cupom:* \`${p.code}\` (insira no carrinho)\n` : '';
+
+  const text = `👟 *OFERTA OFICIAL NIKE BRASIL!* ⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Nike Brasil Oficial
+${priceSection}${discountSection}${couponSection}📝 ${p.description}
+
+🛒 *Garanta o seu no link oficial:*
+👉 ${shortUrl}
+
+🚚 *Frete oficial com entrega garantida e produto 100% original.*
+⚠️ *Aviso:* Estoque e numerações limitadas na Nike Brasil. Oferta verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'Nike Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
+  getSpecificNikeDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData

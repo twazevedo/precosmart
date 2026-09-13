@@ -37,7 +37,7 @@ const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
-const { getNextAwinDeal, getSpecificKabumDeal } = require('./awinCatalog');
+const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
 
@@ -670,6 +670,82 @@ app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
 app.get('/api/trigger-lancar', requireApiAuth, async (req, res) => {
   res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais Nike Brasil ──────────────────────────
+async function dispatchNikeBatch(count = 10, delayMs = 4000) {
+  logEntry('NIKE', `[Blast] Iniciando disparo de ${count} ofertas oficiais Nike Brasil (WhatsApp e Telegram)...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificNikeDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      // 1. WhatsApp Grupo VIP (@g.us)
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('NIKE_WA', `Foto HD Nike enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD Nike (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      // 2. Telegram
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Oferta Exclusiva',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text
+        });
+      }
+
+      results.push(deal);
+      logEntry('NIKE', `✅ [${i + 1}/${count}] Oferta Nike enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} da Nike: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('NIKE', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Nike.`);
+  return results;
+}
+
+app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '10', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike iniciado com sucesso no WhatsApp e Telegram!` });
+  dispatchNikeBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
+});
+
+app.post('/api/send-nike', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.body?.count || req.query.count || '10', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike iniciado com sucesso no WhatsApp e Telegram!` });
+  dispatchNikeBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
 });
 
 // Endpoint para sincronização manual ou por webhook da API AWIN
