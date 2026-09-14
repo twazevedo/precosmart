@@ -2223,6 +2223,63 @@ async function startBot() {
         await replyToUser({ text: msgText });
         return;
       }
+
+      // 12. !ml (Admin) - Dispara oferta do Mercado Livre com foto Full HD e tag oficial
+      if (command === '!ml' || command === '!mercadolivre') {
+        try {
+          const deal = await getSpecificMLDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta do Mercado Livre enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta Mercado Livre enviada: ${deal.title}`);
+          }
+          return;
+        } catch (mlErr) {
+          await replyToUser({ text: '❌ Erro ao postar Mercado Livre: ' + mlErr.message });
+          return;
+        }
+      }
+
+      // 13. !amazon (Admin) - Dispara oferta da Amazon com foto Full HD e tag oficial
+      if (command === '!amazon') {
+        try {
+          const deal = await getSpecificAmazonDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta da Amazon enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta Amazon enviada: ${deal.title}`);
+          }
+          return;
+        } catch (amzErr) {
+          await replyToUser({ text: '❌ Erro ao postar Amazon: ' + amzErr.message });
+          return;
+        }
+      }
+
+      // 14. !nike (Admin) - Dispara oferta da Nike com foto Full HD e link tidd.ly
+      if (command === '!nike') {
+        try {
+          const deal = await getSpecificNikeDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta da Nike enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta Nike enviada: ${deal.title}`);
+          }
+          return;
+        } catch (nikeErr) {
+          await replyToUser({ text: '❌ Erro ao postar Nike: ' + nikeErr.message });
+          return;
+        }
+      }
     }
 
 
