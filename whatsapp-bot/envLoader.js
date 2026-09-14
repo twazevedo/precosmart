@@ -10,13 +10,20 @@ const path = require('path');
 
 const DEFAULTS = {
   PORT: '3002',
-  WA_GROUP_NAME: 'PreçoSmart Ofertas 🔥',
+  WA_GROUP_NAME: 'PreçoSmart | Ofertas & Achadinhos 🔥',
   WA_GROUP_INVITE_CODE: 'Lo3ONNfAXVh5cEe2Pg6gM7',
   WA_GROUP_JID: '120363428098199018@g.us',
+  OWNER_NUMBER: '5511945868954,5511913157990',
   AFFILIATE_AMAZON: 'precosmartapp-20',
   AFFILIATE_ML: 'azs5603820',
   AFFILIATE_SHOPEE: '18361251220',
-  AFFILIATE_MAGALU: 'precosmartvip'
+  AFFILIATE_MAGALU: 'precosmartvip',
+  AFFILIATE_AWIN: '3077915',
+  AFFILIATE_BOTICARIO: '27065696',
+  AWIN_API_TOKEN: 'a6c67106-8a99-4c35-8d27-ac817fbe3577',
+  ML_APP_ID: '8185161956392337',
+  ML_SECRET_KEY: 'joz3Og0OeRUVLRVIYnjfXGHHhrFy5bTc',
+  TELEGRAM_CHAT_ID: '@precosmart'
 };
 
 const envPath = path.join(__dirname, '.env');
