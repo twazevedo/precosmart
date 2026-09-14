@@ -42,10 +42,6 @@ services:
         generateValue: true
       - key: API_SECRET_KEY
         generateValue: true
-    disk:
-      name: whatsapp-session
-      mountPath: /opt/render/project/src/session
-      sizeGB: 1
 
   - type: web
     name: precosmart-backend
