@@ -42,6 +42,53 @@ const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('[WARN] sharp não disponível para processamento de imagem:', e.message);
+}
+
+/**
+ * Baixa e converte qualquer imagem (WebP, GIF, PNG, AVIF) para JPEG padrão RGB com fundo branco.
+ * Elimina 100% o bug de fotos quebradas/placeholder cinza com exclamação no WhatsApp.
+ */
+async function prepareWhatsAppImage(source) {
+  if (!source) return null;
+  try {
+    let buf = null;
+    if (Buffer.isBuffer(source)) {
+      buf = source;
+    } else if (typeof source === 'string' && source.startsWith('http')) {
+      const res = await axios.get(source, {
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+        },
+        timeout: 9000
+      });
+      if (res.status === 200 && res.data && res.data.length > 0) {
+        buf = Buffer.from(res.data);
+      }
+    }
+
+    if (!buf || buf.length === 0) return null;
+
+    if (sharp) {
+      return await sharp(buf)
+        .flatten({ background: '#ffffff' })
+        .jpeg({ quality: 85, chromaSubsampling: '4:2:0' })
+        .toBuffer();
+    }
+
+    return buf;
+  } catch (err) {
+    logEntry('WARN', `Falha ao processar imagem para WhatsApp: ${err.message}`);
+    return null;
+  }
+}
+
 // ── Configurações ────────────────────────────────────────────────────────────
 const PORT             = process.env.PORT || 3002;
 const TARGET_GROUP     = process.env.WA_GROUP_NAME || 'PreçoSmart Ofertas 🔥';
@@ -584,17 +631,11 @@ async function dispatchNextAwinRotation(options = {}) {
         if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
 
         try {
-          const imgRes = await axios.get(hdImageUrl, {
-            responseType: 'arraybuffer',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-            },
-            timeout: 7000
-          });
-          if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+          const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+          if (imgBuf) {
             const resMsg = await waSocket.sendMessage(jid, {
-              image: Buffer.from(imgRes.data),
+              image: imgBuf,
+              mimetype: 'image/jpeg',
               caption: deal.text
             });
             if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -691,17 +732,11 @@ async function dispatchNikeBatch(count = 10, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -766,17 +801,11 @@ async function dispatchAmazonBatch(count = 5, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -834,17 +863,11 @@ async function dispatchMLBatch(count = 5, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -902,17 +925,11 @@ async function dispatchKabumBatch(count = 5, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text || deal.formattedText
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -970,17 +987,11 @@ async function dispatchOlympikusBatch(count = 5, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text || deal.formattedText
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -1038,17 +1049,11 @@ async function dispatchClovisBatch(count = 5, delayMs = 4000) {
         for (const jid of jids) {
           if (!jid.endsWith('@g.us')) continue;
           try {
-            const imgRes = await axios.get(hdImageUrl, {
-              responseType: 'arraybuffer',
-              headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-              },
-              timeout: 7000
-            });
-            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
               const resMsg = await waSocket.sendMessage(jid, {
-                image: Buffer.from(imgRes.data),
+                image: imgBuf,
+                mimetype: 'image/jpeg',
                 caption: deal.text || deal.formattedText
               });
               if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
@@ -1515,13 +1520,16 @@ async function sendProductMessage(product, caption) {
 
     if (product.imageUrl) {
       try {
-        await waSocket.sendMessage(targetJid, {
-          image:    { url: product.imageUrl },
-          caption:  caption,
-          mimetype: 'image/jpeg',
-          mentions: mentions
-        });
-        continue;
+        const imgBuf = await prepareWhatsAppImage(product.imageUrl);
+        if (imgBuf) {
+          await waSocket.sendMessage(targetJid, {
+            image:    imgBuf,
+            caption:  caption,
+            mimetype: 'image/jpeg',
+            mentions: mentions
+          });
+          continue;
+        }
       } catch (imgErr) {
         logEntry('WARN', `Imagem falhou no grupo ${targetJid}: ${imgErr.message}`);
       }
@@ -1853,14 +1861,12 @@ async function startBot() {
         // 📸 Garante que a oferta seja enviada com a foto oficial do produto em ALTA DEFINIÇÃO
         let imgPayload = null;
         if (deal.buffer) {
-          imgPayload = deal.buffer;
+          imgPayload = await prepareWhatsAppImage(deal.buffer);
         } else if (deal.imageUrl) {
           const hdUrl = upgradeToHdImage(deal.imageUrl);
           if (hdUrl) {
             deal.imageUrl = hdUrl;
-            imgPayload = { url: hdUrl };
-          } else {
-            deal.imageUrl = null;
+            imgPayload = await prepareWhatsAppImage(hdUrl);
           }
         }
         
@@ -1873,8 +1879,10 @@ async function startBot() {
                 const hdOgImg = upgradeToHdImage(ogImg);
                 if (hdOgImg) {
                   deal.imageUrl = hdOgImg;
-                  imgPayload = { url: hdOgImg };
-                  logEntry('IMG', `Foto oficial HD extraída do produto: ${hdOgImg.substring(0, 60)}...`);
+                  imgPayload = await prepareWhatsAppImage(hdOgImg);
+                  if (imgPayload) {
+                    logEntry('IMG', `Foto oficial HD extraída do produto: ${hdOgImg.substring(0, 60)}...`);
+                  }
                 }
               }
             } catch (ogErr) {}
@@ -1893,7 +1901,7 @@ async function startBot() {
             if (deal.type === 'video' && deal.buffer) {
               await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
             } else if (imgPayload) {
-              await waSocket.sendMessage(targetJid, { image: imgPayload, caption: deal.text });
+              await waSocket.sendMessage(targetJid, { image: imgPayload, mimetype: 'image/jpeg', caption: deal.text });
             }
           } catch (sendErr) {
              logEntry('WARN', `Erro ao postar via Anti-Flood no grupo ${targetJid}: ${sendErr.message}`);
@@ -2439,12 +2447,16 @@ async function startBot() {
         try {
           const deal = await getSpecificMLDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta do Mercado Livre enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta Mercado Livre enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta do Mercado Livre enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Mercado Livre enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (mlErr) {
@@ -2458,12 +2470,16 @@ async function startBot() {
         try {
           const deal = await getSpecificAmazonDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta da Amazon enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta Amazon enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta da Amazon enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Amazon enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (amzErr) {
@@ -2477,12 +2493,16 @@ async function startBot() {
         try {
           const deal = await getSpecificNikeDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta da Nike enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta Nike enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta da Nike enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Nike enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (nikeErr) {
@@ -2496,12 +2516,16 @@ async function startBot() {
         try {
           const deal = await getSpecificKabumDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta da KaBuM! enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta KaBuM! enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta da KaBuM! enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta KaBuM! enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (kabumErr) {
@@ -2515,12 +2539,16 @@ async function startBot() {
         try {
           const deal = await getSpecificOlympikusDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta da Olympikus enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta Olympikus enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta da Olympikus enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Olympikus enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (olyErr) {
@@ -2534,12 +2562,16 @@ async function startBot() {
         try {
           const deal = await getSpecificClovisDeal();
           if (deal && deal.imageUrl) {
-            await waSocket.sendMessage(groupJid, {
-              image: { url: deal.imageUrl },
-              caption: deal.text || deal.formattedText
-            });
-            if (!isGroup) await replyToUser({ text: '✅ Oferta da Clovis Calçados enviada para o grupo VIP!' });
-            logEntry('ADMIN', `Oferta Clovis enviada: ${deal.title}`);
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta da Clovis Calçados enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Clovis enviada: ${deal.title}`);
+            }
           }
           return;
         } catch (clovisErr) {
