@@ -68,12 +68,20 @@ async function prepareWhatsAppImage(source) {
         },
         timeout: 9000
       });
+      const finalUrl = res.request?.res?.responseUrl || '';
+      if (finalUrl.includes('img-not-available') || finalUrl.includes('O@2x.gif')) {
+        logEntry('WARN', `Imagem descartada por ser placeholder de erro: ${finalUrl}`);
+        return null;
+      }
       if (res.status === 200 && res.data && res.data.length > 0) {
         buf = Buffer.from(res.data);
       }
     }
 
-    if (!buf || buf.length === 0) return null;
+    if (!buf || buf.length < 3000) {
+      if (buf && buf.length > 0) logEntry('WARN', `Imagem descartada por tamanho minúsculo (${buf.length}b): ${source}`);
+      return null;
+    }
 
     if (sharp) {
       return await sharp(buf)
