@@ -1421,7 +1421,7 @@ app.all('/api/reset-session', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => logEntry('SERVER', `Dashboard rodando em http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => logEntry('SERVER', `Dashboard rodando na porta ${PORT}`));
 
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
 async function findGroupJid(sock) {
