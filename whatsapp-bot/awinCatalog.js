@@ -315,12 +315,15 @@ function formatVoucherList() {
  * Retorna uma oferta real e verificada da KaBuM com foto oficial em alta definição
  */
 async function getSpecificKabumDeal(index = 0) {
-  const kabumList = (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.imageUrl && p.imageUrl.startsWith('http'));
+  const kabumList = awinMasterData.kabumDeals && awinMasterData.kabumDeals.length > 0
+    ? awinMasterData.kabumDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.imageUrl && p.imageUrl.startsWith('http'));
+
   const list = kabumList.length > 0 ? kabumList : (awinMasterData.products || []);
   const p = list[index % list.length];
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl('17729', targetUrl);
-  const shortUrl = await shortenUrl(rawUrl);
+  const shortUrl = p.shortUrl || await shortenUrl(rawUrl);
 
   let imageUrl = upgradeToHdImage(p.imageUrl);
   if (!imageUrl && targetUrl) {
@@ -329,17 +332,21 @@ async function getSpecificKabumDeal(index = 0) {
     } catch (e) {}
   }
   const badge = getProductBadge(p.title);
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
   const text = `${badge}
 
 🏷️ *${p.title}*
 🏪 *Loja:* KaBuM! Brasil Oficial
-💰 *Condição:* Desconto exclusivo no Pix ou Parcelado
-🚚 *Entrega:* Envio rápido e garantia oficial
-
-🛒 *Compre com desconto verificado aqui:*
+${priceSection}${discountSection}${descSection}🛒 *Compre com desconto verificado na KaBuM!:*
 👉 ${shortUrl}
 
-⚠️ *Aviso:* Preço promocional e estoque podem variar a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
+🚚 *Envio rápido, garantia oficial e nota fiscal.*
+⚠️ *Aviso:* Preço promocional e estoque podem variar a qualquer momento. Oferta verificada pelo PreçoSmart.`;
 
   return {
     type: 'product',
@@ -474,11 +481,93 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre pelo link verificado
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Olympikus com foto Full HD e link de afiliado
+ */
+async function getSpecificOlympikusDeal(index = 0) {
+  const olyList = awinMasterData.olympikusDeals && awinMasterData.olympikusDeals.length > 0
+    ? awinMasterData.olympikusDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '17698' || (p.advertiser && p.advertiser.toLowerCase().includes('olympikus')));
+
+  if (olyList.length === 0) return null;
+  const p = olyList[index % olyList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo oficial no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🏃 *OFERTA OFICIAL OLYMPIKUS BRASIL!* ⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Loja Oficial Olympikus
+${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto no site oficial:*
+👉 ${shortUrl}
+
+🚚 *Frete oficial garantido e produto 100% original de fábrica.*
+⚠️ *Aviso:* Estoque e numerações limitadas. Oferta verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'Olympikus Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Clovis Calçados com foto Full HD e link de afiliado
+ */
+async function getSpecificClovisDeal(index = 0) {
+  const clovisList = awinMasterData.clovisDeals && awinMasterData.clovisDeals.length > 0
+    ? awinMasterData.clovisDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '107702' || (p.advertiser && p.advertiser.toLowerCase().includes('clovis')));
+
+  if (clovisList.length === 0) return null;
+  const p = clovisList[index % clovisList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `👠 *OFERTA CLOVIS CALÇADOS!* 🛍️
+
+🏷️ *${p.title}*
+🏪 *Loja:* Clovis Calçados Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garantido na Clovis:*
+👉 ${shortUrl}
+
+🚚 *Entrega para todo o Brasil e troca fácil garantida.*
+⚠️ *Aviso:* Preço promocional e numerações sujeitas à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'Clovis Calçados Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
   getSpecificNikeDeal,
+  getSpecificOlympikusDeal,
+  getSpecificClovisDeal,
   getSpecificAmazonDeal,
   getSpecificMLDeal,
   getAllActiveVouchers,

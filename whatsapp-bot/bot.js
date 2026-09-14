@@ -37,7 +37,7 @@ const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
-const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal, getSpecificAmazonDeal, getSpecificMLDeal } = require('./awinCatalog');
+const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal, getSpecificOlympikusDeal, getSpecificClovisDeal, getSpecificAmazonDeal, getSpecificMLDeal } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
@@ -883,6 +883,210 @@ app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais do Mercado Livre iniciado com sucesso!` });
   dispatchMLBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Mercado Livre: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais KaBuM! ──────────────────────────────
+async function dispatchKabumBatch(count = 5, delayMs = 4000) {
+  logEntry('KABUM', `[Blast] Iniciando disparo de ${count} ofertas oficiais KaBuM! (WhatsApp e Telegram)...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificKabumDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text || deal.formattedText
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('KABUM_WA', `Foto HD KaBuM enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD KaBuM (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Oferta Gamer',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text || deal.formattedText
+        });
+      }
+
+      results.push(deal);
+      logEntry('KABUM', `✅ [${i + 1}/${count}] Oferta KaBuM enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} da KaBuM: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('KABUM', `[Blast] Concluído disparo de ${results.length}/${count} ofertas KaBuM!.`);
+  return results;
+}
+
+app.get('/api/trigger-kabum', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais KaBuM! iniciado com sucesso!` });
+  dispatchKabumBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast KaBuM: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais Olympikus ────────────────────────────
+async function dispatchOlympikusBatch(count = 5, delayMs = 4000) {
+  logEntry('OLYMPIKUS', `[Blast] Iniciando disparo de ${count} ofertas oficiais Olympikus (WhatsApp e Telegram)...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificOlympikusDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text || deal.formattedText
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('OLY_WA', `Foto HD Olympikus enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD Olympikus (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Oferta Oficial',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text || deal.formattedText
+        });
+      }
+
+      results.push(deal);
+      logEntry('OLYMPIKUS', `✅ [${i + 1}/${count}] Oferta Olympikus enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} da Olympikus: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('OLYMPIKUS', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Olympikus.`);
+  return results;
+}
+
+app.get('/api/trigger-olympikus', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Olympikus iniciado com sucesso!` });
+  dispatchOlympikusBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Olympikus: ' + e.message));
+});
+
+// ── Disparo em Lote de Ofertas Oficiais Clovis Calçados ───────────────────────
+async function dispatchClovisBatch(count = 5, delayMs = 4000) {
+  logEntry('CLOVIS', `[Blast] Iniciando disparo de ${count} ofertas oficiais Clovis Calçados (WhatsApp e Telegram)...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getSpecificClovisDeal(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgRes = await axios.get(hdImageUrl, {
+              responseType: 'arraybuffer',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+              },
+              timeout: 7000
+            });
+            if (imgRes.status === 200 && imgRes.data && imgRes.data.length > 0) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: Buffer.from(imgRes.data),
+                caption: deal.text || deal.formattedText
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry('CLOVIS_WA', `Foto HD Clovis enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD Clovis (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Super Desconto',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text || deal.formattedText
+        });
+      }
+
+      results.push(deal);
+      logEntry('CLOVIS', `✅ [${i + 1}/${count}] Oferta Clovis enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} da Clovis: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry('CLOVIS', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Clovis Calçados.`);
+  return results;
+}
+
+app.get('/api/trigger-clovis', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Clovis Calçados iniciado com sucesso!` });
+  dispatchClovisBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Clovis Calçados: ' + e.message));
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
@@ -1993,6 +2197,12 @@ async function startBot() {
 
         if (isAuthorized) {
           helpMsg += `\n👑 *Comandos de Administrador:*\n` +
+            `👉 *!ml* — Dispara oferta oficial Mercado Livre\n` +
+            `👉 *!amazon* — Dispara oferta oficial Amazon Brasil\n` +
+            `👉 *!nike* — Dispara oferta oficial Nike Brasil\n` +
+            `👉 *!kabum* — Dispara oferta oficial KaBuM!\n` +
+            `👉 *!olympikus* — Dispara oferta oficial Olympikus\n` +
+            `👉 *!clovis* — Dispara oferta oficial Clovis Calçados\n` +
             `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
             `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
             `👉 *!status* — Exibe status do bot\n` +
@@ -2231,7 +2441,7 @@ async function startBot() {
           if (deal && deal.imageUrl) {
             await waSocket.sendMessage(groupJid, {
               image: { url: deal.imageUrl },
-              caption: deal.formattedText
+              caption: deal.text || deal.formattedText
             });
             if (!isGroup) await replyToUser({ text: '✅ Oferta do Mercado Livre enviada para o grupo VIP!' });
             logEntry('ADMIN', `Oferta Mercado Livre enviada: ${deal.title}`);
@@ -2250,7 +2460,7 @@ async function startBot() {
           if (deal && deal.imageUrl) {
             await waSocket.sendMessage(groupJid, {
               image: { url: deal.imageUrl },
-              caption: deal.formattedText
+              caption: deal.text || deal.formattedText
             });
             if (!isGroup) await replyToUser({ text: '✅ Oferta da Amazon enviada para o grupo VIP!' });
             logEntry('ADMIN', `Oferta Amazon enviada: ${deal.title}`);
@@ -2269,7 +2479,7 @@ async function startBot() {
           if (deal && deal.imageUrl) {
             await waSocket.sendMessage(groupJid, {
               image: { url: deal.imageUrl },
-              caption: deal.formattedText
+              caption: deal.text || deal.formattedText
             });
             if (!isGroup) await replyToUser({ text: '✅ Oferta da Nike enviada para o grupo VIP!' });
             logEntry('ADMIN', `Oferta Nike enviada: ${deal.title}`);
@@ -2277,6 +2487,63 @@ async function startBot() {
           return;
         } catch (nikeErr) {
           await replyToUser({ text: '❌ Erro ao postar Nike: ' + nikeErr.message });
+          return;
+        }
+      }
+
+      // 15. !kabum (Admin) - Dispara oferta da KaBuM! com foto Full HD e link verificado
+      if (command === '!kabum') {
+        try {
+          const deal = await getSpecificKabumDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.text || deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta da KaBuM! enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta KaBuM! enviada: ${deal.title}`);
+          }
+          return;
+        } catch (kabumErr) {
+          await replyToUser({ text: '❌ Erro ao postar KaBuM!: ' + kabumErr.message });
+          return;
+        }
+      }
+
+      // 16. !olympikus (Admin) - Dispara oferta da Olympikus com foto Full HD e link oficial
+      if (command === '!olympikus') {
+        try {
+          const deal = await getSpecificOlympikusDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.text || deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta da Olympikus enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta Olympikus enviada: ${deal.title}`);
+          }
+          return;
+        } catch (olyErr) {
+          await replyToUser({ text: '❌ Erro ao postar Olympikus: ' + olyErr.message });
+          return;
+        }
+      }
+
+      // 17. !clovis (Admin) - Dispara oferta da Clovis Calçados com foto Full HD e link oficial
+      if (command === '!clovis' || command === '!calcados') {
+        try {
+          const deal = await getSpecificClovisDeal();
+          if (deal && deal.imageUrl) {
+            await waSocket.sendMessage(groupJid, {
+              image: { url: deal.imageUrl },
+              caption: deal.text || deal.formattedText
+            });
+            if (!isGroup) await replyToUser({ text: '✅ Oferta da Clovis Calçados enviada para o grupo VIP!' });
+            logEntry('ADMIN', `Oferta Clovis enviada: ${deal.title}`);
+          }
+          return;
+        } catch (clovisErr) {
+          await replyToUser({ text: '❌ Erro ao postar Clovis Calçados: ' + clovisErr.message });
           return;
         }
       }
