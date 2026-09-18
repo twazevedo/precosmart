@@ -36,6 +36,7 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
+const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
 const { 
   getNextAwinDeal, 
   getSpecificKabumDeal, 
