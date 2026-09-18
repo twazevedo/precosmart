@@ -237,33 +237,56 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
     }
 
-    // 10. Lacoste BR (AWIN - MID 112756) - Redireciona com segurança até ser aprovado
+    // 10. Lacoste BR (AWIN - MID 112756 - Oficial Aprovado)
     if (urlObj.hostname.includes('lacoste.com')) {
-      if (process.env.LACOSTE_APPROVED === 'true') {
-        const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
-        const cleanLacoste = `${urlObj.origin}${urlObj.pathname}`;
-        return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
-      }
-      // Ainda não aprovado na Awin: garante comissão pela loja oficial na Amazon
-      const query = encodeURIComponent(productKeyword || 'lacoste');
-      return 'https://www.amazon.com.br/s?k=' + query + '&tag=' + AFFILIATE.amazon;
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanLacoste = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=112756&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLacoste)}`;
     }
 
-    // 11. Nike BR (AWIN - MID 17652 - 7.5% a 14% CPA)
+    // 11. Lego BR (AWIN - MID 30511 - Oficial Aprovado)
+    if (urlObj.hostname.includes('lego.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanLego = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=30511&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLego)}`;
+    }
+
+    // 12. LG BR (AWIN - MID 33061 - Oficial Aprovado)
+    if (urlObj.hostname.includes('lg.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanLg = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=33061&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLg)}`;
+    }
+
+    // 13. Shark-Ninja BR (AWIN - MID 106763 - Oficial Aprovado)
+    if (urlObj.hostname.includes('sharkninja') || urlObj.hostname.includes('sharkclean') || urlObj.hostname.includes('ninjabrasil')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanNinja = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=106763&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanNinja)}`;
+    }
+
+    // 14. Hope Lingerie BR (AWIN - MID 107039 - Oficial Aprovado)
+    if (urlObj.hostname.includes('hopeoficial') || urlObj.hostname.includes('hopelingerie') || (urlObj.hostname.includes('hope.com') && !urlObj.hostname.includes('hopelost'))) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanHope = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=107039&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanHope)}`;
+    }
+
+    // 15. Nike BR (AWIN - MID 17652 - 7.5% a 14% CPA)
     if (urlObj.hostname.includes('nike.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanNike = `${urlObj.origin}${urlObj.pathname}`;
       return `https://www.awin1.com/cread.php?awinmid=17652&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanNike)}`;
     }
 
-    // 12. Under Armour BR (AWIN - MID 18864 - 6% CPA)
-    if (urlObj.hostname.includes('underarmour.com.br')) {
+    // 16. Under Armour BR (AWIN - MID 18864 - 6% CPA - Oficial Aprovado)
+    if (urlObj.hostname.includes('underarmour.com.br') || urlObj.hostname.includes('underarmour.com')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanUA = `${urlObj.origin}${urlObj.pathname}`;
       return `https://www.awin1.com/cread.php?awinmid=18864&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanUA)}`;
     }
 
-    // 13. Clovis Calçados BR (AWIN - MID 107702 - 8% CPA)
+    // 17. Clovis Calçados BR (AWIN - MID 107702 - 8% CPA)
     if (urlObj.hostname.includes('clovis.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanClovis = `${urlObj.origin}${urlObj.pathname}`;
