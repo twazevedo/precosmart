@@ -36,8 +36,21 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
-const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
-const { getNextAwinDeal, getSpecificKabumDeal, getSpecificNikeDeal, getSpecificOlympikusDeal, getSpecificClovisDeal, getSpecificAmazonDeal, getSpecificMLDeal } = require('./awinCatalog');
+const { 
+  getNextAwinDeal, 
+  getSpecificKabumDeal, 
+  getSpecificNikeDeal, 
+  getSpecificOlympikusDeal, 
+  getSpecificClovisDeal, 
+  getSpecificAmazonDeal, 
+  getSpecificMLDeal,
+  getSpecificLegoDeal,
+  getSpecificNinjaDeal,
+  getSpecificUnderArmourDeal,
+  getSpecificHopeDeal,
+  getSpecificLacosteDeal,
+  getSpecificLGDeal
+} = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
@@ -1100,6 +1113,98 @@ app.get('/api/trigger-clovis', requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Clovis Calçados iniciado com sucesso!` });
   dispatchClovisBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Clovis Calçados: ' + e.message));
+});
+
+// ── Disparo Genérico em Lote por Marca Oficial AWIN ───────────────────────────
+async function dispatchBrandBatch(brandName, getterFn, count = 5, delayMs = 4000) {
+  logEntry(brandName.toUpperCase(), `[Blast] Iniciando disparo de ${count} ofertas oficiais ${brandName} (WhatsApp e Telegram)...`);
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    try {
+      const deal = await getterFn(i);
+      if (!deal || !deal.imageUrl) continue;
+
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
+      if (!hdImageUrl) continue;
+
+      const jids = getTargetJids();
+      if (isConnected && waSocket && jids.length > 0) {
+        for (const jid of jids) {
+          if (!jid.endsWith('@g.us')) continue;
+          try {
+            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
+            if (imgBuf) {
+              const resMsg = await waSocket.sendMessage(jid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+              logEntry(`${brandName.toUpperCase()}_WA`, `Foto HD enviada para ${jid}: ${deal.title}`);
+            }
+          } catch (imgErr) {
+            logEntry('WARN', `Falha ao enviar foto HD ${brandName} (${jid}): ${imgErr.message}`);
+          }
+        }
+      }
+
+      if (isTelegramConfigured() && hdImageUrl) {
+        await broadcastTelegramDeal({
+          title: deal.title,
+          price: deal.priceCurrent || 'Super Desconto',
+          url: deal.url,
+          imageUrl: hdImageUrl,
+          text: deal.text || deal.formattedText
+        });
+      }
+
+      results.push(deal);
+      logEntry(brandName.toUpperCase(), `✅ [${i + 1}/${count}] Oferta ${brandName} enviada: ${deal.title}`);
+    } catch (e) {
+      logEntry('WARN', `Erro no disparo #${i + 1} de ${brandName}: ${e.message}`);
+    }
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+  logEntry(brandName.toUpperCase(), `[Blast] Concluído disparo de ${results.length}/${count} ofertas ${brandName}.`);
+  return results;
+}
+
+app.get('/api/trigger-lego', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Lego Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Lego', getSpecificLegoDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Lego: ' + e.message));
+});
+
+app.get('/api/trigger-ninja', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Shark-Ninja iniciado com sucesso!` });
+  dispatchBrandBatch('SharkNinja', getSpecificNinjaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Ninja: ' + e.message));
+});
+
+app.get('/api/trigger-underarmour', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Under Armour iniciado com sucesso!` });
+  dispatchBrandBatch('UnderArmour', getSpecificUnderArmourDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Under Armour: ' + e.message));
+});
+
+app.get('/api/trigger-hope', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Hope Lingerie iniciado com sucesso!` });
+  dispatchBrandBatch('HopeLingerie', getSpecificHopeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Hope Lingerie: ' + e.message));
+});
+
+app.get('/api/trigger-lacoste', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Lacoste Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Lacoste', getSpecificLacosteDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Lacoste: ' + e.message));
+});
+
+app.get('/api/trigger-lg', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais LG Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('LG', getSpecificLGDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast LG: ' + e.message));
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
@@ -2219,6 +2324,12 @@ async function startBot() {
             `👉 *!kabum* — Dispara oferta oficial KaBuM!\n` +
             `👉 *!olympikus* — Dispara oferta oficial Olympikus\n` +
             `👉 *!clovis* — Dispara oferta oficial Clovis Calçados\n` +
+            `👉 *!lego* — Dispara oferta oficial Lego Brasil\n` +
+            `👉 *!ninja* — Dispara oferta oficial Shark-Ninja\n` +
+            `👉 *!underarmour* — Dispara oferta oficial Under Armour\n` +
+            `👉 *!hope* — Dispara oferta oficial Hope Lingerie\n` +
+            `👉 *!lacoste* — Dispara oferta oficial Lacoste Brasil\n` +
+            `👉 *!lg* — Dispara oferta oficial LG Brasil\n` +
             `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
             `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
             `👉 *!status* — Exibe status do bot\n` +
@@ -2584,6 +2695,144 @@ async function startBot() {
           return;
         } catch (clovisErr) {
           await replyToUser({ text: '❌ Erro ao postar Clovis Calçados: ' + clovisErr.message });
+          return;
+        }
+      }
+
+      // 18. !lego (Admin) - Dispara oferta oficial Lego Brasil
+      if (command === '!lego') {
+        try {
+          const deal = await getSpecificLegoDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Lego Brasil enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Lego enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Lego: ' + err.message });
+          return;
+        }
+      }
+
+      // 19. !ninja (Admin) - Dispara oferta oficial Shark-Ninja Brasil
+      if (command === '!ninja' || command === '!sharkninja' || command === '!shark') {
+        try {
+          const deal = await getSpecificNinjaDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Shark-Ninja enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Shark-Ninja enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Shark-Ninja: ' + err.message });
+          return;
+        }
+      }
+
+      // 20. !underarmour (Admin) - Dispara oferta oficial Under Armour Brasil
+      if (command === '!underarmour' || command === '!ua') {
+        try {
+          const deal = await getSpecificUnderArmourDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Under Armour enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Under Armour enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Under Armour: ' + err.message });
+          return;
+        }
+      }
+
+      // 21. !hope (Admin) - Dispara oferta oficial Hope Lingerie
+      if (command === '!hope' || command === '!lingerie') {
+        try {
+          const deal = await getSpecificHopeDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Hope Lingerie enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Hope enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Hope Lingerie: ' + err.message });
+          return;
+        }
+      }
+
+      // 22. !lacoste (Admin) - Dispara oferta oficial Lacoste Brasil
+      if (command === '!lacoste') {
+        try {
+          const deal = await getSpecificLacosteDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Lacoste enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Lacoste enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Lacoste: ' + err.message });
+          return;
+        }
+      }
+
+      // 23. !lg (Admin) - Dispara oferta oficial LG Brasil
+      if (command === '!lg') {
+        try {
+          const deal = await getSpecificLGDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial LG Brasil enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta LG enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar LG: ' + err.message });
           return;
         }
       }

@@ -81,7 +81,22 @@ function markAsSent(key) {
 }
 
 // Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD
-const validInitialProducts = (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
+const allAvailableProducts = [
+  ...(awinMasterData.products || []),
+  ...(awinMasterData.nikeDeals || []),
+  ...(awinMasterData.olympikusDeals || []),
+  ...(awinMasterData.kabumDeals || []),
+  ...(awinMasterData.clovisDeals || []),
+  ...(awinMasterData.legoDeals || []),
+  ...(awinMasterData.ninjaDeals || []),
+  ...(awinMasterData.underArmourDeals || []),
+  ...(awinMasterData.hopeDeals || []),
+  ...(awinMasterData.lacosteDeals || []),
+  ...(awinMasterData.lgDeals || []),
+  ...(awinMasterData.mlDeals || []),
+  ...(awinMasterData.amazonDeals || [])
+];
+const validInitialProducts = allAvailableProducts.filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
 let shuffledProducts = shuffleArray(validInitialProducts);
 
 const validInitialVouchers = (awinMasterData.vouchers || []).filter(v => v.imageUrl && v.imageUrl.startsWith('http'));
@@ -96,6 +111,21 @@ let rotationCounter = 0;
  */
 function getProductBadge(title = '') {
   const t = title.toLowerCase();
+  if (t.includes('lego') || t.includes('star wars') || t.includes('harry potter') || t.includes('minifigura') || t.includes('brinquedo')) {
+    return '🧱 *LEGO BRASIL OFICIAL — UNIVERSO & COLECIONÁVEIS* 🚀✨';
+  }
+  if (t.includes('ninja') || t.includes('creami') || t.includes('shark') || t.includes('flexstyle') || t.includes('liquidificador')) {
+    return '🌪️ *SHARK-NINJA BRASIL OFICIAL — CASA & TECNOLOGIA* 🍧⚡';
+  }
+  if (t.includes('under armour') || t.includes('armour') || t.includes('treino') || t.includes('crossfit')) {
+    return '⚡ *UNDER ARMOUR BRASIL — ALTA PERFORMANCE & TREINO* 🏋️‍♂️👟';
+  }
+  if (t.includes('hope') || t.includes('lingerie') || t.includes('sutiã') || t.includes('calcinha') || t.includes('renda')) {
+    return '✨ *HOPE LINGERIE OFICIAL — CONFORTO & ELEGÂNCIA* 👙💖';
+  }
+  if (t.includes('lg') || t.includes('oled') || t.includes('ultragear') || t.includes('lava e seca') || t.includes('dual inverter')) {
+    return '📺 *LG BRASIL OFICIAL — OLED, ULTRA ELETRO & TECH* 🖥️✨';
+  }
   if (t.includes('switch') || t.includes('ps5') || t.includes('ps4') || t.includes('gamer') || t.includes('console') || t.includes('fifa')) {
     return '🎮 *ESPECIAL GAMES & CONSOLES* 🕹️🔥';
   }
@@ -561,6 +591,246 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garanti
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Lego Brasil com foto Full HD e link de afiliado
+ */
+async function getSpecificLegoDeal(index = 0) {
+  const list = awinMasterData.legoDeals && awinMasterData.legoDeals.length > 0
+    ? awinMasterData.legoDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '30511' || (p.advertiser && p.advertiser.toLowerCase().includes('lego')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🧱 *OFERTA OFICIAL LEGO BRASIL!* ⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Lego Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto na Lego Brasil:*
+👉 ${shortUrl}
+
+🚚 *Frete oficial garantido e produto 100% original de fábrica.*
+⚠️ *Aviso:* Estoque promocional limitado. Oferta verificada pelo PreçoSmart.`;
+
+  return {
+    type: 'product',
+    store: 'Lego Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Shark-Ninja Brasil com foto Full HD e link de afiliado
+ */
+async function getSpecificNinjaDeal(index = 0) {
+  const list = awinMasterData.ninjaDeals && awinMasterData.ninjaDeals.length > 0
+    ? awinMasterData.ninjaDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '106763' || (p.advertiser && p.advertiser.toLowerCase().includes('ninja')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🌪️ *OFERTA OFICIAL SHARK-NINJA BRASIL!* 🍧⚡
+
+🏷️ *${p.title}*
+🏪 *Loja:* Shark-Ninja Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre com tecnologia Shark-Ninja:*
+👉 ${shortUrl}
+
+🚚 *Tecnologia internacional com envio oficial para todo o Brasil.*
+⚠️ *Aviso:* Sujeito a alteração de preço e estoque.`;
+
+  return {
+    type: 'product',
+    store: 'Shark-Ninja Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Under Armour Brasil com foto Full HD e link de afiliado
+ */
+async function getSpecificUnderArmourDeal(index = 0) {
+  const list = awinMasterData.underArmourDeals && awinMasterData.underArmourDeals.length > 0
+    ? awinMasterData.underArmourDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '18864' || (p.advertiser && p.advertiser.toLowerCase().includes('armour')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `⚡ *OFERTA OFICIAL UNDER ARMOUR BRASIL!* 🏋️‍♂️👟
+
+🏷️ *${p.title}*
+🏪 *Loja:* Under Armour Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto na Under Armour:*
+👉 ${shortUrl}
+
+🚚 *Alta performance com entrega rápida para todo o Brasil.*
+⚠️ *Aviso:* Estoque e numerações sujeitos a alteração.`;
+
+  return {
+    type: 'product',
+    store: 'Under Armour Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Hope Lingerie com foto Full HD e link de afiliado
+ */
+async function getSpecificHopeDeal(index = 0) {
+  const list = awinMasterData.hopeDeals && awinMasterData.hopeDeals.length > 0
+    ? awinMasterData.hopeDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '107039' || (p.advertiser && p.advertiser.toLowerCase().includes('hope')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `💖 *OFERTA OFICIAL HOPE LINGERIE!* 👙✨
+
+🏷️ *${p.title}*
+🏪 *Loja:* Hope Lingerie Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garantido na Hope:*
+👉 ${shortUrl}
+
+🚚 *Conforto e elegância com entrega rápida e discreta.*
+⚠️ *Aviso:* Preço promocional e tamanhos sujeitos à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'Hope Lingerie Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Lacoste Brasil com foto Full HD e link de afiliado
+ */
+async function getSpecificLacosteDeal(index = 0) {
+  const list = awinMasterData.lacosteDeals && awinMasterData.lacosteDeals.length > 0
+    ? awinMasterData.lacosteDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '112756' || (p.advertiser && p.advertiser.toLowerCase().includes('lacoste')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🐊 *OFERTA OFICIAL LACOSTE BRASIL!* 👕✨
+
+🏷️ *${p.title}*
+🏪 *Loja:* Lacoste Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Garanta o seu clássico na Lacoste Oficial:*
+👉 ${shortUrl}
+
+🚚 *Elegância francesa atemporal com produto 100% original.*
+⚠️ *Aviso:* Peças exclusivas com estoque limitado.`;
+
+  return {
+    type: 'product',
+    store: 'Lacoste Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da LG Brasil com foto Full HD e link de afiliado
+ */
+async function getSpecificLGDeal(index = 0) {
+  const list = awinMasterData.lgDeals && awinMasterData.lgDeals.length > 0
+    ? awinMasterData.lgDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '33061' || (p.advertiser && p.advertiser.toLowerCase().includes('lg')));
+
+  if (list.length === 0) return null;
+  const p = list[index % list.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`;
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `📺 *OFERTA OFICIAL LG BRASIL!* 🖥️✨
+
+🏷️ *${p.title}*
+🏪 *Loja:* LG Brasil Oficial
+${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garantido na LG:*
+👉 ${shortUrl}
+
+🚚 *Tecnologia líder mundial com garantia oficial LG Brasil.*
+⚠️ *Aviso:* Preço promocional sujeito a alteração a qualquer momento.`;
+
+  return {
+    type: 'product',
+    store: 'LG Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
@@ -570,6 +840,12 @@ module.exports = {
   getSpecificClovisDeal,
   getSpecificAmazonDeal,
   getSpecificMLDeal,
+  getSpecificLegoDeal,
+  getSpecificNinjaDeal,
+  getSpecificUnderArmourDeal,
+  getSpecificHopeDeal,
+  getSpecificLacosteDeal,
+  getSpecificLGDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData
