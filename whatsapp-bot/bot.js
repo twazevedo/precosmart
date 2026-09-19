@@ -2358,7 +2358,7 @@ async function startBot() {
                   '• `!alerta ps5 3800` (avisa quando o PS5 estiver até R$ 3.800)\n' +
                   '• `!alerta fone jbl` (avisa qualquer promoção de fone JBL)\n' +
                   '• `!alerta airfryer 300`\n\n' +
-                  'Assim que a oferta for detectada, eu te aviso no privado no mesmo segundo! 🚀'
+                  'Assim que a oferta for detectada, ela será enviada com prioridade aqui no grupo! 🚀'
           });
           return;
         }
@@ -2380,7 +2380,7 @@ async function startBot() {
           text: `✅ *Alerta criado com sucesso!*\n\n` +
                 `📦 *Produto:* ${created.query}\n` +
                 `💰 *Preço Máximo:* ${targetPrice ? 'R$ ' + targetPrice.toFixed(2).replace('.', ',') : 'Qualquer preço em oferta'}\n\n` +
-                `Assim que essa oferta bater no radar, te envio no privado! 🔔`
+                `Assim que essa oferta bater no radar, ela será postada aqui no grupo com prioridade! 🔔`
         });
         logEntry('ALERT', `Novo alerta de ${senderPhone}: "${created.query}" (teto: ${targetPrice})`);
         return;
@@ -2433,7 +2433,7 @@ async function startBot() {
         const results = PRODUCTS.filter((p) => p.title.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q))).slice(0, 3);
         if (results.length === 0) {
           await replyToUser({
-            text: `🔍 Não encontrei ofertas ativas para "${q}" no catálogo agora.\n\nDica: Digite \`!alerta ${q}\` para eu te avisar no privado assim que entrar uma promoção!`
+            text: `🔍 Não encontrei ofertas ativas para "${q}" no catálogo agora.\n\nDica: Digite \`!alerta ${q}\` para colocarmos esse produto no radar do grupo!`
           });
           return;
         }
@@ -2448,7 +2448,7 @@ async function startBot() {
       // 5. !ajuda / !comandos
       if (command === '!ajuda' || command === '!comandos') {
         let helpMsg = `🤖 *Comandos PreçoSmart Ofertas*\n\n` +
-          `🔔 *!alerta <produto> [preço]*\nCria um alerta personalizado e te avisa no privado quando o preço cair!\n\n` +
+          `🔔 *!alerta <produto> [preço]*\nColoca o produto no radar de ofertas prioritárias do grupo!\n\n` +
           `📋 *!alertas*\nLista todos os seus alertas ativos.\n\n` +
           `🗑️ *!remover <produto>*\nRemove um alerta cadastrado.\n\n` +
           `🎟️ *!cupons [loja]*\nLista cupons de desconto oficiais ativos (KaBuM! e Clovis).\n\n` +

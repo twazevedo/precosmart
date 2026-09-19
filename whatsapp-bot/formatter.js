@@ -25,37 +25,39 @@ function buildOfferCaption(product) {
   const oldPrice = product.history30dAvg;
   const url      = getAffiliateUrl(cheapest.store, product.title);
 
-  // Frases de efeito curtas
+  // Frases de efeito de alta conversão
   const catchphrases = [
-    '🔥 OFERTA IMPERDÍVEL',
-    '🚨 PREÇO CAIU',
-    '⚡ CORRE QUE TÁ BARATO',
-    '🎯 ACHADO DO DIA',
-    '💣 EXPLOSÃO DE OFERTA'
+    '🚨 *ACHADO EXCLUSIVO • PREÇO CAIU!* 💥',
+    '🔥 *CORRE QUE TÁ VALENDO MUITO!* ⚡',
+    '⚡ *OFERTA RELÂMPAGO • ESTOQUE LIMITADO!* 🛒',
+    '💥 *PREÇO DERRETEU • APROVEITE!* 🎯',
+    '🏷️ *OPORTUNIDADE DO DIA PREÇOSMART!* ⭐'
   ];
   const catchphrase = catchphrases[Math.floor(Math.random() * catchphrases.length)];
 
   let instructions = '';
   if (coupon) {
-    instructions = `\n↪️ Cupom: *${coupon.code}* (${coupon.desc})`;
+    instructions = `\n🎟️ *Cupom:* \`${coupon.code}\` _(toque para copiar)_`;
   } else if (cheapest.store === 'KaBuM!' || cheapest.store === 'Mercado Livre') {
-     instructions = `\n↪️ Menor preço no Pix.`;
+     instructions = `\n💳 _Melhor preço no Pix ou parcelado._`;
   }
-
-  const storeBadge = cheapest.store === 'Magazine Luiza'
-    ? '\n\n💙 *Divulgador Autorizado Magazine Luiza* 💙\n🔒 *Compra 100% Segura e Garantida pelo Magalu*\n🚚 *Entrega Rápida ou Retire Grátis na Loja*\n🎟️ *Vitrine de Cupons:* https://especiais.magazineluiza.com.br/magazinevoce/cupons/?showcase=magazineprecosmartvip'
-    : '';
 
   const dealEval = evaluateDeal(product.title, final, oldPrice);
   const scoreBadge = dealEval && dealEval.badge ? `\n\n${dealEval.badge}` : '';
 
   return `${catchphrase}
 
-${product.emoji} ${escapeMarkdown(product.title)}
+${product.emoji} *${escapeMarkdown(product.title)}*
+🏪 Loja: *${cheapest.store} Oficial*
 
-🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}${scoreBadge}
+📉 De: ~${brl(oldPrice)}~
+💥 *POR APENAS: ${brl(final)}*${instructions}${scoreBadge}
 
-🔗 ${url}${storeBadge}`;
+👉 *COMPRE COM DESCONTO AQUI:*
+🔗 ${url}
+
+⚡ _Preço e estoque podem variar a qualquer momento._
+🛡️ _Compra 100% segura e garantida pela loja oficial._`;
 }
 
 /** ── Resumo matinal (texto simples, sem foto) ─────────────────────────────── */

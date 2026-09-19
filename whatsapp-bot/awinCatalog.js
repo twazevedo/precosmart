@@ -233,24 +233,25 @@ async function getNextAwinDeal() {
       const shortUrl = await shortenUrl(rawUrl);
       const hasCode = v.code && v.code.trim().length > 0;
       const header = hasCode 
-        ? '🎟️ *CUPOM DE DESCONTO OFICIAL LIBERADO!* 💥'
-        : '🚨 *OFERTA & PROMOÇÃO OFICIAL LIBERADA!* 💥';
+        ? '🎟️ *CUPOM DE DESCONTO LIBERADO!* 🔥'
+        : '🚨 *OFERTA RELÂMPAGO OFICIAL LIBERADA!* 💥';
 
-      const codeSection = hasCode ? `\n🏷️ *Cupom:* \`${v.code}\`` : '';
+      const codeSection = hasCode ? `\n🏷️ *CUPOM:* \`${v.code}\` _(toque para copiar)_\n` : '';
       const howToUse = hasCode
-        ? `⚡ *Como usar:* Clique no link, escolha os produtos participantes e insira o cupom \`${v.code}\` no carrinho antes de pagar!`
+        ? `⚡ *Como usar:* Acesse o link, escolha o produto e insira o cupom \`${v.code}\` no carrinho antes de finalizar!`
         : `⚡ *Como aproveitar:* Acesse pelo link oficial e aproveite os descontos direto no carrinho ou no Pix!`;
 
       const text = `${header}
 ${codeSection}
-🏪 *Loja:* ${v.advertiser || 'KaBuM! Oficial'}
+🏪 Loja: *${v.advertiser || 'KaBuM! Oficial'}*
 📝 *Benefício:* ${v.description}
 
-🛒 *Ative seu desconto pelo link oficial da promoção:*
-👉 ${shortUrl}
+👉 *ATIVE SEU DESCONTO PELO LINK:*
+🔗 ${shortUrl}
 
 ${howToUse}
-⚠️ *Aviso:* Promoções e cupons oficiais possuem limite de usos e validade. Oferta oficial verificada pelo PreçoSmart.`;
+⚡ _Preço e cupons sujeitos a limite de uso da loja._
+🛡️ _Oferta oficial auditada pela equipe PreçoSmart._`;
 
       return {
         type: v.type || 'voucher',
@@ -311,25 +312,40 @@ ${howToUse}
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || (p.advertiserId && p.advertiserId !== 'amazon' && p.advertiserId !== 'mercadolivre' ? buildAwinUrl(p.advertiserId, targetUrl) : targetUrl);
   const shortUrl = p.shortUrl || await shortenUrl(rawUrl);
-  const badge = getProductBadge(p.title);
+  const urgencyHeaders = [
+    '🚨 *ACHADO EXCLUSIVO • PREÇO CAIU!* 💥',
+    '🔥 *CORRE QUE TÁ VALENDO MUITO!* ⚡',
+    '⚡ *OFERTA RELÂMPAGO • ESTOQUE LIMITADO!* 🛒',
+    '💥 *PREÇO DERRETEU • APROVEITE!* 🎯',
+    '🏷️ *OPORTUNIDADE DO DIA PREÇOSMART!* ⭐'
+  ];
+  const hook = urgencyHeaders[Math.floor(Math.random() * urgencyHeaders.length)];
+
   const storeName = p.advertiser ? `${p.advertiser} Oficial` : 'PreçoSmart Oficial';
 
-  const priceSection = p.priceOriginal && p.priceCurrent
-    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
-    : (p.priceCurrent ? `💵 *Preço:* Apenas *${p.priceCurrent}*\n` : `💰 *Condição:* Desconto exclusivo no Pix ou Parcelado\n`);
-  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
-  const couponSection = p.code ? `🏷️ *Cupom:* \`${p.code}\` (insira no carrinho)\n` : '';
-  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+  let priceSection = '';
+  if (p.priceOriginal && p.priceCurrent) {
+    priceSection = `📉 De: ~${p.priceOriginal}~\n💥 *POR APENAS: ${p.priceCurrent}*\n`;
+  } else if (p.priceCurrent) {
+    priceSection = `💥 *POR APENAS: ${p.priceCurrent}*\n`;
+  } else {
+    priceSection = `💥 *Preço promocional exclusivo no Pix ou Parcelado*\n`;
+  }
 
-  const text = `${badge}
+  const discountBadge = p.discount ? ` 🎯 (${p.discount} OFF)` : '';
+  const couponSection = p.code ? `🎟️ *Cupom:* \`${p.code}\` _(toque para copiar)_\n` : '';
+  const descSection = p.description ? `💡 _${p.description.substring(0, 100)}_\n\n` : '\n';
 
-🏷️ *${p.title}*
-🏪 *Loja:* ${storeName}
-${priceSection}${discountSection}${couponSection}${descSection}🛒 *Compre com desconto verificado aqui:*
-👉 ${shortUrl}
+  const text = `${hook}
 
-🚚 *Envio rápido com garantia oficial.*
-⚠️ *Aviso:* Preço promocional e estoque podem variar a qualquer momento. Oferta oficial verificada pelo PreçoSmart.`;
+🛒 *${p.title.trim()}*${discountBadge}
+🏪 Loja: *${storeName}*
+
+${priceSection}${couponSection}${descSection}👉 *COMPRE COM DESCONTO AQUI:*
+🔗 ${shortUrl}
+
+⚡ _Preço e estoque podem variar a qualquer momento._
+🛡️ _Compra 100% segura e garantida pela loja oficial._`;
 
   return {
     type: 'product',
