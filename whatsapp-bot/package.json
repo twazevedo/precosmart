@@ -26,7 +26,6 @@
     "ws": ">=8.17.1",
     "path-to-regexp": ">=0.1.12",
     "cookie": ">=0.7.0",
-    "axios": ">=1.8.2",
     "tough-cookie": ">=4.1.4",
     "semver": ">=7.5.4",
     "braces": ">=3.0.3"
