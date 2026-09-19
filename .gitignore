@@ -49,3 +49,7 @@ HISTORICO_E_GUIA_DO_PROJETO.md
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Arquivos de saída gerados localmente (podem conter dados sensíveis)
+whatsapp-bot/shortLinksOutput.json
+whatsapp-bot/qrcode.png

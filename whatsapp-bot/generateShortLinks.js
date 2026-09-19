@@ -11,9 +11,14 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const AWIN_API_TOKEN = 'a6c67106-8a99-4c35-8d27-ac817fbe3577';
-const PUBLISHER_ID = '3077915';
-const DELAY_MS = 700; // delay entre requisições para não ser rate-limited
+// ⚠️ Nunca coloque tokens aqui — use variáveis de ambiente do Render
+const AWIN_API_TOKEN = process.env.AWIN_API_TOKEN || '';
+const PUBLISHER_ID = process.env.AFFILIATE_AWIN || '3077915';
+
+if (!AWIN_API_TOKEN) {
+  console.warn('[AVISO] AWIN_API_TOKEN não definido. Links tidd.ly não serão gerados. Defina a variável de ambiente.');
+}
+
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

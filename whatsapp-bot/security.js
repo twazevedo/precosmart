@@ -20,9 +20,15 @@ let cachedMasterKey = null;
 function getMasterKey() {
   if (cachedMasterKey) return cachedMasterKey;
   const secret = process.env.ENCRYPTION_KEY || process.env.APP_MASTER_KEY || process.env.SESSION_SECRET;
-  const pass = secret || 'precosmart_persistent_auth_key_2026_sec';
+  if (!secret) {
+    // Sem chave definida: gera chave aleatória por sessão (dados não persistem entre reinicializações)
+    // ⚠️ Defina ENCRYPTION_KEY no Render para persistência real da sessão
+    console.warn('[SEGURANÇA] ENCRYPTION_KEY não definida. Usando chave efêmera de sessão.');
+    cachedMasterKey = crypto.randomBytes(32);
+    return cachedMasterKey;
+  }
   const salt = process.env.ENCRYPTION_SALT || 'precosmart_salt_sec_2026';
-  cachedMasterKey = crypto.scryptSync(pass, salt, 32);
+  cachedMasterKey = crypto.scryptSync(secret, salt, 32);
   return cachedMasterKey;
 }
 
@@ -80,14 +86,16 @@ function generateSecureToken(bytes = 32) {
  * Permite requisições que venham de localhost OU que possuam o Header Authorization ou X-API-KEY correto.
  */
 function requireApiAuth(req, res, next) {
-  const configuredKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY || 'precosmart_adm_sec_994586';
+  const configuredKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY;
 
   const ip = req.ip || req.connection?.remoteAddress || '';
   const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost');
 
   if (!configuredKey) {
+    // Sem chave configurada: bloqueia externo, permite apenas localhost
     if (isLocalhost) return next();
-    return res.status(403).json({ error: 'Acesso externo bloqueado. Configure API_SECRET_KEY no .env.' });
+    console.warn(`[SEGURANÇA] API_SECRET_KEY não definida. Acesso externo bloqueado. IP: ${ip}`);
+    return res.status(403).json({ error: 'Serviço não configurado. Configure API_SECRET_KEY no Render.' });
   }
 
   const clientKey = req.headers['x-api-key'] || 

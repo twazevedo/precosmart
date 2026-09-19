@@ -20,9 +20,10 @@ const DEFAULTS = {
   AFFILIATE_MAGALU: 'precosmartvip',
   AFFILIATE_AWIN: '3077915',
   AFFILIATE_BOTICARIO: '27065696',
-  AWIN_API_TOKEN: 'a6c67106-8a99-4c35-8d27-ac817fbe3577',
+  // ⚠️ SEGREDOS: defina APENAS nas variáveis de ambiente do Render (nunca em código)
+  AWIN_API_TOKEN: '',   // Render env: AWIN_API_TOKEN
   ML_APP_ID: '8185161956392337',
-  ML_SECRET_KEY: 'joz3Og0OeRUVLRVIYnjfXGHHhrFy5bTc',
+  ML_SECRET_KEY: '',    // Render env: ML_SECRET_KEY
   AWIN_MID_NIKE: '17652',
   AWIN_MID_OLYMPIKUS: '17698',
   AWIN_MID_KABUM: '17729',
