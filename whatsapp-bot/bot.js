@@ -1977,7 +1977,11 @@ async function startBot() {
       // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
       try {
         const participating = await sock.groupFetchAllParticipating();
-        const promoKeywords = ['oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 'garimpo', 'barato', 'cupom', 'vip', 'radar'];
+        const promoKeywords = [
+          'oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 
+          'garimpo', 'barato', 'cupom', 'vip', 'radar', 'afiliado', 'afiliados', 'nike', 
+          'comunidade', 'parceiro', 'avisos'
+        ];
         const explicitSources = (process.env.SOURCE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
 
         sourceGroupJids = Object.values(participating)

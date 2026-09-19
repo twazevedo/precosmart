@@ -275,7 +275,10 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
     // 15. Nike BR (AWIN - MID 17652 - 7.5% a 14% CPA)
     if (urlObj.hostname.includes('nike.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
-      const cleanNike = `${urlObj.origin}${urlObj.pathname}`;
+      const cleanSearch = new URLSearchParams(urlObj.search);
+      ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid', 'clickref'].forEach(k => cleanSearch.delete(k));
+      const qs = cleanSearch.toString() ? `?${cleanSearch.toString()}` : '';
+      const cleanNike = `${urlObj.origin}${urlObj.pathname}${qs}`;
       return `https://www.awin1.com/cread.php?awinmid=17652&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanNike)}`;
     }
 
