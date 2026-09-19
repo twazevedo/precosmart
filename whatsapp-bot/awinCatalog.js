@@ -96,7 +96,7 @@ try {
 // Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD VERIFICADA
 const allAvailableProducts = [
   ...(awinMasterData.products || []),
-  ...(awinMasterData.nikeDeals || []),
+  // nikeDeals removido do catalogo estatico pois fotos oficiais da Nike vem em tempo real do canal WhatsApp da Nike
   ...(awinMasterData.olympikusDeals || []),
   ...(awinMasterData.kabumDeals || []),
   ...(awinMasterData.clovisDeals || []),
@@ -439,9 +439,10 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto verific
  * Retorna uma oferta real e verificada da Nike Brasil com foto Full HD e link tidd.ly
  */
 async function getSpecificNikeDeal(index = 0) {
-  const nikeList = awinMasterData.nikeDeals && awinMasterData.nikeDeals.length > 0 
-    ? awinMasterData.nikeDeals 
-    : (awinMasterData.products || []).filter(p => p.advertiserId === '17652' || (p.advertiser && p.advertiser.toLowerCase().includes('nike')));
+  const nikeList = (awinMasterData.products || []).filter(p => 
+    (p.advertiserId === '17652' || (p.advertiser && p.advertiser.toLowerCase().includes('nike'))) && 
+    p.imageUrl && !p.imageUrl.includes('01113751')
+  );
   
   if (nikeList.length === 0) return null;
   const p = nikeList[index % nikeList.length];
