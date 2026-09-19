@@ -2008,6 +2008,40 @@ async function startBot() {
       }
       
       setupCronJobs();
+
+      // Inicia monitoramento de canais do Telegram (Radar KaBuM / Awin)
+      try {
+        const { startTelegramChannelListener } = require('./telegramListener');
+        startTelegramChannelListener({
+          logEntry,
+          onDealReceived: async ({ text, buffer, chatTitle }) => {
+            if (!text || !text.includes('http')) return;
+            const newText = await processMessageText(text);
+            if (!newText || !newText.trim()) return;
+
+            const productKeyword = extractProductKeyword(text);
+            const allUrls = (text + ' ' + newText).match(/(https?:\/\/[^\s]+)/g) || [];
+            const canonicalIds = allUrls.map(extractCanonicalId).filter(Boolean);
+
+            if (isDuplicateDeal(canonicalIds, productKeyword, text)) {
+              logEntry('SKIP', `[Telegram Radar] Oferta duplicada ignorada: [${productKeyword || 'Produto'}]`);
+              return;
+            }
+            registerSentDeal(canonicalIds, productKeyword, text);
+
+            logEntry('TG_SPY', `🔥 Oferta capturada do canal "${chatTitle}"! Prioridade máxima na fila VIP...`);
+            dealQueue.unshift({
+              type: buffer ? 'image' : 'text',
+              buffer: buffer,
+              text: newText,
+              keyword: productKeyword
+            });
+            runDealQueueWorker();
+          }
+        }).catch((e) => logEntry('WARN', 'Erro no Telegram Channel Listener: ' + e.message));
+      } catch (tgErr) {
+        logEntry('WARN', 'Telegram Channel Listener: ' + tgErr.message);
+      }
     }
 
     if (connection === 'close') {
