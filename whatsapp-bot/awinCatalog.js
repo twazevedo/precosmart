@@ -93,6 +93,8 @@ const allAvailableProducts = [
   ...(awinMasterData.hopeDeals || []),
   ...(awinMasterData.lacosteDeals || []),
   ...(awinMasterData.lgDeals || []),
+  ...(awinMasterData.aliexpressDeals || []),
+  ...(awinMasterData.ceaDeals || []),
   ...(awinMasterData.mlDeals || []),
   ...(awinMasterData.amazonDeals || [])
 ];
