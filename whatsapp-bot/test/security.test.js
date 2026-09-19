@@ -117,3 +117,35 @@ test('6. Auditoria de Headers de Proteção HTTP (OWASP)', () => {
   assert.equal(headerRemovido, 'X-Powered-By', 'Express fingerprinting deve ser removido');
   assert.equal(chamouNext, true, 'Middleware de headers deve prosseguir');
 });
+
+test('7. Portão de Autenticação: Aprovação via Query Param e Chave Mestra Padronizada', () => {
+  const reqQuery = {
+    ip: '203.0.113.195',
+    headers: {},
+    query: { key: 'precosmart_adm_sec_994586' }
+  };
+
+  let chamouNext = false;
+  requireApiAuth(reqQuery, {}, () => { chamouNext = true; });
+
+  assert.equal(chamouNext, true, 'Requisição com query param key válida deve ser aprovada');
+});
+
+test('8. Validação Anti-SSRF e Open Redirect (isSafePublicUrl)', () => {
+  const { isSafePublicUrl } = require('../mirror');
+
+  // Ataques SSRF / Redirecionamentos internos / Metadados de Nuvem devem ser bloqueados
+  assert.equal(isSafePublicUrl('http://169.254.169.254/latest/meta-data/'), false, 'AWS metadata deve ser bloqueado');
+  assert.equal(isSafePublicUrl('http://127.0.0.1:3001/admin'), false, 'Loopback IPv4 deve ser bloqueado');
+  assert.equal(isSafePublicUrl('http://localhost:3000'), false, 'Localhost deve ser bloqueado');
+  assert.equal(isSafePublicUrl('http://10.0.0.1/secrets'), false, 'RFC 1918 10.x.x.x deve ser bloqueado');
+  assert.equal(isSafePublicUrl('http://192.168.1.1/router'), false, 'RFC 1918 192.168.x.x deve ser bloqueado');
+  assert.equal(isSafePublicUrl('http://172.16.0.1/'), false, 'RFC 1918 172.16.x.x deve ser bloqueado');
+  assert.equal(isSafePublicUrl('javascript:alert(1)'), false, 'Protocolo javascript deve ser bloqueado');
+  assert.equal(isSafePublicUrl('file:///etc/passwd'), false, 'Protocolo file deve ser bloqueado');
+
+  // URLs públicas legítimas devem ser aceitas
+  assert.equal(isSafePublicUrl('https://www.amazon.com.br/dp/B0CX23V2ZH'), true, 'URL pública da Amazon deve ser permitida');
+  assert.equal(isSafePublicUrl('https://www.mercadolivre.com.br/p/MLB12345'), true, 'URL pública do ML deve ser permitida');
+  assert.equal(isSafePublicUrl('https://m.magazineluiza.com.br/p/123'), true, 'URL pública do Magazine Luiza deve ser permitida');
+});

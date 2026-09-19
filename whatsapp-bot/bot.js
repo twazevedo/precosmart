@@ -57,7 +57,7 @@ const {
   getSpecificCeaDeal
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
-const { upgradeToHdImage } = require('./mirror');
+const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 let sharp = null;
@@ -460,7 +460,7 @@ app.get('/api/alerts', requireApiAuth, (req, res) => res.json(getAllAlerts()));
 
 app.get('/r/:code', (req, res) => {
   const target = recordClick(req.params.code);
-  if (target) {
+  if (target && isSafePublicUrl(target)) {
     return res.redirect(302, target);
   }
   res.status(404).send('Link de oferta não encontrado ou expirado.');
@@ -511,13 +511,13 @@ app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
   }
 });
 
-app.get('/api/qr', (req, res) => {
+app.get('/api/qr', requireApiAuth, (req, res) => {
   if (isConnected)      return res.json({ status: 'connected', qr: null });
   if (!qrCodeDataUrl)   return res.json({ status: 'waiting',   qr: null });
   res.json({ status: 'qr_ready', qr: qrCodeDataUrl });
 });
 
-app.get('/qr', (req, res) => {
+app.get('/qr', requireApiAuth, (req, res) => {
   if (qrCodeDataUrl) {
     const base64Data = qrCodeDataUrl.replace(/^data:image\/png;base64,/, '');
     const img = Buffer.from(base64Data, 'base64');

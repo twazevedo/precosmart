@@ -553,6 +553,10 @@ function fetchOgImage(urlStr) {
         return finish(null);
       }
 
+      if (!isSafePublicUrl(u.href)) {
+        return finish(null);
+      }
+
       const client = u.protocol === 'http:' ? http : https;
       const options = {
         hostname: u.hostname,
@@ -628,5 +632,6 @@ module.exports = {
   extractProductKeyword,
   extractCanonicalId,
   fetchOgImage,
-  upgradeToHdImage
+  upgradeToHdImage,
+  isSafePublicUrl
 };

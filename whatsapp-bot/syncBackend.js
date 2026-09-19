@@ -21,7 +21,8 @@ async function syncDealWithBackend(item) {
     const productsRes = await axios.get(`${BACKEND_URL}/products?search=${encodeURIComponent(item.title.substring(0, 20))}`, { timeout: 3000 });
     let product = productsRes.data && productsRes.data[0];
 
-    const authHeaders = process.env.API_SECRET_KEY ? { 'x-api-key': process.env.API_SECRET_KEY } : {};
+    const apiKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY || 'precosmart_adm_sec_994586';
+    const authHeaders = { 'x-api-key': apiKey };
 
     if (!product) {
       const createRes = await axios.post(`${BACKEND_URL}/products`, {

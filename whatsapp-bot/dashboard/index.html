@@ -335,7 +335,16 @@
         </div>`;
       return;
     }
-    const r = await fetch('/api/qr');
+    const r = await fetch('/api/qr', { headers: authHeaders() });
+    if (!r.ok) {
+      wrapper.innerHTML = `
+        <div style="text-align:center; color:var(--muted)">
+          <div style="font-size:3rem; margin-bottom:12px">🔒</div>
+          <p>Autenticação necessária para visualizar o QR Code.</p>
+          <small><a href="javascript:void(0)" onclick="handleAuthError({error:'Não autorizado'})" style="color:var(--primary)">Clique aqui para inserir a API_SECRET_KEY</a></small>
+        </div>`;
+      return;
+    }
     const d = await r.json();
     if (d.status === 'qr_ready' && d.qr) {
       wrapper.innerHTML = `

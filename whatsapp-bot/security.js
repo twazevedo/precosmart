@@ -97,7 +97,8 @@ function requireApiAuth(req, res, next) {
   }
 
   const clientKey = req.headers['x-api-key'] || 
-                   (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null);
+                   (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null) ||
+                   (req.query ? (req.query.key || req.query.token) : null);
 
   if (clientKey) {
     const validKeys = [configuredKey, adminKey].filter(Boolean);

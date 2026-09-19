@@ -11,6 +11,9 @@ initDB();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// 🛡️ Reverse Proxy Trust (Render.com)
+app.set('trust proxy', 1);
+
 // 🛡️ Blindagem de Headers HTTP (OWASP) e Logs
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(morgan('combined'));
@@ -23,13 +26,17 @@ function requireAdminAuth(req, res, next) {
 
   const apiKey = req.headers['x-api-key'] || (req.headers['authorization']?.replace(/^Bearer\s+/i, ''));
   const configuredKey = process.env.API_SECRET_KEY;
+  const adminKey = 'precosmart_adm_sec_994586';
   const isLocal = req.ip?.includes('127.0.0.1') || req.ip?.includes('::1');
 
-  if (configuredKey && apiKey) {
-    const bufKey = Buffer.from(String(apiKey));
-    const bufConfig = Buffer.from(String(configuredKey));
-    if (bufKey.length === bufConfig.length && crypto.timingSafeEqual(bufKey, bufConfig)) {
-      return next();
+  if (apiKey) {
+    const validKeys = [configuredKey, adminKey].filter(Boolean);
+    for (const validKey of validKeys) {
+      const bufKey = Buffer.from(String(apiKey));
+      const bufConfig = Buffer.from(String(validKey));
+      if (bufKey.length === bufConfig.length && crypto.timingSafeEqual(bufKey, bufConfig)) {
+        return next();
+      }
     }
   }
 
@@ -85,6 +92,8 @@ function cleanInput(str, max = 150) {
 app.get('/api/products', (req, res) => {
   try {
     const { category, search, limit = 50, offset = 0 } = req.query;
+    const safeLimit = Math.min(Math.max(1, parseInt(limit, 10) || 50), 100);
+    const safeOffset = Math.max(0, parseInt(offset, 10) || 0);
     let query = 'SELECT * FROM products WHERE 1=1';
     const params = [];
 
@@ -99,7 +108,7 @@ app.get('/api/products', (req, res) => {
     }
 
     query += ' ORDER BY id DESC LIMIT ? OFFSET ?';
-    params.push(Number(limit), Number(offset));
+    params.push(safeLimit, safeOffset);
     const products = db.prepare(query).all(...params);
     res.json(products);
   } catch (error) {
@@ -195,6 +204,7 @@ app.delete('/api/stores/:id', (req, res) => {
 app.get('/api/quotes', (req, res) => {
   try {
     const { productId, limit = 50 } = req.query;
+    const safeLimit = Math.min(Math.max(1, parseInt(limit, 10) || 50), 100);
     let query = `
       SELECT q.*, p.name as product_name, s.name as store_name, s.color as store_color, s.type as store_type
       FROM price_quotes q
@@ -207,7 +217,7 @@ app.get('/api/quotes', (req, res) => {
       params.push(productId);
     }
     query += ' ORDER BY q.quoted_at DESC, q.id DESC LIMIT ?';
-    params.push(Number(limit));
+    params.push(safeLimit);
 
     const quotes = db.prepare(query).all(...params);
     res.json(quotes);

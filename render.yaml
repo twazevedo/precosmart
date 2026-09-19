@@ -39,7 +39,7 @@ services:
       - key: TELEGRAM_CHAT_ID
         value: "@precosmart"
       - key: ENCRYPTION_KEY
-        value: "precosmart_persistent_auth_key_2026_sec"
+        sync: false
       - key: MONGO_URI
         sync: false
       - key: API_SECRET_KEY
