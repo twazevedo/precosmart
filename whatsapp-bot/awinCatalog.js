@@ -156,6 +156,12 @@ function getProductBadge(title = '') {
   if (t.includes('nike') || t.includes('air max') || t.includes('air force') || t.includes('dunk') || t.includes('jordan')) {
     return '✔️ *NIKE BRASIL OFICIAL — JUST DO IT* 👟🔥';
   }
+  if (t.includes('aliexpress') || t.includes('redmagic') || t.includes('ugreen') || t.includes('baseus') || t.includes('qcy') || t.includes('8bitdo') || t.includes('gamesir') || t.includes('drone')) {
+    return '🛒 *ALIEXPRESS BRASIL OFICIAL — OFERTA GLOBAL* 🌎⚡';
+  }
+  if (t.includes('c&a') || t.includes('cea') || t.includes('algodão peruano') || t.includes('moda feminina') || t.includes('jeans')) {
+    return '👗 *C&A BRASIL OFICIAL — MODA & TENDÊNCIA* ✨🛍️';
+  }
   return '🔥 *OFERTA EXCLUSIVA VERIFICADA PREÇOSMART* 🛒⚡';
 }
 
@@ -831,6 +837,57 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garanti
   };
 }
 
+/**
+ * Retorna uma oferta oficial do AliExpress BR & LATAM com link de afiliado
+ */
+async function getSpecificAliExpressDeal(index = 0) {
+  const aliList = (awinMasterData.products || []).filter(p => p.advertiserId === '18879' || (p.advertiser && p.advertiser.toLowerCase().includes('aliexpress')));
+  if (aliList.length === 0) return null;
+  const p = aliList[index % aliList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceCurrent ? `💵 *Preço Especial:* *${p.priceCurrent}*\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🛒 *OFERTA GLOBAL ALIEXPRESS BRASIL!* 🌎⚡\n\n🏷️ *${p.title}*\n🏪 *Loja:* AliExpress Oficial\n${priceSection}${descSection}🛒 *Compre com desconto garantido no AliExpress:*\n👉 ${shortUrl}\n\n🚚 *Envio rápido, proteção ao consumidor e garantia de entrega.*\n⚠️ *Aviso:* Preço promocional e cupons sujeitos a estoque limitado.`;
+
+  return {
+    type: 'product',
+    store: 'AliExpress Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da C&A Brasil com link de afiliado
+ */
+async function getSpecificCeaDeal(index = 0) {
+  const ceaList = (awinMasterData.products || []).filter(p => p.advertiserId === '17648' || (p.advertiser && p.advertiser.toLowerCase().includes('c&a')));
+  if (ceaList.length === 0) return null;
+  const p = ceaList[index % ceaList.length];
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `👗 *OFERTA C&A BRASIL OFICIAL!* ✨🛍️\n\n🏷️ *${p.title}*\n🏪 *Loja:* C&A Brasil Oficial\n${descSection}🎟️ *Cupom Exclusivo no App:* \`AFILIADOS10\` (10% OFF EXTRA)\n\n🛒 *Garanta seu look com desconto na C&A:*\n👉 ${shortUrl}\n\n🚚 *Frete facilitado e troca grátis em lojas físicas.*\n⚠️ *Aviso:* Estoque e numerações sujeitos à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'C&A Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
@@ -846,6 +903,8 @@ module.exports = {
   getSpecificHopeDeal,
   getSpecificLacosteDeal,
   getSpecificLGDeal,
+  getSpecificAliExpressDeal,
+  getSpecificCeaDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData

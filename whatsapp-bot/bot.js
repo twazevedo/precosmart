@@ -50,7 +50,9 @@ const {
   getSpecificUnderArmourDeal,
   getSpecificHopeDeal,
   getSpecificLacosteDeal,
-  getSpecificLGDeal
+  getSpecificLGDeal,
+  getSpecificAliExpressDeal,
+  getSpecificCeaDeal
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage } = require('./mirror');
@@ -1206,6 +1208,18 @@ app.get('/api/trigger-lg', requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais LG Brasil iniciado com sucesso!` });
   dispatchBrandBatch('LG', getSpecificLGDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast LG: ' + e.message));
+});
+
+app.get('/api/trigger-aliexpress', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais AliExpress iniciado com sucesso!` });
+  dispatchBrandBatch('AliExpress', getSpecificAliExpressDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast AliExpress: ' + e.message));
+});
+
+app.get('/api/trigger-cea', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais C&A Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('CeA', getSpecificCeaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast C&A: ' + e.message));
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
@@ -2834,6 +2848,52 @@ async function startBot() {
           return;
         } catch (err) {
           await replyToUser({ text: '❌ Erro ao postar LG: ' + err.message });
+          return;
+        }
+      }
+
+      // 24. !ali / !aliexpress (Admin) - Dispara oferta oficial AliExpress
+      if (command === '!ali' || command === '!aliexpress') {
+        try {
+          const deal = await getSpecificAliExpressDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial AliExpress enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta AliExpress enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar AliExpress: ' + err.message });
+          return;
+        }
+      }
+
+      // 25. !cea (Admin) - Dispara oferta oficial C&A Brasil
+      if (command === '!cea') {
+        try {
+          const deal = await getSpecificCeaDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial C&A enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta C&A enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar C&A: ' + err.message });
           return;
         }
       }

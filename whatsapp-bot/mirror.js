@@ -293,6 +293,20 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=107702&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanClovis)}`;
     }
 
+    // 18. AliExpress BR & Global (AWIN - MID 18879 - Oficial Aprovado)
+    if (urlObj.hostname.includes('aliexpress.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanAli = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=18879&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAli)}`;
+    }
+
+    // 19. C&A BR (AWIN - MID 17648 - Oficial Aprovado)
+    if (urlObj.hostname.includes('cea.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanCea = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=17648&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanCea)}`;
+    }
+
     // 12. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
