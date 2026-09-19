@@ -98,7 +98,48 @@ async function broadcastTelegramDeal(deal) {
   }
 }
 
+/**
+ * Envia notificação privada ao administrador via Telegram
+ * Requer TELEGRAM_ADMIN_CHAT_ID no .env (separado do canal público)
+ */
+async function notifyAdmin(eventType, message, extra = {}) {
+  const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+  if (!TELEGRAM_BOT_TOKEN || !adminChatId) return { ok: false, reason: 'Admin chat ID não configurado' };
+
+  const icons = {
+    CONNECTED: '🟢',
+    DISCONNECTED: '🔴',
+    DEAL_SENT: '📦',
+    ERROR: '🚨',
+    DAILY_REPORT: '📊',
+    QR_READY: '📱',
+    WARNING: '⚠️'
+  };
+
+  const icon = icons[eventType] || '🔔';
+  const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const text = `${icon} *[${eventType}] PreçoSmart*\n⏰ ${now}\n\n${message}${
+    extra.uptime ? `\n⏱️ Uptime: ${extra.uptime}h` : ''
+  }${
+    extra.queue ? `\n📥 Fila: ${extra.queue} itens` : ''
+  }`;
+
+  try {
+    const endpoint = 'https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN;
+    const resp = await axios.post(endpoint + '/sendMessage', {
+      chat_id: adminChatId,
+      text: text.substring(0, 4096),
+      parse_mode: 'Markdown'
+    }, { timeout: 8000 });
+    return { ok: true, messageId: resp.data.result?.message_id };
+  } catch (err) {
+    console.error('[TELEGRAM ADMIN]', err.response?.data?.description || err.message);
+    return { ok: false, error: err.message };
+  }
+}
+
 module.exports = {
   isTelegramConfigured,
-  broadcastTelegramDeal
+  broadcastTelegramDeal,
+  notifyAdmin
 };

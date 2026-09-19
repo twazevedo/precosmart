@@ -1,43 +1,38 @@
 /**
  * @file alerts.js — Sistema de Alertas Personalizados PreçoSmart
+ * Agora com persistência MongoDB via db.js — alertas não são perdidos entre deploys no Render.
  */
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
+const { createStore } = require('./db');
 
-const ALERTS_FILE = path.join(__dirname, 'alerts.json');
+const alertsStore = createStore('alerts');
 
-let alerts = [];
-
-let saveTimeout = null;
-
-try {
-  if (fs.existsSync(ALERTS_FILE)) {
-    const data = fs.readFileSync(ALERTS_FILE, 'utf8');
-    alerts = JSON.parse(data || '[]');
-  } else {
-    alerts = [];
-  }
-} catch (err) {
-  alerts = [];
-}
-
-function loadAlerts() {
-  return alerts;
-}
+// Estado em memória — carregado sincronicamente do JSON local ao iniciar
+let alerts = alertsStore.getLocalSync([]) || [];
 
 function saveAlerts() {
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(async () => {
-    try {
-      await fs.promises.writeFile(ALERTS_FILE, JSON.stringify(alerts, null, 2), 'utf8');
-    } catch (err) {
-      console.error('Erro ao salvar alertas:', err.message);
-    }
-  }, 1000);
+  alertsStore.saveLocalSync(alerts);
 }
 
+/**
+ * Restaura alertas do MongoDB (chamado no boot quando Mongo está disponível).
+ * Garante que alertas de membros sobrevivam a reinicializações do Render.
+ */
+async function initAlerts() {
+  try {
+    const saved = await alertsStore.get('main', null);
+    if (Array.isArray(saved) && saved.length > 0) {
+      // Mescla: mantém alertas locais não presentes no MongoDB
+      const savedIds = new Set(saved.map(a => a.id));
+      const localOnly = alerts.filter(a => !savedIds.has(a.id));
+      alerts = [...saved, ...localOnly];
+    }
+  } catch (err) {
+    // Fallback silencioso — alertas locais permanecem
+  }
+  return alerts;
+}
 
 function addAlert(userJid, phone, query, targetPrice = null) {
   const id = 'alt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
@@ -71,8 +66,8 @@ function getUserAlerts(userJid) {
 }
 
 /**
- * Extrai valor numérico de preço com alta precisão
- * Evita pegar modelos como "PS5", "iPhone 15", "Galaxy S24"
+ * Extrai valor numérico de preço com alta precisão.
+ * Evita pegar modelos como "PS5", "iPhone 15", "Galaxy S24".
  */
 function extractPriceFromText(text) {
   if (!text) return null;
@@ -163,5 +158,6 @@ module.exports = {
   getAllAlerts,
   checkMatchingAlerts,
   countTotalAlerts,
-  extractPriceFromText
+  extractPriceFromText,
+  initAlerts
 };

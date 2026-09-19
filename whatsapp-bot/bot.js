@@ -35,7 +35,7 @@ const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCa
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
-const { isTelegramConfigured, broadcastTelegramDeal } = require('./telegram');
+const { isTelegramConfigured, broadcastTelegramDeal, notifyAdmin } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
@@ -1832,6 +1832,7 @@ function setupCronJobs() {
       } catch (err) {}
     }
     logEntry('SENT', '[20:00] Resumo Top 5 enviado');
+    notifyAdmin('DAILY_REPORT', 'Resumo diário enviado!\n\u2022 Cliques hoje: ' + stats.totalClicks + '\n\u2022 Links ativos: ' + stats.totalLinks).catch(() => {});
   }, { timezone: 'America/Sao_Paulo' });
 
   // 22:00 — Gamers e Hardware (Pico de compras tech pesadas)
@@ -1872,6 +1873,17 @@ async function startBot() {
       state = auth.state;
       saveCreds = auth.saveCreds;
       logEntry('BOOT', 'Sessão carregada do MongoDB com sucesso!');
+
+      // Restaura analytics e alertas persistidos no MongoDB
+      try {
+        const { initAnalytics } = require('./analytics');
+        const { initAlerts } = require('./alerts');
+        await initAnalytics();
+        await initAlerts();
+        logEntry('BOOT', '✅ Analytics e alertas restaurados do MongoDB — zero perda de dados entre deploys');
+      } catch (storeErr) {
+        logEntry('WARN', 'Stores MongoDB: usando fallback local — ' + storeErr.message);
+      }
     } catch (dbErr) {
       logEntry('FATAL', 'Falha ao conectar no MongoDB. Usando fallback local: ' + dbErr.message);
       if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
@@ -1928,6 +1940,7 @@ async function startBot() {
       qrCodeDataUrl = await QRCode.toDataURL(qr);
       isConnected   = false;
       logEntry('QR', 'Novo QR Code gerado! Abra http://localhost:3002/qr no navegador para escanear.');
+      notifyAdmin('QR_READY', 'Novo QR Code gerado! Acesse o painel para escanear.').catch(() => {});
       try {
         const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
         console.log('\n📲 ESCANEIE O QR CODE ABAIXO COM SEU WHATSAPP (Aparelhos Conectados):\n');
@@ -1943,6 +1956,8 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
+      notifyAdmin('CONNECTED', 'Bot WhatsApp conectado! Grupo: ' + (groupJid || 'buscando...')).catch(() => {});
+
 
       // 🚀 Disparo inicial de oferta no Grupo VIP 15 segundos após conectar
       setTimeout(async () => {
@@ -2001,6 +2016,7 @@ async function startBot() {
       const code  = lastDisconnect?.error?.output?.statusCode;
       const isLoggedOut = code === DisconnectReason.loggedOut;
       logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
+      notifyAdmin('DISCONNECTED', 'Bot desconectado! Código: ' + code).catch(() => {});
       if (isLoggedOut) {
         try {
           fs.rmSync(SESSION_DIR, { recursive: true, force: true });
@@ -2991,13 +3007,36 @@ async function startBot() {
 
       if (!isSenderAuthorized) {
         const msgText = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').toLowerCase();
-        if (msgText.includes('http://') || msgText.includes('https://') || msgText.includes('.com') || msgText.includes('wa.me')) {
+        if (msgText.includes('http://') || msgText.includes('https://')) {
           try {
-            await waSocket.sendMessage(msg.key.remoteJid, { delete: msg.key });
-            await waSocket.sendMessage(msg.key.remoteJid, { text: '⚠️ *Mensagem Apagada!*\nÉ proibido enviar links de afiliados ou convites de outros grupos por aqui.' });
-            logEntry('MOD', `Link apagado do grupo VIP enviado por ${senderPhoneLocal}`);
-          } catch (e) {
-            logEntry('WARN', `Falha ao apagar link no grupo VIP: ${e.message}`);
+            // Tenta converter o link com afiliado
+            const processedText = await processMessageText(msgText);
+            if (processedText && processedText.trim() && processedText.includes('http')) {
+              // Link convertido com sucesso — responde com afiliado em vez de deletar
+              const urlMatch = (processedText || msgText).match(/(https?:\/\/[^\s]+)/);
+              let replyMsg = `🛁 *Link processado pelo PreçoSmart!*\n\nComprando por esse link você apoia o grupo e garante os melhores preços.\n\n🔗 ${processedText.trim()}`;
+              if (replyMsg.length > 600) {
+                replyMsg = `🔗 *PreçoSmart* • Link com afiliado:\n${processedText.trim()}`;
+              }
+              await waSocket.sendMessage(msg.key.remoteJid, {
+                text: replyMsg,
+                quoted: msg
+              });
+              logEntry('AFFILIATE', `Link de membro convertido com afiliado no grupo VIP: ${senderPhoneLocal}`);
+            } else {
+              // Link não é de loja parceira — deleta para manter o grupo limpo
+              await waSocket.sendMessage(msg.key.remoteJid, { delete: msg.key });
+              await waSocket.sendMessage(msg.key.remoteJid, {
+                text: '⚠️ Links externos não são permitidos. Apenas ofertas de lojas parceiras são aceitas!'
+              });
+              logEntry('MOD', `Link não-parceiro deletado do grupo VIP: ${senderPhoneLocal}`);
+            }
+          } catch (affiliateErr) {
+            // Em caso de erro, deleta o link
+            try {
+              await waSocket.sendMessage(msg.key.remoteJid, { delete: msg.key });
+            } catch (e) {}
+            logEntry('WARN', `Erro ao processar link do membro: ${affiliateErr.message}`);
           }
         }
       }
