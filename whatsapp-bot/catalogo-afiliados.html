@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PreçoSmart — Catálogo de Afiliados 🔥</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --card: #1a1a1a;
+    --border: #2a2a2a;
+    --orange: #ff6b00;
+    --green: #25d366;
+    --text: #ffffff;
+    --muted: #888;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+  
+  header {
+    background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+    border-bottom: 2px solid var(--orange);
+    padding: 24px 20px;
+    text-align: center;
+  }
+  header h1 { font-size: 2.4rem; color: var(--orange); }
+  header p { color: var(--muted); margin-top: 6px; }
+
+  .group-cta {
+    background: linear-gradient(135deg, #075e54, #128c7e);
+    margin: 20px auto;
+    max-width: 700px;
+    border-radius: 16px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    text-decoration: none;
+    color: white;
+    font-weight: 600;
+    font-size: 1.1rem;
+    transition: transform .2s;
+  }
+  .group-cta:hover { transform: scale(1.02); }
+  .group-cta .icon { font-size: 2rem; }
+  .group-cta small { display: block; font-weight: 400; font-size: .85rem; opacity: .85; }
+
+  main { max-width: 1000px; margin: 0 auto; padding: 0 16px 60px; }
+
+  .brand-section {
+    margin: 32px 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .brand-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .brand-header .mid-badge {
+    margin-left: auto;
+    font-size: .75rem;
+    color: var(--muted);
+    background: #222;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .brand-site-link {
+    display: block;
+    padding: 8px 20px 14px;
+    font-size: .85rem;
+    color: var(--muted);
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: color .2s;
+  }
+  .brand-site-link:hover { color: var(--orange); }
+
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1px;
+    background: var(--border);
+  }
+  .product-card {
+    background: var(--card);
+    padding: 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .product-title { font-size: .95rem; font-weight: 600; line-height: 1.3; }
+  .product-price {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--orange);
+  }
+  .product-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--orange);
+    color: white;
+    text-decoration: none;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: .85rem;
+    font-weight: 600;
+    width: fit-content;
+    margin-top: auto;
+    transition: opacity .2s;
+  }
+  .product-link:hover { opacity: .85; }
+  .short-url {
+    font-size: .7rem;
+    color: var(--muted);
+    word-break: break-all;
+    font-family: monospace;
+  }
+
+  .voucher-section {
+    margin: 32px 0;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .voucher-header {
+    padding: 16px 20px;
+    background: linear-gradient(90deg, #1a1a1a, #222);
+    font-size: 1.2rem;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+  }
+  .voucher-list { padding: 0 8px 12px; }
+  .voucher-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .voucher-row:last-child { border-bottom: none; }
+  .voucher-code {
+    background: #222;
+    border: 1px solid var(--orange);
+    color: var(--orange);
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-weight: 700;
+    font-size: .9rem;
+    white-space: nowrap;
+  }
+  .voucher-desc { font-size: .85rem; color: var(--muted); flex: 1; }
+  .voucher-link {
+    color: var(--orange);
+    font-size: .8rem;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .voucher-link:hover { text-decoration: underline; }
+
+  footer {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    font-size: .85rem;
+  }
+
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.8rem; }
+    .products-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🔥 PreçoSmart</h1>
+  <p>Catálogo completo de afiliados com links rastreados • Publisher ID: 3077915</p>
+</header>
+
+<main>
+
+  <a class="group-cta" href="https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7" target="_blank">
+    <span class="icon">💬</span>
+    <div>
+      Entre no Grupo VIP Grátis
+      <small>Receba ofertas automáticas direto no WhatsApp todo dia</small>
+    </div>
+    <span style="margin-left:auto">→</span>
+  </a>
+
+  <!-- ═══ KaBuM! ═══════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#2a1800,#1a1a1a)">
+      🖥️ KaBuM!
+      <span class="mid-badge">MID: 17729</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br" target="_blank">
+      🏠 kabum.com.br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">RTX 4060 8GB GDDR6</div>
+        <div class="product-price">R$1.699</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F513843" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/513843</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">SSD Kingston 1TB NV3</div>
+        <div class="product-price">R$289</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F599338" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/599338</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Monitor LG 27" 180Hz IPS</div>
+        <div class="product-price">R$899</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F620992" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/620992</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Headset HyperX Cloud III</div>
+        <div class="product-price">R$479</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F557254" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/557254</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Mouse Logitech G304 Wireless</div>
+        <div class="product-price">R$179</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F185018" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/185018</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Teclado Mecânico Rise Mode RGB</div>
+        <div class="product-price">R$199</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F506048" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/506048</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Memória RAM Kingston 16GB DDR5</div>
+        <div class="product-price">R$349</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F264718" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/264718</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Gabinete Rise Mode Glass 06x</div>
+        <div class="product-price">R$249</div>
+        <a class="product-link" href="https://www.awin1.com/cread.php?awinmid=17729&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.kabum.com.br%2Fproduto%2F324516" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → kabum.com.br/produto/324516</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AliExpress ═══════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#2a0600,#1a1a1a)">
+      🛍️ AliExpress BR
+      <span class="mid-badge">MID: 18879</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com" target="_blank">
+      🏠 pt.aliexpress.com (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">Smartwatch Xiaomi Mi Band 8</div>
+        <div class="product-price">R$149</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005006035986439.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005006035986439</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Fone Bluetooth TWS 5.3</div>
+        <div class="product-price">R$49</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005007164398256.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005007164398256</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Carregador USB-C 65W GaN</div>
+        <div class="product-price">R$79</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005004386677943.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005004386677943</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Câmera de Segurança WiFi 4MP</div>
+        <div class="product-price">R$119</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005006289516993.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005006289516993</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Suporte de Mesa Notebook</div>
+        <div class="product-price">R$39</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005005319993979.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005005319993979</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Cabo USB-C 240W 2m</div>
+        <div class="product-price">R$29</div>
+        <a class="product-link" style="background:#e43225" href="https://www.awin1.com/cread.php?awinmid=18879&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fpt.aliexpress.com%2Fitem%2F1005007238174956.html" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → aliexpress.com/item/1005007238174956</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ C&A ═══════════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#00143a,#1a1a1a)">
+      👗 C&amp;A Brasil
+      <span class="mid-badge">MID: 17648</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br" target="_blank">
+      🏠 cea.com.br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">Jeans Feminino Skinny <small style="color:#aaa">| Cupom: AFILIADOS10</small></div>
+        <div class="product-price">R$89 <small style="color:var(--muted); font-size:.7rem">+10% OFF no APP</small></div>
+        <a class="product-link" style="background:#004a99" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fcalca-jeans-feminina-cintura-alta-skinny" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → cea.com.br/calca-jeans...</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Jeans 25% OFF <small style="color:#aaa">| Cupom: JEANS</small></div>
+        <div class="product-price">R$66 <small style="color:var(--muted); font-size:.7rem">de R$89</small></div>
+        <a class="product-link" style="background:#004a99" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2F25-off" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → cea.com.br/ofertas/25-off</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Esportivo 30% OFF <small style="color:#aaa">| Cupom: ESPORTIVO30</small></div>
+        <div class="product-price">R$55 <small style="color:var(--muted); font-size:.7rem">de R$79</small></div>
+        <a class="product-link" style="background:#004a99" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2Fmoda-esportiva%2Flooks-esportivos" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → cea.com.br/ofertas/moda-esportiva</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Lingerie e Pijamas <small style="color:#aaa">| Cupom: MAISLOOK</small></div>
+        <div class="product-price">De 30% a 35% OFF</div>
+        <a class="product-link" style="background:#004a99" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2Fmoda-feminina%2Flingeries-e-pijamas" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → cea.com.br/ofertas/lingeries...</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Nike ══════════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#111,#1a1a1a)">
+      👟 Nike Brasil
+      <span class="mid-badge">MID: 19326</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr" target="_blank">
+      🏠 nike.com/br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">Nike Air Max SC</div>
+        <div class="product-price">R$499</div>
+        <a class="product-link" style="background:#111" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr%2Ft%2Ftenis-air-max-sc-masculino" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Nike Revolution 7</div>
+        <div class="product-price">R$369</div>
+        <a class="product-link" style="background:#111" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr%2Ft%2Ftenis-revolution-7-masculino" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Nike Air Force 1</div>
+        <div class="product-price">R$699</div>
+        <a class="product-link" style="background:#111" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr%2Ft%2Ftenis-nike-air-force-1-07" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Camiseta Nike Dri-FIT</div>
+        <div class="product-price">R$149</div>
+        <a class="product-link" style="background:#111" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr%2Ft%2Fcamiseta-de-treino-nike-dri-fit" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Legging Nike Pro 7/8</div>
+        <div class="product-price">R$219</div>
+        <a class="product-link" style="background:#111" href="https://www.awin1.com/cread.php?awinmid=19326&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.nike.com%2Fbr%2Ft%2Flegging-7-8-de-treino-nike-pro" target="_blank">🛒 Comprar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Under Armour ══════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#3a0006,#1a1a1a)">
+      🏋️ Under Armour BR
+      <span class="mid-badge">MID: 18864</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br" target="_blank">
+      🏠 underarmour.com.br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">UA Charged Assert 10</div>
+        <div class="product-price">R$399 <small style="color:var(--muted)">| Cupom: ENDLESS -R$50</small></div>
+        <a class="product-link" style="background:#e31e24" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br%2Ftenis-ua-charged-assert-10" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">UA Charged Pursuit 3</div>
+        <div class="product-price">R$449</div>
+        <a class="product-link" style="background:#e31e24" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br%2Ftenis-ua-charged-pursuit-3" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Camiseta UA Tech 2.0</div>
+        <div class="product-price">R$159</div>
+        <a class="product-link" style="background:#e31e24" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br%2Fcamiseta-masculina-ua-tech-2-0" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Short UA Launch 5"</div>
+        <div class="product-price">R$189</div>
+        <a class="product-link" style="background:#e31e24" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br%2Fshort-masculino-ua-launch-5-polegadas" target="_blank">🛒 Comprar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Olympikus ══════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#003d17,#1a1a1a)">
+      🏃 Olympikus
+      <span class="mid-badge">MID: 30254</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=30254&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.olympikus.com.br" target="_blank">
+      🏠 olympikus.com.br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">Tênis Corre 23</div>
+        <div class="product-price">R$299</div>
+        <a class="product-link" style="background:#009b3a" href="https://www.awin1.com/cread.php?awinmid=30254&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.olympikus.com.br%2Ftenis%2Fcorrida%2Fcorre-23" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Tênis Achieve 2</div>
+        <div class="product-price">R$249</div>
+        <a class="product-link" style="background:#009b3a" href="https://www.awin1.com/cread.php?awinmid=30254&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.olympikus.com.br%2Ftenis%2Facademia%2Fachieve-2" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Tênis Ultralight 3</div>
+        <div class="product-price">R$349</div>
+        <a class="product-link" style="background:#009b3a" href="https://www.awin1.com/cread.php?awinmid=30254&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.olympikus.com.br%2Ftenis%2Fcaminhada%2Fultralight-3" target="_blank">🛒 Comprar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Lacoste ═══════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#003518,#1a1a1a)">
+      🐊 Lacoste
+      <span class="mid-badge">MID: 16975</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=16975&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.lacoste.com%2Fbr" target="_blank">
+      🏠 lacoste.com/br (link afiliado rastreado)
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">Polo Classic Fit</div>
+        <div class="product-price">R$699</div>
+        <a class="product-link" style="background:#00883a" href="https://www.awin1.com/cread.php?awinmid=16975&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.lacoste.com%2Fbr%2Fpolo-masculina-classic-fit" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Tênis Lerond Pro</div>
+        <div class="product-price">R$799</div>
+        <a class="product-link" style="background:#00883a" href="https://www.awin1.com/cread.php?awinmid=16975&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.lacoste.com%2Fbr%2Ftenis-lerond-pro" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">Camiseta Básica Lacoste</div>
+        <div class="product-price">R$399</div>
+        <a class="product-link" style="background:#00883a" href="https://www.awin1.com/cread.php?awinmid=16975&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.lacoste.com%2Fbr%2Fcamiseta-basica" target="_blank">🛒 Comprar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ LEGO ═══════════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#3a3000,#1a1a1a)">
+      🧱 LEGO BR
+      <span class="mid-badge">MID: 30511</span>
+    </div>
+    <a class="brand-site-link" href="https://www.awin1.com/cread.php?awinmid=30511&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.legombrinq.com.br%2F" target="_blank">
+      🏠 legombrinq.com.br (link afiliado rastreado) | Cupom frete grátis: <strong>100FRETE</strong>
+    </a>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">LEGO Star Wars X-Wing</div>
+        <div class="product-price">R$399</div>
+        <a class="product-link" style="background:#d01012" href="https://www.awin1.com/cread.php?awinmid=30511&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.legombrinq.com.br%2Flego-star-wars" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">LEGO City Quartel Bombeiros</div>
+        <div class="product-price">R$299</div>
+        <a class="product-link" style="background:#d01012" href="https://www.awin1.com/cread.php?awinmid=30511&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.legombrinq.com.br%2Flego-city" target="_blank">🛒 Comprar</a>
+      </div>
+      <div class="product-card">
+        <div class="product-title">LEGO Technic Ferrari</div>
+        <div class="product-price">R$599</div>
+        <a class="product-link" style="background:#d01012" href="https://www.awin1.com/cread.php?awinmid=30511&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.legombrinq.com.br%2Flego-technic" target="_blank">🛒 Comprar</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Outros ════════════════════════════════════════════════════════════ -->
+  <div class="brand-section">
+    <div class="brand-header" style="background: linear-gradient(90deg,#1a0a0a,#1a1a1a)">
+      👠 Clovis • 🦈 Shark Ninja • 🌸 Hope • 📺 LG
+    </div>
+    <div class="products-grid">
+      <div class="product-card">
+        <div class="product-title">👠 Scarpin Feminino Salto Alto — Clovis</div>
+        <div class="product-price">R$149</div>
+        <a class="product-link" style="background:#8b0000" href="https://www.awin1.com/cread.php?awinmid=18199&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.clovis.com.br%2Ffeminino%2Fscarpins" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → clovis.com.br (MID 18199)</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">🦈 Ninja Air Fryer 4L</div>
+        <div class="product-price">R$599</div>
+        <a class="product-link" style="background:#003366" href="https://www.awin1.com/cread.php?awinmid=33076&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.sharkhome.com.br%2Fninja-air-fryer-4l" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → sharkhome.com.br (MID 33076)</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">🌸 Kit 3 Calcinhas Cotton — Hope</div>
+        <div class="product-price">R$99</div>
+        <a class="product-link" style="background:#c06080" href="https://www.awin1.com/cread.php?awinmid=17791&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.hope.com.br%2Fkit-calcinha-cotton" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → hope.com.br (MID 17791)</span>
+      </div>
+      <div class="product-card">
+        <div class="product-title">📺 Smart TV LG 55" 4K OLED</div>
+        <div class="product-price">R$5.999</div>
+        <a class="product-link" style="background:#a50034" href="https://www.awin1.com/cread.php?awinmid=30519&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.lge.com%2Fbr%2Ftvs" target="_blank">🛒 Comprar</a>
+        <span class="short-url">awin1.com → lge.com/br (MID 30519)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CUPONS ════════════════════════════════════════════════════════════ -->
+  <div class="voucher-section">
+    <div class="voucher-header">🏷️ Cupons Ativos (use no checkout)</div>
+    <div class="voucher-list">
+      <div class="voucher-row">
+        <span class="voucher-code">AFILIADOS10</span>
+        <span class="voucher-desc">C&A — 8% site / 10% APP em compras +R$199 em moda</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">JEANS</span>
+        <span class="voucher-desc">C&A — 25% OFF em Jeans</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2F25-off" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">MAISLOOK</span>
+        <span class="voucher-desc">C&A — 30% (2 peças) / 35% (3+) em Lingeries e Pijamas</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2Fmoda-feminina%2Flingeries-e-pijamas" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">ESPORTIVO30</span>
+        <span class="voucher-desc">C&A — 30% OFF em Moda Esportiva</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fofertas%2Fmoda-esportiva" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">MAISMODA</span>
+        <span class="voucher-desc">C&A — 20% extra site / 25% extra APP</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=17648&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.cea.com.br%2Fvitrine%2Fcea%2F19640" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">ENDLESS</span>
+        <span class="voucher-desc">Under Armour — R$50 OFF no Tênis de Corrida UA Charged Endless</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=18864&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.underarmour.com.br" target="_blank">→ Ir à loja</a>
+      </div>
+      <div class="voucher-row">
+        <span class="voucher-code">100FRETE</span>
+        <span class="voucher-desc">LEGO BR — Frete Grátis (1ª compra)</span>
+        <a class="voucher-link" href="https://www.awin1.com/cread.php?awinmid=30511&awinaffid=3077915&clickref=DIVULGACAO&ued=https%3A%2F%2Fwww.legombrinq.com.br%2F" target="_blank">→ Ir à loja</a>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <p>🤖 <strong>PreçoSmart Bot</strong> — Ofertas automáticas via WhatsApp</p>
+  <p style="margin-top:8px">
+    <a href="https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7" style="color:var(--green);text-decoration:none">💬 Grupo VIP WhatsApp</a> &nbsp;|&nbsp;
+    <a href="https://t.me/precosmart" style="color:#2ca5e0;text-decoration:none">✈️ Telegram @precosmart</a> &nbsp;|&nbsp;
+    <a href="https://instagram.com/twazevedo.dev" style="color:#e1306c;text-decoration:none">📸 @twazevedo.dev</a>
+  </p>
+  <p style="margin-top:12px;font-size:.75rem;color:var(--muted)">
+    Publisher ID: 3077915 | Clickref: DIVULGACAO | Powered by AWIN
+  </p>
+</footer>
+
+</body>
+</html>
