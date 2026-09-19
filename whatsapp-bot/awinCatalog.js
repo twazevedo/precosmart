@@ -80,7 +80,20 @@ function markAsSent(key) {
   }
 }
 
-// Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD
+// Carrega lista de imagens quebradas detectadas na auditoria para filtrar rigorosamente
+let brokenImageUrls = new Set();
+try {
+  const brokenPath = path.join(__dirname, 'broken_images.json');
+  if (fs.existsSync(brokenPath)) {
+    const brokenData = JSON.parse(fs.readFileSync(brokenPath, 'utf8'));
+    brokenData.forEach(b => {
+      if (b.imageUrl) brokenImageUrls.add(b.imageUrl);
+      if (b.id) brokenImageUrls.add(String(b.id));
+    });
+  }
+} catch (e) {}
+
+// Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD VERIFICADA
 const allAvailableProducts = [
   ...(awinMasterData.products || []),
   ...(awinMasterData.nikeDeals || []),
@@ -98,10 +111,19 @@ const allAvailableProducts = [
   ...(awinMasterData.mlDeals || []),
   ...(awinMasterData.amazonDeals || [])
 ];
-const validInitialProducts = allAvailableProducts.filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
+const validInitialProducts = allAvailableProducts.filter(p => 
+  p.imageUrl && 
+  p.imageUrl.startsWith('http') && 
+  !brokenImageUrls.has(p.imageUrl) &&
+  !brokenImageUrls.has(String(p.id))
+);
 let shuffledProducts = shuffleArray(validInitialProducts);
 
-const validInitialVouchers = (awinMasterData.vouchers || []).filter(v => v.imageUrl && v.imageUrl.startsWith('http'));
+const validInitialVouchers = (awinMasterData.vouchers || []).filter(v => 
+  v.imageUrl && 
+  v.imageUrl.startsWith('http') && 
+  !brokenImageUrls.has(v.imageUrl)
+);
 let shuffledVouchers = shuffleArray(validInitialVouchers);
 
 let productIndex = Math.floor(Math.random() * Math.max(1, shuffledProducts.length));
@@ -843,9 +865,11 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garanti
  * Retorna uma oferta oficial do AliExpress BR & LATAM com link de afiliado
  */
 async function getSpecificAliExpressDeal(index = 0) {
-  const aliList = (awinMasterData.products || []).filter(p => p.advertiserId === '18879' || (p.advertiser && p.advertiser.toLowerCase().includes('aliexpress')));
-  if (aliList.length === 0) return null;
-  const p = aliList[index % aliList.length];
+  const aliList = ((awinMasterData.aliexpressDeals || []).length > 0 ? awinMasterData.aliexpressDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '18879' || (p.advertiser && p.advertiser.toLowerCase().includes('aliexpress')));
+  const cleanAli = aliList.filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
+  const listToUse = cleanAli.length > 0 ? cleanAli : (awinMasterData.products || []).filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
+  if (listToUse.length === 0) return null;
+  const p = listToUse[index % listToUse.length];
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -869,7 +893,7 @@ async function getSpecificAliExpressDeal(index = 0) {
  * Retorna uma oferta oficial da C&A Brasil com link de afiliado
  */
 async function getSpecificCeaDeal(index = 0) {
-  const ceaList = (awinMasterData.products || []).filter(p => p.advertiserId === '17648' || (p.advertiser && p.advertiser.toLowerCase().includes('c&a')));
+  const ceaList = ((awinMasterData.ceaDeals || []).length > 0 ? awinMasterData.ceaDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '17648' || (p.advertiser && p.advertiser.toLowerCase().includes('c&a')));
   if (ceaList.length === 0) return null;
   const p = ceaList[index % ceaList.length];
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);

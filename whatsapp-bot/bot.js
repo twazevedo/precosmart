@@ -17,6 +17,8 @@
 require('./envLoader');
 const path             = require('path');
 const fs               = require('fs');
+const https            = require('https');
+const http             = require('http');
 const QRCode           = require('qrcode');
 const cron             = require('node-cron');
 const express          = require('express');
@@ -637,16 +639,37 @@ async function dispatchNextAwinRotation(options = {}) {
     return null;
   }
   try {
-    const deal = await getNextAwinDeal();
-    if (!deal) return null;
+    let deal = null;
+    let imgBuf = null;
+    let hdImageUrl = null;
 
-    logEntry('AWIN', `[Piloto Automático] Disparando oferta/cupom: ${deal.store} — ${deal.title}`);
+    // Tenta até 5 ofertas consecutivas até encontrar uma com foto HD 100% baixada com sucesso
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = await getNextAwinDeal();
+      if (!candidate || !candidate.imageUrl) continue;
 
-    const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-    if (!hdImageUrl) {
-      logEntry('AWIN', `[Piloto Automático] Envio abortado: oferta sem foto oficial do produto (${deal.title}).`);
+      const candidateHdUrl = upgradeToHdImage(candidate.imageUrl);
+      if (!candidateHdUrl) continue;
+
+      try {
+        const buf = await prepareWhatsAppImage(candidateHdUrl);
+        if (buf && buf.length >= 3000) {
+          deal = candidate;
+          imgBuf = buf;
+          hdImageUrl = candidateHdUrl;
+          break;
+        }
+      } catch (err) {
+        logEntry('WARN', `Falha ao preparar imagem para ${candidate.title}: ${err.message}`);
+      }
+    }
+
+    if (!deal || !imgBuf) {
+      logEntry('WARN', '[Piloto Automático] Envio abortado: nenhuma oferta com foto oficial válida encontrada após 5 tentativas.');
       return null;
     }
+
+    logEntry('AWIN', `[Piloto Automático] Disparando oferta oficial: ${deal.store} — ${deal.title}`);
 
     // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us COM FOTO OFICIAL OBRIGATÓRIA)
     const jids = getTargetJids();
@@ -655,18 +678,15 @@ async function dispatchNextAwinRotation(options = {}) {
         if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
 
         try {
-          const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-          if (imgBuf) {
-            const resMsg = await waSocket.sendMessage(jid, {
-              image: imgBuf,
-              mimetype: 'image/jpeg',
-              caption: deal.text
-            });
-            if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-            logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
-          }
+          const resMsg = await waSocket.sendMessage(jid, {
+            image: imgBuf,
+            mimetype: 'image/jpeg',
+            caption: deal.text
+          });
+          if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+          logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
         } catch (imgErr) {
-          logEntry('WARN', `Falha ao baixar/enviar foto HD AWIN (${jid}): ${imgErr.message}. Mensagem não enviada sem foto.`);
+          logEntry('WARN', `Falha ao enviar foto HD AWIN (${jid}): ${imgErr.message}`);
         }
       }
     }
@@ -691,8 +711,8 @@ async function dispatchNextAwinRotation(options = {}) {
 }
 
 // ── Rotação Automática Contínua no Piloto Automático ─────────────────────────
-// Por padrão roda a cada 25 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
-const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '25', 10);
+// Por padrão roda a cada 20 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
+const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '20', 10);
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
@@ -1551,6 +1571,43 @@ app.all('/api/reset-session', async (req, res) => {
 
 app.listen(PORT, '0.0.0.0', () => logEntry('SERVER', `Dashboard rodando na porta ${PORT}`));
 
+// ── 🌐 Keep-Alive para Render.com (Impede suspensão automática 24/7) ──────────
+function startKeepAlive() {
+  const externalUrl = process.env.RENDER_EXTERNAL_URL || 'https://precosmart-b8pg.onrender.com';
+  const pingUrl = `${externalUrl.replace(/\/+$/, '')}/api/status`;
+  // Render Free Tier suspende após 15 minutos sem requisição HTTP. Pingamos a cada 9 min:
+  const PING_INTERVAL_MS = 9 * 60 * 1000;
+
+  setInterval(() => {
+    try {
+      const u = new URL(pingUrl);
+      const client = u.protocol === 'https:' ? https : http;
+      const req = client.get(pingUrl, {
+        headers: { 'User-Agent': 'PrecoSmart-KeepAlive/2.0' },
+        timeout: 15000
+      }, (res) => {
+        res.resume();
+        if (res.statusCode === 200) {
+          logEntry('KEEPALIVE', 'Auto-ping 200 OK — Render mantido acordado 24/7');
+        } else {
+          logEntry('WARN', `Auto-ping status: ${res.statusCode}`);
+        }
+      });
+      req.on('error', (err) => {
+        logEntry('WARN', `Auto-ping falhou: ${err.message}`);
+      });
+      req.on('timeout', () => {
+        req.destroy();
+      });
+    } catch (e) {
+      logEntry('WARN', `Erro no keep-alive: ${e.message}`);
+    }
+  }, PING_INTERVAL_MS);
+
+  logEntry('BOOT', `Keep-alive ativo: auto-ping a cada 9 min em ${pingUrl}`);
+}
+startKeepAlive();
+
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
 async function findGroupJid(sock) {
   const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '';
@@ -1886,6 +1943,18 @@ async function startBot() {
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
       await findGroupJid(sock);
+
+      // 🚀 Disparo inicial de oferta no Grupo VIP 15 segundos após conectar
+      setTimeout(async () => {
+        if (isConnected && !isNightQuietHours()) {
+          logEntry('BOOT', '🚀 Disparo inicial de oferta oficial após conexão estabelecida...');
+          try {
+            await dispatchNextAwinRotation({ force: false });
+          } catch (initErr) {
+            logEntry('WARN', 'Erro no disparo inicial de oferta: ' + initErr.message);
+          }
+        }
+      }, 15000);
 
       // Respeita horário de silêncio (23:30 às 07:30 de Brasília) e evita disparos automáticos indevidos ao conectar
 
