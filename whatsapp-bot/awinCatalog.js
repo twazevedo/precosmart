@@ -124,7 +124,7 @@ try {
 
 // Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD VERIFICADA
 const allAvailableProducts = [
-  ...(awinMasterData.products || []),
+  ...(awinMasterData.products || []).filter(p => p.advertiserId !== '17652' && !String(p.id).startsWith('nike_')),
   // nikeDeals removido do catalogo estatico pois fotos oficiais da Nike vem em tempo real do canal WhatsApp da Nike
   ...(awinMasterData.olympikusDeals || []),
   ...(awinMasterData.kabumDeals || []),
@@ -361,7 +361,9 @@ ${howToUse}
   ];
   const hook = urgencyHeaders[Math.floor(Math.random() * urgencyHeaders.length)];
 
-  const storeName = p.advertiser ? `${p.advertiser} Oficial` : 'PreçoSmart Oficial';
+  const storeName = p.advertiser
+    ? (p.advertiser.endsWith('Oficial') ? p.advertiser : `${p.advertiser} Oficial`)
+    : 'PreçoSmart Oficial';
 
   let priceSection = '';
   if (p.priceOriginal && p.priceCurrent) {
@@ -372,9 +374,14 @@ ${howToUse}
     priceSection = `💥 *Preço promocional exclusivo no Pix ou Parcelado*\n`;
   }
 
-  const discountBadge = p.discount ? ` 🎯 (${p.discount} OFF)` : '';
+  const cleanDiscount = (p.discount || '').replace(/\s*off\s*$/i, '').trim();
+  const discountBadge = cleanDiscount ? ` 🎯 (${cleanDiscount} OFF)` : '';
   const couponSection = p.code ? `🎟️ *Cupom:* \`${p.code}\` _(toque para copiar)_\n` : '';
-  const descSection = p.description ? `💡 _${p.description.substring(0, 100)}_\n\n` : '\n';
+  let desc = p.description ? p.description.trim() : '';
+  if (desc.length > 140) {
+    desc = desc.substring(0, 137).replace(/\s+\S*$/, '') + '...';
+  }
+  const descSection = desc ? `💡 _${desc}_\n\n` : '\n';
 
   const text = `${hook}
 
