@@ -289,21 +289,35 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=18864&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanUA)}`;
     }
 
-    // 17. Clovis Calçados BR (AWIN - MID 107702 - 8% CPA)
-    if (urlObj.hostname.includes('clovis.com.br')) {
+    // 17. Stanley BR (AWIN - MID 30599 - Oficial Aprovado)
+    if (urlObj.hostname.includes('stanley1913.com.br') || urlObj.hostname.includes('stanley-pmi.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
-      const cleanClovis = `${urlObj.origin}${urlObj.pathname}`;
-      return `https://www.awin1.com/cread.php?awinmid=107702&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanClovis)}`;
+      const cleanStanley = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=30599&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanStanley)}`;
     }
 
-    // 18. AliExpress BR & Global (AWIN - MID 18879 - Oficial Aprovado)
+    // 18. Decathlon BR (AWIN - MID 19296 - Oficial Aprovado)
+    if (urlObj.hostname.includes('decathlon.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanDecathlon = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=19296&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanDecathlon)}`;
+    }
+
+    // 19. Drogaria Venancio BR (AWIN - MID 47165 - Oficial Aprovado)
+    if (urlObj.hostname.includes('drogariavenancio.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanVenancio = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=47165&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanVenancio)}`;
+    }
+
+    // 20. AliExpress BR & Global (AWIN - MID 18879 - Oficial Aprovado)
     if (urlObj.hostname.includes('aliexpress.com')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanAli = `${urlObj.origin}${urlObj.pathname}`;
       return `https://www.awin1.com/cread.php?awinmid=18879&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanAli)}`;
     }
 
-    // 19. C&A BR (AWIN - MID 17648 - Oficial Aprovado)
+    // 21. C&A BR (AWIN - MID 17648 - Oficial Aprovado)
     if (urlObj.hostname.includes('cea.com.br')) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanCea = `${urlObj.origin}${urlObj.pathname}`;
@@ -405,6 +419,19 @@ async function processMessageText(text) {
                     lowLong.includes('adidas.') ||
                     lowLong.includes('lacoste.') ||
                     lowLong.includes('nike.') ||
+                    lowLong.includes('lego.') ||
+                    lowLong.includes('lg.com') ||
+                    lowLong.includes('sharkninja') ||
+                    lowLong.includes('ninjabrasil') ||
+                    lowLong.includes('hopeoficial') ||
+                    lowLong.includes('hopelingerie') ||
+                    lowLong.includes('underarmour') ||
+                    lowLong.includes('aliexpress.') ||
+                    lowLong.includes('cea.com') ||
+                    lowLong.includes('stanley1913') ||
+                    lowLong.includes('stanley-pmi') ||
+                    lowLong.includes('decathlon.') ||
+                    lowLong.includes('drogariavenancio.') ||
                     lowLong.includes('casasbahia.');
 
     if (isStore) {

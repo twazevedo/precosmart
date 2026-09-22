@@ -186,6 +186,15 @@ function getProductBadge(title = '') {
   if (t.includes('c&a') || t.includes('cea') || t.includes('algodão peruano') || t.includes('moda feminina') || t.includes('jeans')) {
     return '👗 *C&A BRASIL OFICIAL — MODA & TENDÊNCIA* ✨🛍️';
   }
+  if (t.includes('stanley') || t.includes('copo térmico') || t.includes('garrafa térmica') || t.includes('cuia')) {
+    return '🍺 *STANLEY BRASIL OFICIAL — TÉRMICOS LEGENDÁRIOS* ❄️🔥';
+  }
+  if (t.includes('decathlon') || t.includes('quechua') || t.includes('domyos') || t.includes('kalenji') || t.includes('kipsta') || t.includes('btwin')) {
+    return '🏕️ *DECATHLON BRASIL OFICIAL — O MAIOR DO ESPORTE* 🚴‍♂️⚽';
+  }
+  if (t.includes('venancio') || t.includes('drogaria') || t.includes('skincare') || t.includes('protetor solar') || t.includes('dermocosmético') || t.includes('la roche') || t.includes('cerave') || t.includes('vichy')) {
+    return '💊 *DROGARIA VENANCIO — SAÚDE, BELEZA & BEM-ESTAR* 🧴✨';
+  }
   return '🔥 *OFERTA EXCLUSIVA VERIFICADA PREÇOSMART* 🛒⚡';
 }
 

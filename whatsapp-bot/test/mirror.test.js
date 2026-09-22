@@ -146,3 +146,24 @@ test('12. Injeção de Afiliado Grupo Boticário: Deve converter links para a lo
   assert.ok(resEudora.includes('minhaloja.eudora.com.br/redirect/27065696'), 'Deve substituir ID de outro revendedor pelo seu ID oficial');
 });
 
+test('13. Injeção de Afiliados AWIN Aprovados: Stanley, Decathlon e Drogaria Venancio', async () => {
+  // Stanley (MID 30599)
+  const msgStanley = 'Copo Térmico Stanley 473ml com Desconto:\nhttps://www.stanley1913.com.br/copo-termico-inox-com-tampa-473ml/p';
+  const resStanley = await processMessageText(msgStanley);
+  assert.ok(resStanley, 'Oferta Stanley deve ser aceita');
+  assert.ok(resStanley.includes('awinmid=30599'), 'Deve conter awinmid da Stanley (30599)');
+  assert.ok(resStanley.includes('awinaffid='), 'Deve conter awinaffid do PreçoSmart');
+
+  // Decathlon (MID 19296)
+  const msgDecathlon = 'Barraca de Camping Quechua 2 Pessoas:\nhttps://www.decathlon.com.br/barraca-de-camping-2-pessoas/p';
+  const resDecathlon = await processMessageText(msgDecathlon);
+  assert.ok(resDecathlon, 'Oferta Decathlon deve ser aceita');
+  assert.ok(resDecathlon.includes('awinmid=19296'), 'Deve conter awinmid da Decathlon (19296)');
+
+  // Drogaria Venancio (MID 47165)
+  const msgVenancio = 'Protetor Solar La Roche-Posay Anthelios Airlicium:\nhttps://www.drogariavenancio.com.br/protetor-solar-anthelios/p';
+  const resVenancio = await processMessageText(msgVenancio);
+  assert.ok(resVenancio, 'Oferta Venancio deve ser aceita');
+  assert.ok(resVenancio.includes('awinmid=47165'), 'Deve conter awinmid da Drogaria Venancio (47165)');
+});
+
