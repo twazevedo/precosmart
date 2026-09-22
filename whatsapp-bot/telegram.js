@@ -12,6 +12,12 @@ function isTelegramConfigured() {
   return Boolean(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
 }
 
+function sanitizeError(err) {
+  if (!err) return '';
+  const desc = err.response?.data?.description || err.message || '';
+  return String(desc).replace(/bot[0-9]+:[a-zA-Z0-9_-]+/g, 'bot[REDACTED]');
+}
+
 /**
  * Envia uma oferta formatada com botões inline para o canal do Telegram.
  * Possui múltiplos fallbacks contra erros de Markdown e links de imagens externos.
@@ -57,6 +63,10 @@ async function broadcastTelegramDeal(deal) {
       }, { timeout: 10000 });
       return { ok: true, messageId: resp.data.result?.message_id };
     } catch (photoErr) {
+      if (photoErr.response?.status === 429) {
+        console.warn('[TELEGRAM] Rate limit (429) atingido. Aguardando próximo ciclo.');
+        return { ok: false, error: 'Rate limit (429)' };
+      }
       // Se falhou com Markdown, tenta sem Markdown
       try {
         const resp = await axios.post(endpoint + '/sendPhoto', {
@@ -67,8 +77,10 @@ async function broadcastTelegramDeal(deal) {
         }, { timeout: 10000 });
         return { ok: true, messageId: resp.data.result?.message_id };
       } catch (photoErr2) {
-        // Foto falhou (link inválido ou timeout do Telegram). Prossegue para envio de texto.
-        console.warn('[TELEGRAM] Falha ao enviar foto, tentando texto:', photoErr2.response?.data?.description || photoErr2.message);
+        if (photoErr2.response?.status === 429) {
+          return { ok: false, error: 'Rate limit (429)' };
+        }
+        console.warn('[TELEGRAM] Falha ao enviar foto, tentando texto:', sanitizeError(photoErr2));
       }
     }
   }
@@ -83,6 +95,9 @@ async function broadcastTelegramDeal(deal) {
     }, { timeout: 10000 });
     return { ok: true, messageId: resp.data.result?.message_id };
   } catch (textErr) {
+    if (textErr.response?.status === 429) {
+      return { ok: false, error: 'Rate limit (429)' };
+    }
     // Fallback final: envia texto sem formatação caso Markdown tenha quebrado
     try {
       const resp = await axios.post(endpoint + '/sendMessage', {
@@ -92,8 +107,8 @@ async function broadcastTelegramDeal(deal) {
       }, { timeout: 10000 });
       return { ok: true, messageId: resp.data.result?.message_id };
     } catch (finalErr) {
-      console.error('[TELEGRAM] Erro crítico ao enviar mensagem:', finalErr.response?.data?.description || finalErr.message);
-      return { ok: false, error: finalErr.message };
+      console.error('[TELEGRAM] Erro crítico ao enviar mensagem:', sanitizeError(finalErr));
+      return { ok: false, error: sanitizeError(finalErr) };
     }
   }
 }

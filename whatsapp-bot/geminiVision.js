@@ -17,17 +17,15 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
  * @returns {Promise<{ title: string, oldPrice: string, newPrice: string, summary: string }|null>}
  */
 async function extractOfferFromImage(imageBuffer, mimeType = 'image/jpeg') {
-  if (!GEMINI_API_KEY) {
-    return null;
-  }
-
-  if (!imageBuffer || !Buffer.isBuffer(imageBuffer)) {
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  if (!apiKey || !imageBuffer || !Buffer.isBuffer(imageBuffer)) {
     return null;
   }
 
   try {
     const base64Data = imageBuffer.toString('base64');
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
     const prompt = `Você é um assistente especialista em e-commerce e ofertas.
 Analise esta imagem (que pode ser um print de loja, anúncio ou foto de produto) e extraia:
@@ -65,7 +63,13 @@ Se não for uma oferta ou não encontrar produtos, retorne {"title": "", "oldPri
       }
     };
 
-    const res = await axios.post(endpoint, payload, { timeout: 12000 });
+    const res = await axios.post(endpoint, payload, {
+      headers: {
+        'x-goog-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      timeout: 12000
+    });
     const textOutput = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!textOutput) return null;
 
@@ -85,10 +89,12 @@ Se não for uma oferta ou não encontrar produtos, retorne {"title": "", "oldPri
  * @returns {Promise<string|null>}
  */
 async function generateSalesCopy(rawText) {
-  if (!GEMINI_API_KEY || !rawText) return null;
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  if (!apiKey || !rawText) return null;
 
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     
     const prompt = `Você é um copywriter de e-commerce brasileiro especialista em ofertas, gatilhos mentais (urgência e prova social) e aumento de cliques (CTR).
 Reescreva a seguinte oferta em um formato altamente engajador para WhatsApp e Telegram.
@@ -112,7 +118,13 @@ Oferta original a ser reescrita:
       }
     };
 
-    const res = await axios.post(endpoint, payload, { timeout: 10000 });
+    const res = await axios.post(endpoint, payload, {
+      headers: {
+        'x-goog-api-key': apiKey,
+        'Content-Type': 'application/json'
+      },
+      timeout: 10000
+    });
     const textOutput = res.data?.candidates?.[0]?.content?.parts?.[0]?.text;
     
     if (textOutput) return textOutput.trim();

@@ -31,11 +31,18 @@ function saveHistory() {
   saveTimeout = setTimeout(async () => {
     try {
       await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
-    } catch (err) {
-      // Falha silenciosa em I/O
-    }
+    } catch (err) {}
   }, 1000);
 }
+
+function saveHistorySync() {
+  try {
+    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+  } catch (e) {}
+}
+
+process.once('SIGTERM', saveHistorySync);
+process.once('SIGINT', saveHistorySync);
 
 function normalizeProductKey(keyOrTitle) {
   if (!keyOrTitle) return 'unknown';
@@ -45,8 +52,9 @@ function normalizeProductKey(keyOrTitle) {
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length > 2)
-    .slice(0, 4)
+    // Preserva palavras com mais de 2 letras OU tokens com números como 5G, 4K, S24, 15, etc.
+    .filter(w => w.length > 2 || (w.length >= 2 && /\d/.test(w)))
+    .slice(0, 7)
     .join('_');
 }
 

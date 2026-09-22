@@ -42,6 +42,12 @@ services:
         sync: false
       - key: MONGO_URI
         sync: false
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: BACKEND_API_URL
+        value: "https://precosmart-backend.onrender.com/api"
       - key: API_SECRET_KEY
         generateValue: true
 
@@ -52,6 +58,16 @@ services:
     buildCommand: npm install
     startCommand: node src/server.js
     plan: free
+    envVars:
+      - key: PORT
+        value: "3001"
+      - key: NODE_ENV
+        value: production
+      - key: API_SECRET_KEY
+        fromService:
+          type: web
+          name: precosmart-whatsapp-bot
+          envVarKey: API_SECRET_KEY
 
   - type: static
     name: precosmart-frontend

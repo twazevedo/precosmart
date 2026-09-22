@@ -9,13 +9,23 @@ const path = require('path');
 const { shortenUrl } = require('./linkShortener');
 const { fetchOgImage, upgradeToHdImage } = require('./mirror');
 
-const AWIN_PUBLISHER_ID = process.env.AWIN_PUBLISHER_ID || '3077915';
+const AWIN_PUBLISHER_ID = process.env.AFFILIATE_AWIN || process.env.AWIN_PUBLISHER_ID || '3077915';
 const CLICKREF = 'PILOTO_AUTO';
+
+/**
+ * Função segura para recuperar item de uma lista com sanitização estrita de índice e guarda contra listas vazias.
+ */
+function getSafeItem(list, index) {
+  if (!Array.isArray(list) || list.length === 0) return null;
+  const safeIdx = Math.abs(parseInt(index, 10) || 0) % list.length;
+  return list[safeIdx] || null;
+}
 
 /**
  * Monta o link oficial de afiliado AWIN com rastreamento.
  */
 function buildAwinUrl(mid, targetUrl) {
+  if (!mid || !targetUrl) return '';
   return `https://www.awin1.com/cread.php?awinmid=${mid}&awinaffid=${AWIN_PUBLISHER_ID}&clickref=${CLICKREF}&ued=${encodeURIComponent(targetUrl)}`;
 }
 
@@ -313,6 +323,9 @@ ${howToUse}
   for (let attempts = 0; attempts < list.length; attempts++) {
     const candidate = list[productIndex % list.length];
     productIndex = (productIndex + 1) % list.length;
+    if (productIndex === 0 && validInitialProducts.length > 1) {
+      shuffledProducts = shuffleArray(validInitialProducts);
+    }
     let img = upgradeToHdImage(candidate.imageUrl);
     if (!img && candidate.deeplink) {
       try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
@@ -443,7 +456,8 @@ async function getSpecificKabumDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '17729' && p.imageUrl && p.imageUrl.startsWith('http'));
 
   const list = kabumList.length > 0 ? kabumList : (awinMasterData.products || []);
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || buildAwinUrl('17729', targetUrl);
   const shortUrl = p.shortUrl || await shortenUrl(rawUrl);
@@ -491,8 +505,8 @@ async function getSpecificNikeDeal(index = 0) {
     p.imageUrl && !p.imageUrl.includes('01113751')
   );
   
-  if (nikeList.length === 0) return null;
-  const p = nikeList[index % nikeList.length];
+  const p = getSafeItem(nikeList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -533,8 +547,8 @@ async function getSpecificAmazonDeal(index = 0) {
     ? awinMasterData.amazonDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === 'amazon' || (p.advertiser && p.advertiser.toLowerCase().includes('amazon')));
 
-  if (amzList.length === 0) return null;
-  const p = amzList[index % amzList.length];
+  const p = getSafeItem(amzList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || p.deeplink;
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -573,8 +587,8 @@ async function getSpecificMLDeal(index = 0) {
     ? awinMasterData.mlDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === 'mercadolivre' || (p.advertiser && p.advertiser.toLowerCase().includes('mercado livre')));
 
-  if (mlList.length === 0) return null;
-  const p = mlList[index % mlList.length];
+  const p = getSafeItem(mlList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || p.deeplink;
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -613,8 +627,8 @@ async function getSpecificOlympikusDeal(index = 0) {
     ? awinMasterData.olympikusDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '17698' || (p.advertiser && p.advertiser.toLowerCase().includes('olympikus')));
 
-  if (olyList.length === 0) return null;
-  const p = olyList[index % olyList.length];
+  const p = getSafeItem(olyList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -653,8 +667,8 @@ async function getSpecificClovisDeal(index = 0) {
     ? awinMasterData.clovisDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '107702' || (p.advertiser && p.advertiser.toLowerCase().includes('clovis')));
 
-  if (clovisList.length === 0) return null;
-  const p = clovisList[index % clovisList.length];
+  const p = getSafeItem(clovisList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -693,8 +707,8 @@ async function getSpecificLegoDeal(index = 0) {
     ? awinMasterData.legoDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '30511' || (p.advertiser && p.advertiser.toLowerCase().includes('lego')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -733,8 +747,8 @@ async function getSpecificNinjaDeal(index = 0) {
     ? awinMasterData.ninjaDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '106763' || (p.advertiser && p.advertiser.toLowerCase().includes('ninja')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -773,8 +787,8 @@ async function getSpecificUnderArmourDeal(index = 0) {
     ? awinMasterData.underArmourDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '18864' || (p.advertiser && p.advertiser.toLowerCase().includes('armour')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -813,8 +827,8 @@ async function getSpecificHopeDeal(index = 0) {
     ? awinMasterData.hopeDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '107039' || (p.advertiser && p.advertiser.toLowerCase().includes('hope')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -853,8 +867,8 @@ async function getSpecificLacosteDeal(index = 0) {
     ? awinMasterData.lacosteDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '112756' || (p.advertiser && p.advertiser.toLowerCase().includes('lacoste')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -893,8 +907,8 @@ async function getSpecificLGDeal(index = 0) {
     ? awinMasterData.lgDeals
     : (awinMasterData.products || []).filter(p => p.advertiserId === '33061' || (p.advertiser && p.advertiser.toLowerCase().includes('lg')));
 
-  if (list.length === 0) return null;
-  const p = list[index % list.length];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -932,8 +946,9 @@ async function getSpecificAliExpressDeal(index = 0) {
   const aliList = ((awinMasterData.aliexpressDeals || []).length > 0 ? awinMasterData.aliexpressDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '18879' || (p.advertiser && p.advertiser.toLowerCase().includes('aliexpress')));
   const cleanAli = aliList.filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
   const listToUse = cleanAli.length > 0 ? cleanAli : (awinMasterData.products || []).filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
-  if (listToUse.length === 0) return null;
-  const p = listToUse[index % listToUse.length];
+  
+  const p = getSafeItem(listToUse, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
@@ -958,8 +973,8 @@ async function getSpecificAliExpressDeal(index = 0) {
  */
 async function getSpecificCeaDeal(index = 0) {
   const ceaList = ((awinMasterData.ceaDeals || []).length > 0 ? awinMasterData.ceaDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '17648' || (p.advertiser && p.advertiser.toLowerCase().includes('c&a')));
-  if (ceaList.length === 0) return null;
-  const p = ceaList[index % ceaList.length];
+  const p = getSafeItem(ceaList, index);
+  if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 

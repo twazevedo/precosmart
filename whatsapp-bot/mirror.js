@@ -30,10 +30,26 @@ function isSafePublicUrl(url) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
-    const h = parsed.hostname.toLowerCase();
-    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0') return false;
-    if (h.startsWith('10.') || h.startsWith('192.168.') || h.startsWith('169.254.')) return false;
+    const h = parsed.hostname.toLowerCase().trim();
+    
+    // Bloqueia hosts locais explícitos
+    if (h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '0.0.0.0' || h === '169.254.169.254') return false;
+    
+    // Bloqueia faixas privadas e de loopback (RFC 1918, RFC 3927, 127.0.0.0/8)
+    if (/^127\./.test(h)) return false;
+    if (/^10\./.test(h)) return false;
+    if (/^192\.168\./.test(h)) return false;
+    if (/^169\.254\./.test(h)) return false;
     if (/^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(h)) return false;
+
+    // Bloqueia representações inteiras/hexadecimais/octais de IP
+    if (/^0x[0-9a-f]+$/i.test(h) || /^\d+$/.test(h)) return false;
+
+    // Bloqueia IPv6 loopback ou local
+    if (h.startsWith('[') || h.includes(':')) {
+      if (h.includes('::1') || h.includes('fe80') || h.includes('fc00') || h.includes('fd00')) return false;
+    }
+
     return true;
   } catch (e) {
     return false;
@@ -533,7 +549,16 @@ function upgradeToHdImage(url) {
   return hd;
 }
 
+const MAX_OG_CACHE_SIZE = 500;
 const ogImageCache = new Map();
+
+function setOgCache(key, val) {
+  if (ogImageCache.size >= MAX_OG_CACHE_SIZE) {
+    const oldestKey = ogImageCache.keys().next().value;
+    ogImageCache.delete(oldestKey);
+  }
+  ogImageCache.set(key, val);
+}
 
 function fetchOgImage(urlStr) {
   if (!urlStr || typeof urlStr !== 'string') return Promise.resolve(null);
@@ -562,13 +587,19 @@ function fetchOgImage(urlStr) {
     let redirects = 0;
     let isSettled = false;
 
+    // Timeout absoluto para evitar qualquer pendência
+    const globalTimer = setTimeout(() => {
+      finish(null);
+    }, 10000);
+
     function finish(result) {
       if (isSettled) return;
       isSettled = true;
+      clearTimeout(globalTimer);
       const finalResult = upgradeToHdImage(result);
       if (finalResult) {
-        ogImageCache.set(cleanUrl, finalResult);
-        ogImageCache.set(urlStr, finalResult);
+        setOgCache(cleanUrl, finalResult);
+        setOgCache(urlStr, finalResult);
       }
       resolve(finalResult || null);
     }
@@ -616,26 +647,31 @@ function fetchOgImage(urlStr) {
         res.on('data', chunk => {
           if (isSettled) return;
           html += chunk;
-          const m = html.match(/<meta[^>]*?property=["']og:image(?::secure_url)?["'][^>]*?content=["']([^"']+)["']/i) ||
-                    html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image(?::secure_url)?["']/i) ||
-                    html.match(/<meta[^>]*?name=["']twitter:image["'][^>]*?content=["']([^"']+)["']/i) ||
-                    html.match(/<link[^>]*?rel=["']image_src["'][^>]*?href=["']([^"']+)["']/i) ||
-                    html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
-                    html.match(/"image"\s*:\s*["'](https?:\/\/[^"']+)["']/i) ||
-                    html.match(/"image"\s*:\s*\[\s*["'](https?:\/\/[^"']+)["']/i);
-          if (m && m[1]) {
-            req.destroy();
-            return finish(m[1]);
+          
+          // Otimização: só executa regexes se encontrar tags de imagem/meta no chunk
+          if (html.includes('og:image') || html.includes('twitter:image') || html.includes('image_src') || html.includes('"image"')) {
+            const m = html.match(/<meta[^>]*?property=["']og:image(?::secure_url)?["'][^>]*?content=["']([^"']+)["']/i) ||
+                      html.match(/<meta[^>]*?content=["']([^"']+)["'][^>]*?property=["']og:image(?::secure_url)?["']/i) ||
+                      html.match(/<meta[^>]*?name=["']twitter:image["'][^>]*?content=["']([^"']+)["']/i) ||
+                      html.match(/<link[^>]*?rel=["']image_src["'][^>]*?href=["']([^"']+)["']/i) ||
+                      html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+                      html.match(/"image"\s*:\s*["'](https?:\/\/[^"']+)["']/i) ||
+                      html.match(/"image"\s*:\s*\[\s*["'](https?:\/\/[^"']+)["']/i);
+            if (m && m[1]) {
+              req.destroy();
+              return finish(m[1]);
+            }
           }
 
           // Checa se há meta refresh
           const refreshMatch = html.match(/<meta[^>]*?http-equiv=["']refresh["'][^>]*?content=["']\d+;\s*url=([^"'>]+)["']/i);
           if (refreshMatch && refreshMatch[1]) {
+            redirects++;
             req.destroy();
             return doReq(refreshMatch[1]);
           }
 
-          if (html.length > 400000) {
+          if (html.length > 350000) {
             req.destroy();
             return finish(null);
           }

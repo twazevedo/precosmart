@@ -6,24 +6,31 @@ async function useMongoDBAuthState(collection) {
         try {
             const raw = JSON.stringify(data, BufferJSON.replacer);
             const encrypted = encryptSecret(raw);
+            if (!encrypted) {
+                throw new Error('Falha na encriptação de segredo Baileys. Gravação cancelada para proteção.');
+            }
             await collection.updateOne({ _id: id }, { $set: { encryptedPayload: encrypted, updatedAt: new Date() } }, { upsert: true });
         } catch (error) {
-            const informationToStore = JSON.parse(JSON.stringify(data, BufferJSON.replacer));
-            await collection.updateOne({ _id: id }, { $set: { ...informationToStore } }, { upsert: true });
+            console.error(`[SEGURANÇA] Falha ao persistir credencial criptografada (${id}):`, error.message);
+            throw error;
         }
+    };
+
+    const parsePayload = (doc) => {
+        if (!doc) return null;
+        if (doc.encryptedPayload) {
+            const decrypted = decryptSecret(doc.encryptedPayload);
+            if (decrypted) {
+                return JSON.parse(decrypted, BufferJSON.reviver);
+            }
+        }
+        return JSON.parse(JSON.stringify(doc), BufferJSON.reviver);
     };
 
     const readData = async (id) => {
         try {
             const data = await collection.findOne({ _id: id });
-            if (!data) return null;
-            if (data.encryptedPayload) {
-                const decrypted = decryptSecret(data.encryptedPayload);
-                if (decrypted) {
-                    return JSON.parse(decrypted, BufferJSON.reviver);
-                }
-            }
-            return JSON.parse(JSON.stringify(data), BufferJSON.reviver);
+            return parsePayload(data);
         } catch (error) {
             return null;
         }
@@ -43,13 +50,27 @@ async function useMongoDBAuthState(collection) {
             keys: {
                 get: async (type, ids) => {
                     const data = {};
-                    await Promise.all(ids.map(async (id) => {
-                        let value = await readData(`${type}-${id}`);
-                        if (type === 'app-state-sync-key' && value) {
-                            value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                    if (!ids || ids.length === 0) return data;
+
+                    try {
+                        const targetIds = ids.map(id => `${type}-${id}`);
+                        const docs = await collection.find({ _id: { $in: targetIds } }).toArray();
+                        const docMap = new Map();
+                        for (const doc of docs) {
+                            docMap.set(doc._id, parsePayload(doc));
                         }
-                        data[id] = value;
-                    }));
+
+                        for (const id of ids) {
+                            const fullKey = `${type}-${id}`;
+                            let value = docMap.get(fullKey) || null;
+                            if (type === 'app-state-sync-key' && value) {
+                                value = proto.Message.AppStateSyncKeyData.fromObject(value);
+                            }
+                            data[id] = value;
+                        }
+                    } catch (err) {
+                        console.error('[AUTH MONGO] Erro ao buscar chaves em lote:', err.message);
+                    }
                     return data;
                 },
                 set: async (data) => {

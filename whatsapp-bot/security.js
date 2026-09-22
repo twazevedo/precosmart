@@ -8,22 +8,24 @@
 const crypto = require('crypto');
 
 const ALGORITHM = 'aes-256-gcm';
-const IV_LENGTH = 16;
+const IV_LENGTH = 12; // Padrão NIST SP 800-38D (96 bits) para máxima performance e segurança AES-GCM
 const TAG_LENGTH = 16;
 
 let cachedMasterKey = null;
 
 /**
  * Obtém ou deriva a chave mestra do ambiente.
- * Usa process.env.ENCRYPTION_KEY ou gera um fallback aleatório.
+ * Usa process.env.ENCRYPTION_KEY ou gera um fallback seguro.
  */
 function getMasterKey() {
   if (cachedMasterKey) return cachedMasterKey;
   const secret = process.env.ENCRYPTION_KEY || process.env.APP_MASTER_KEY || process.env.SESSION_SECRET;
   if (!secret) {
-    // Sem chave definida: gera chave aleatória por sessão (dados não persistem entre reinicializações)
-    // ⚠️ Defina ENCRYPTION_KEY no Render para persistência real da sessão
-    console.warn('[SEGURANÇA] ENCRYPTION_KEY não definida. Usando chave efêmera de sessão.');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SEGURANÇA CRÍTICA] ENCRYPTION_KEY não definida em produção! Configure no painel do Render.');
+    } else {
+      console.warn('[SEGURANÇA] ENCRYPTION_KEY não definida. Usando chave efêmera de sessão local.');
+    }
     cachedMasterKey = crypto.randomBytes(32);
     return cachedMasterKey;
   }
@@ -83,52 +85,47 @@ function generateSecureToken(bytes = 32) {
 
 /**
  * Middleware de Autenticação para Endpoints Administrativos do Express
- * Permite requisições que venham de localhost OU que possuam o Header Authorization ou X-API-KEY correto.
+ * Exige cabeçalho X-API-KEY ou Authorization: Bearer <token>.
+ * Não aceita credenciais via query string (OWASP ASVS compliant).
  */
 function requireApiAuth(req, res, next) {
   const configuredKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY;
-  const adminKey = 'precosmart_adm_sec_994586';
 
   const ip = req.ip || req.connection?.remoteAddress || '';
-  const isLocalhost = ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost');
+  const isLocalDev = (process.env.NODE_ENV !== 'production') && (ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost'));
 
-  if (isLocalhost) {
+  if (isLocalDev) {
     return next();
   }
 
+  if (!configuredKey) {
+    console.warn(`[SEGURANÇA] API_SECRET_KEY não configurada. Acesso administrativo bloqueado. IP: ${ip}`);
+    return res.status(503).json({ error: 'Serviço administrativo não configurado. Defina API_SECRET_KEY no ambiente.' });
+  }
+
+  // Apenas cabeçalhos HTTP autorizados (previne vazamento de tokens em URLs/logs)
   const clientKey = req.headers['x-api-key'] || 
-                   (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '') : null) ||
-                   (req.query ? (req.query.key || req.query.token) : null);
+                   (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
 
   if (clientKey) {
-    const validKeys = [configuredKey, adminKey].filter(Boolean);
-    for (const validKey of validKeys) {
-      const bufClient = Buffer.from(String(clientKey));
-      const bufValid = Buffer.from(String(validKey));
-      if (bufClient.length === bufValid.length && crypto.timingSafeEqual(bufClient, bufValid)) {
-        return next();
-      }
+    const bufClient = Buffer.from(String(clientKey));
+    const bufValid = Buffer.from(String(configuredKey));
+    if (bufClient.length === bufValid.length && crypto.timingSafeEqual(bufClient, bufValid)) {
+      return next();
     }
   }
 
-  if (!configuredKey && !adminKey) {
-    console.warn(`[SEGURANÇA] API_SECRET_KEY não definida. Acesso externo bloqueado. IP: ${ip}`);
-    return res.status(403).json({ error: 'Serviço não configurado. Configure API_SECRET_KEY no Render.' });
-  }
-
-  // 🚨 Log estruturado de tentativa de ataque / acesso indevido
-  console.warn(`[ALERTA DE SEGURANÇA] Tentativa de invasão bloqueada! IP: ${ip} | Rota: ${req.originalUrl || req.url} | Data: ${new Date().toISOString()}`);
-
-  return res.status(401).json({ error: 'Não autorizado. Token de API inválido ou ausente.' });
+  console.warn(`[ALERTA DE SEGURANÇA] Tentativa de acesso não autorizado bloqueada! IP: ${ip} | Rota: ${req.originalUrl || req.url}`);
+  return res.status(401).json({ error: 'Não autorizado. Forneça um cabeçalho X-API-Key válido.' });
 }
 
 /**
- * Middleware com Headers de Segurança OWASP (sem dependência externa)
+ * Middleware com Headers de Segurança OWASP Modernos
  */
 function securityHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.removeHeader('X-Powered-By');
   next();

@@ -16,21 +16,32 @@ let isMongoActive = false;
 async function initDatabase() {
   const uri = process.env.MONGO_URI;
   if (!uri) return false;
+  if (mongoClient && isMongoActive) return true;
 
   try {
-    mongoClient = new MongoClient(uri, { serverSelectionTimeoutMS: 4000 });
+    mongoClient = new MongoClient(uri, { 
+      serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 10,
+      minPoolSize: 2,
+      maxIdleTimeMS: 30000
+    });
     await mongoClient.connect();
     mongoDb = mongoClient.db('precosmart');
     isMongoActive = true;
+
+    mongoClient.on('close', () => { isMongoActive = false; });
+    mongoClient.on('error', () => { isMongoActive = false; });
     return true;
   } catch (err) {
     isMongoActive = false;
+    console.warn('[DB] MongoDB não conectado, operando em modo local resiliente:', err.message);
     return false;
   }
 }
 
 function createStore(name) {
-  const filePath = path.join(__dirname, name + '.json');
+  const safeName = String(name).replace(/[^a-zA-Z0-9_-]/g, '');
+  const filePath = path.join(__dirname, safeName + '.json');
   let localCache = null;
 
   function loadLocal() {
@@ -52,22 +63,30 @@ function createStore(name) {
     async get(id, defaultVal = null) {
       if (isMongoActive && mongoDb) {
         try {
-          const doc = await mongoDb.collection(name).findOne({ _id: id });
+          const doc = await mongoDb.collection(safeName).findOne({ _id: String(id) });
           return doc ? doc.value : defaultVal;
         } catch (e) {}
       }
-      if (localCache === null) localCache = loadLocal() || defaultVal;
+      if (localCache === null) localCache = loadLocal() || {};
+      if (localCache && typeof localCache === 'object' && id in localCache) {
+        return localCache[id];
+      }
       return localCache !== null ? localCache : defaultVal;
     },
 
     async set(id, val) {
-      localCache = val;
-      saveLocal(val);
+      if (localCache === null) localCache = loadLocal() || {};
+      if (typeof localCache === 'object' && !Array.isArray(localCache)) {
+        localCache[id] = val;
+      } else {
+        localCache = val;
+      }
+      saveLocal(localCache);
 
       if (isMongoActive && mongoDb) {
         try {
-          await mongoDb.collection(name).updateOne(
-            { _id: id },
+          await mongoDb.collection(safeName).updateOne(
+            { _id: String(id) },
             { $set: { value: val, updatedAt: new Date() } },
             { upsert: true }
           );
@@ -86,7 +105,7 @@ function createStore(name) {
       localCache = val;
       saveLocal(val);
       if (isMongoActive && mongoDb) {
-        mongoDb.collection(name).updateOne(
+        mongoDb.collection(safeName).updateOne(
           { _id: 'main' },
           { $set: { value: val, updatedAt: new Date() } },
           { upsert: true }

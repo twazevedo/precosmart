@@ -50,6 +50,21 @@ HISTORICO_E_GUIA_DO_PROJETO.md
 Thumbs.db
 Desktop.ini
 
-# Arquivos de saída gerados localmente (podem conter dados sensíveis)
+# Build outputs
+frontend/dist/
+frontend/build/
+dist/
+build/
+.vite/
+
+# Arquivos de saída gerados localmente (podem conter dados sensíveis ou lixo)
 whatsapp-bot/shortLinksOutput.json
 whatsapp-bot/qrcode.png
+whatsapp-bot/broken_images.json
+whatsapp-bot/*.csv
+
+# IDEs & caches
+.vscode/
+.idea/
+.eslintcache
+coverage/

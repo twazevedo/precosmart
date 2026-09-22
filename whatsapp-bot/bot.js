@@ -58,6 +58,7 @@ const {
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
+const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 let sharp = null;
@@ -1434,8 +1435,8 @@ app.get('/api/test-send', requireApiAuth, async (req, res) => {
   }
 });
 
-// Endpoint diagnóstico completo de saúde do servidor, disco, memória e erros
-app.get('/api/server-health', async (req, res) => {
+// Endpoint diagnóstico completo de saúde do servidor, disco, memória e erros (Protegido)
+app.get('/api/server-health', requireApiAuth, async (req, res) => {
   const os = require('os');
   let diskRoot = null;
   let diskSession = null;
@@ -1540,10 +1541,10 @@ app.get('/api/auth-debug', requireApiAuth, async (req, res) => {
   }
 });
 
-// Endpoint para resetar a sessão caso esteja corrompida (permite GET e POST)
-app.all('/api/reset-session', async (req, res) => {
+// Endpoint administrativo para resetar a sessão com autenticação obrigatória (Apenas POST)
+app.post('/api/reset-session', requireApiAuth, async (req, res) => {
   try {
-    logEntry('AUTH', '⚠️ Reset manual de sessão solicitado via API...');
+    logEntry('AUTH', '⚠️ Reset manual de sessão solicitado via API protegida...');
     if (mongoClient) {
       await mongoClient.db('precosmart').collection('auth_info').deleteMany({});
       logEntry('AUTH', '🗑️ Coleção auth_info apagada do MongoDB com sucesso!');
@@ -1562,7 +1563,7 @@ app.all('/api/reset-session', async (req, res) => {
     }, 1500);
     res.json({
       ok: true,
-      message: 'Sessão resetada com sucesso! Abra https://precosmart.onrender.com/ no navegador para escanear o novo QR Code.'
+      message: 'Sessão resetada com sucesso! Conecte-se novamente via QR Code.'
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1752,7 +1753,13 @@ async function sendScheduledOffer(label, productFn) {
   }
 }
 
+let cronJobsInitialized = false;
+
 function setupCronJobs() {
+  if (cronJobsInitialized) {
+    return;
+  }
+  cronJobsInitialized = true;
   // 09:00 — Resumo matinal (O que esperar do dia)
   cron.schedule('0 9 * * *', async () => {
     if (!isConnected) return;
@@ -1859,6 +1866,7 @@ const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
 let sourceGroupJids = [];
+let reconnectTimer = null;
 
 async function startBot() {
   let state, saveCreds;
@@ -1912,13 +1920,16 @@ async function startBot() {
       return stored?.message || undefined;
     },
     cachedGroupMetadata: async (jid) => {
-      if (groupMetadataCache.has(jid)) return groupMetadataCache.get(jid);
+      const cached = groupMetadataCache.get(jid);
+      if (cached && (Date.now() - cached.timestamp < 15 * 60 * 1000)) {
+        return cached.meta;
+      }
       try {
         const meta = await sock.groupMetadata(jid);
-        groupMetadataCache.set(jid, meta);
+        groupMetadataCache.set(jid, { meta, timestamp: Date.now() });
         return meta;
       } catch (e) {
-        return undefined;
+        return cached?.meta || undefined;
       }
     }
   });
@@ -2068,9 +2079,11 @@ async function startBot() {
         } catch(e) {
           logEntry('WARN', 'Erro ao limpar sessão: ' + e.message);
         }
-        setTimeout(startBot, 2000);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(startBot, 2000);
       } else {
-        setTimeout(startBot, 5000);
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = setTimeout(startBot, 5000);
       }
     }
   });
@@ -2525,8 +2538,9 @@ async function startBot() {
             mediaType = 'image';
             const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
             const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-            buffer = Buffer.from([]);
-            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            const chunks = [];
+            for await (const chunk of stream) chunks.push(chunk);
+            buffer = Buffer.concat(chunks);
 
             // Se enviou foto mas não passou texto nem link, lê a foto com Google Gemini Vision!
             if (!content || content.trim() === '') {
@@ -2541,8 +2555,9 @@ async function startBot() {
             mediaType = 'video';
             const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
             const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-            buffer = Buffer.from([]);
-            for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+            const chunks = [];
+            for await (const chunk of stream) chunks.push(chunk);
+            buffer = Buffer.concat(chunks);
           }
 
           const newText = await processMessageText(content || '');
@@ -3117,14 +3132,16 @@ async function startBot() {
         mediaType = 'image';
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
         const stream = await downloadContentFromMessage(msg.message.imageMessage, 'image');
-        buffer = Buffer.from([]);
-        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+        const chunks = [];
+        for await (const chunk of stream) chunks.push(chunk);
+        buffer = Buffer.concat(chunks);
       } else if (msg.message.videoMessage) {
         mediaType = 'video';
         const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
         const stream = await downloadContentFromMessage(msg.message.videoMessage, 'video');
-        buffer = Buffer.from([]);
-        for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+        const chunks = [];
+        for await (const chunk of stream) chunks.push(chunk);
+        buffer = Buffer.concat(chunks);
       }
 
       // Limite de fila: 8 durante a noite (para não acumular) e 25 durante o dia

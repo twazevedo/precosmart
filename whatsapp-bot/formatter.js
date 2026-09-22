@@ -8,16 +8,18 @@
 const { getAffiliateUrl, getBestCoupon, getTopDeals } = require('./catalog');
 const { evaluateDeal } = require('./dealScore');
 
-const brl = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const brl = (v) => (!v || isNaN(v)) ? 'R$ 0,00' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const now  = ()  => new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 const pct  = (v) => `${Math.round(v)}%`;
 
-function escapeMarkdown(text) {
-  return text.replace(/([*_~`])/g, '\\$1');
+function sanitizeForWhatsApp(text) {
+  if (!text) return '';
+  return String(text).replace(/[*_~`]/g, '').trim();
 }
 
 /** ── Legenda da oferta (vai junto à foto do produto) ───────────────────────── */
 function buildOfferCaption(product) {
+  if (!product || !product.quotes || product.quotes.length === 0) return '';
   const sorted   = [...product.quotes].sort((a, b) => a.pix - b.pix);
   const cheapest = sorted[0];
   const coupon   = getBestCoupon(cheapest.store, cheapest.pix, product);
@@ -47,7 +49,7 @@ function buildOfferCaption(product) {
 
   return `${catchphrase}
 
-${product.emoji} *${escapeMarkdown(product.title)}*
+${product.emoji} *${sanitizeForWhatsApp(product.title)}*
 🏪 Loja: *${cheapest.store} Oficial*
 
 📉 De: ~${brl(oldPrice)}~
@@ -72,7 +74,7 @@ function buildMorningMessage() {
     const coupon = getBestCoupon(p.cheapest.store, p.cheapest.pix);
     const final  = coupon ? coupon.finalPrice : p.cheapest.pix;
     const url    = getAffiliateUrl(p.cheapest.store, p.title);
-    return `${medals[i]} ${p.emoji} *${escapeMarkdown(p.title.split(' ').slice(0, 6).join(' ') + '...')}*\n   💰 ${brl(final)} na ${p.cheapest.store}${coupon ? ` com \`${coupon.code}\`` : ''} (${pct(p.discPct)} OFF)\n   🔗 ${url}`;
+    return `${medals[i]} ${p.emoji} *${sanitizeForWhatsApp(p.title.split(' ').slice(0, 6).join(' ') + '...')}*\n   💰 ${brl(final)} na ${p.cheapest.store}${coupon ? ` com \`${coupon.code}\`` : ''} (${pct(p.discPct)} OFF)\n   🔗 ${url}`;
   }).join('\n\n');
 
   return `☀️ *Bom dia! Top 3 Ofertas de Hoje!*
@@ -123,7 +125,7 @@ function buildFlashCaption(product) {
 
   return `🚨 FLASH SALE — ESTOQUE LIMITADO
 
-${product.emoji} ${escapeMarkdown(product.title)}
+${product.emoji} ${sanitizeForWhatsApp(product.title)}
 
 🔥 DE ${brl(oldPrice)} | POR ${brl(final)}${instructions}
 
