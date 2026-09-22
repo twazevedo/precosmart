@@ -1,17 +1,22 @@
 /**
  * @file importPromotions.js — Importador de Cupons e Ofertas AWIN
- * @description Lê o arquivo CSV com promoções oficiais e sincroniza com awinDealsData.json
+ * @description Lê arquivos CSV com promoções oficiais da AWIN e sincroniza com awinDealsData.json
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
 
-const csvPath = path.join(__dirname, 'latest_awin_promotions.csv');
+const targetCsvFile = process.argv[2]
+  ? path.resolve(process.argv[2])
+  : (fs.existsSync(path.join(__dirname, 'kabum_promotions_latest.csv'))
+      ? path.join(__dirname, 'kabum_promotions_latest.csv')
+      : path.join(__dirname, 'latest_awin_promotions.csv'));
+
 const jsonPath = path.join(__dirname, 'awinDealsData.json');
 
-if (!fs.existsSync(csvPath)) {
-  console.error('Arquivo CSV não encontrado em:', csvPath);
+if (!fs.existsSync(targetCsvFile)) {
+  console.error('[IMPORT] Arquivo CSV não encontrado em:', targetCsvFile);
   process.exit(1);
 }
 
@@ -63,10 +68,11 @@ function parseCsv(content) {
   return records;
 }
 
-const records = parseCsv(fs.readFileSync(csvPath, 'utf8'));
+const records = parseCsv(fs.readFileSync(targetCsvFile, 'utf8'));
+console.log(`[IMPORT] Lendo arquivo: ${path.basename(targetCsvFile)}`);
 console.log(`[IMPORT] Total de registros encontrados no CSV: ${records.length}`);
 
-let masterData = { vouchers: [], products: [] };
+let masterData = { vouchers: [], products: [], kabumDeals: [] };
 if (fs.existsSync(jsonPath)) {
   try {
     masterData = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
@@ -77,22 +83,25 @@ if (fs.existsSync(jsonPath)) {
 
 if (!Array.isArray(masterData.vouchers)) masterData.vouchers = [];
 if (!Array.isArray(masterData.products)) masterData.products = [];
+if (!Array.isArray(masterData.kabumDeals)) masterData.kabumDeals = [];
 
-const existingVoucherIds = new Set(masterData.vouchers.map(v => String(v.id || v.code)));
-const existingProductLinks = new Set(masterData.products.map(p => p.deeplink || p.title));
+const existingVoucherIds = new Set(masterData.vouchers.map(v => String(v.id || v.code).toUpperCase()));
+const existingProductLinks = new Set(masterData.products.map(p => (p.deeplink || p.title || '').trim()));
+const existingKabumLinks = new Set(masterData.kabumDeals.map(k => (k.deeplink || '').trim()));
 
 let addedVouchers = 0;
 let addedProducts = 0;
+let addedKabum = 0;
 
 for (const item of records) {
   const isVoucher = item.type === 'voucher' || (item.code && item.code.trim().length > 0);
 
   if (isVoucher) {
-    const key = String(item.id || item.code);
+    const key = String(item.code || item.id).trim().toUpperCase();
     if (!existingVoucherIds.has(key)) {
       masterData.vouchers.unshift({
         id: item.id,
-        advertiser: item.advertiser,
+        advertiser: item.advertiserId === '17729' ? 'KaBuM! Brasil Oficial' : item.advertiser,
         advertiserId: item.advertiserId,
         type: 'voucher',
         code: item.code,
@@ -109,7 +118,30 @@ for (const item of records) {
       addedVouchers++;
     }
   } else {
-    const key = item.deeplink || item.title;
+    const link = (item.deeplink || '').trim();
+    const key = link || item.title;
+
+    // Se for da KaBuM (17729), sincroniza em kabumDeals
+    if (item.advertiserId === '17729' && link && !existingKabumLinks.has(link)) {
+      masterData.kabumDeals.unshift({
+        id: `kabum_${item.id}`,
+        advertiser: 'KaBuM! Brasil Oficial',
+        advertiserId: '17729',
+        type: 'product',
+        title: item.title,
+        description: item.description,
+        priceOriginal: null,
+        priceCurrent: null,
+        discount: null,
+        categories: item.categories || 'Hardware & Tecnologia',
+        imageUrl: null,
+        deeplink: item.deeplink,
+        deeplinkTracking: item.deeplinkTracking
+      });
+      existingKabumLinks.add(link);
+      addedKabum++;
+    }
+
     if (!existingProductLinks.has(key)) {
       const pId = `awin_${item.advertiserId}_${item.id}`;
       masterData.products.unshift({
@@ -134,9 +166,18 @@ for (const item of records) {
 }
 
 console.log(`[IMPORT] Novos cupons inseridos: ${addedVouchers}`);
-console.log(`[IMPORT] Novos produtos inseridos: ${addedProducts}`);
+console.log(`[IMPORT] Novos produtos globais inseridos: ${addedProducts}`);
+console.log(`[IMPORT] Novos produtos KaBuM inseridos: ${addedKabum}`);
 console.log(`[IMPORT] Total vouchers agora: ${masterData.vouchers.length}`);
-console.log(`[IMPORT] Total produtos agora: ${masterData.products.length}`);
+console.log(`[IMPORT] Total produtos globais agora: ${masterData.products.length}`);
+console.log(`[IMPORT] Total kabumDeals agora: ${masterData.kabumDeals.length}`);
 
-fs.writeFileSync(jsonPath, JSON.stringify(masterData, null, 2), 'utf8');
-console.log('[IMPORT] awinDealsData.json atualizado com sucesso!');
+// Verificação de segurança: garantir que nenhum link de redirecionador externo (TinyURL/VigLink) entrou
+let jsonOutput = JSON.stringify(masterData, null, 2);
+if (jsonOutput.toLowerCase().includes('tinyurl.com') || jsonOutput.toLowerCase().includes('viglink')) {
+  console.error('[ERRO DE SEGURANÇA] Tentativa de inserir TinyURL/VigLink bloqueada!');
+  process.exit(1);
+}
+
+fs.writeFileSync(jsonPath, jsonOutput, 'utf8');
+console.log('[IMPORT] awinDealsData.json atualizado com sucesso e 100% verificado!');
