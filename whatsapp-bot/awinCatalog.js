@@ -19,12 +19,41 @@ function buildAwinUrl(mid, targetUrl) {
   return `https://www.awin1.com/cread.php?awinmid=${mid}&awinaffid=${AWIN_PUBLISHER_ID}&clickref=${CLICKREF}&ued=${encodeURIComponent(targetUrl)}`;
 }
 
+/**
+ * Sanitiza e valida URLs curtas de ofertas, descartando encurtadores gratuitos
+ * de terceiros (como TinyURL ou VigLink) que interceptam tráfego e quebram cookies.
+ */
+function resolveSafeDealUrl(deal) {
+  if (deal && deal.shortUrl && typeof deal.shortUrl === 'string') {
+    const s = deal.shortUrl.toLowerCase();
+    if (s.includes('tinyurl.com') || s.includes('viglink') || s.includes('redirect.viglink')) {
+      return null;
+    }
+    return deal.shortUrl;
+  }
+  return null;
+}
+
+function sanitizeDealsData(data) {
+  if (!data || typeof data !== 'object') return data;
+  for (const key of Object.keys(data)) {
+    if (Array.isArray(data[key])) {
+      data[key].forEach(item => {
+        if (item && item.shortUrl && (item.shortUrl.includes('tinyurl.com') || item.shortUrl.includes('viglink'))) {
+          delete item.shortUrl;
+        }
+      });
+    }
+  }
+  return data;
+}
+
 // ── Carrega Catálogo Oficial Salvo ───────────────────────────────────────────
 let awinMasterData = { vouchers: [], products: [] };
 try {
   const dataPath = path.join(__dirname, 'awinDealsData.json');
   if (fs.existsSync(dataPath)) {
-    awinMasterData = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+    awinMasterData = sanitizeDealsData(JSON.parse(fs.readFileSync(dataPath, 'utf8')));
   }
 } catch (e) {
   console.error('[AWIN] Falha ao carregar awinDealsData.json:', e.message);
@@ -239,7 +268,8 @@ async function getNextAwinDeal() {
 
     if (v && voucherImg) {
       const rawUrl = v.deeplinkTracking || buildAwinUrl(v.advertiserId || '17729', v.deeplink || 'https://www.kabum.com.br');
-      const shortUrl = await shortenUrl(rawUrl);
+      const safeShort = resolveSafeDealUrl(v);
+      const shortUrl = safeShort || await shortenUrl(rawUrl);
       const hasCode = v.code && v.code.trim().length > 0;
       const header = hasCode 
         ? '🎟️ *CUPOM DE DESCONTO LIBERADO!* 🔥'
@@ -320,7 +350,8 @@ ${howToUse}
 
   const targetUrl = p.deeplink || 'https://www.kabum.com.br';
   const rawUrl = p.deeplinkTracking || (p.advertiserId && p.advertiserId !== 'amazon' && p.advertiserId !== 'mercadolivre' ? buildAwinUrl(p.advertiserId, targetUrl) : targetUrl);
-  const shortUrl = p.shortUrl || await shortenUrl(rawUrl);
+  const safeShort = resolveSafeDealUrl(p);
+  const shortUrl = safeShort || await shortenUrl(rawUrl);
   const urgencyHeaders = [
     '🚨 *ACHADO EXCLUSIVO • PREÇO CAIU!* 💥',
     '🔥 *CORRE QUE TÁ VALENDO MUITO!* ⚡',

@@ -7,11 +7,12 @@
 require('./envLoader');
 
 const AFFILIATE = {
-  amazon:     process.env.AFFILIATE_AMAZON || '',
-  shopee:     process.env.AFFILIATE_SHOPEE || '',
-  ml:         process.env.AFFILIATE_ML     || '',
-  magalu:     process.env.AFFILIATE_MAGALU  || '',
-  boticario:  process.env.AFFILIATE_BOTICARIO || '27065696'
+  amazon:     process.env.AFFILIATE_AMAZON || 'precosmartapp-20',
+  shopee:     process.env.AFFILIATE_SHOPEE || '18361251220',
+  ml:         process.env.AFFILIATE_ML     || 'azs5603820',
+  magalu:     process.env.AFFILIATE_MAGALU  || 'precosmartvip',
+  boticario:  process.env.AFFILIATE_BOTICARIO || '27065696',
+  awin:       process.env.AFFILIATE_AWIN || process.env.AWIN_PUBLISHER_ID || '3077915'
 };
 
 const magTag = (process.env.AFFILIATE_MAGALU || 'PRECOSMARTVIP').toUpperCase();
@@ -288,7 +289,7 @@ function getAffiliateUrl(store, title) {
   const affiliateBuilders = {
     'Amazon': (urlEnc) => `https://www.amazon.com.br/s?k=${urlEnc}&s=exact-aware-popularity-rank&tag=${AFFILIATE.amazon}`,
     'Shopee': (urlEnc) => `https://shopee.com.br/search?keyword=${urlEnc}&order=desc&sortBy=sales&utm_source=an_${AFFILIATE.shopee}&utm_medium=affiliates`,
-    'Mercado Livre': (urlEnc) => `https://lista.mercadolivre.com.br/${urlEnc}_OrderId_PRICE*DISCOUNT_NoIndex_True?matt_tool=${AFFILIATE.ml}`,
+    'Mercado Livre': (urlEnc) => `https://lista.mercadolivre.com.br/${urlEnc}_OrderId_PRICE*DISCOUNT_NoIndex_True?matt_tool=${AFFILIATE.ml}&matt_word=precosmart`,
     'Magazine Luiza': (urlEnc) => `https://www.magazinevoce.com.br/${storeSlug}/busca/${urlEnc}/?sort=most-popular`,
     'O Boticário': () => `https://minhaloja.boticario.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
     'Boticário': () => `https://minhaloja.boticario.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
@@ -297,8 +298,8 @@ function getAffiliateUrl(store, title) {
     'Eudora': () => `https://minhaloja.eudora.com.br/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
     'O.U.i Paris': () => `https://minhaloja.ouiparis.com/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
     'Oui Paris': () => `https://minhaloja.ouiparis.com/redirect/${AFFILIATE.boticario}/?origin=boticario&utm_source=portal_bot&utm_medium=precosmart`,
-    'KaBuM!': (urlEnc) => `https://www.kabum.com.br/busca/${urlEnc}?ordem=mais_vendidos`,
-    'AliExpress': (urlEnc) => `https://pt.aliexpress.com/wholesale?SearchText=${urlEnc}&sortType=total_tranpro_desc`
+    'KaBuM!': (urlEnc) => `https://www.awin1.com/cread.php?awinmid=17729&awinaffid=${AFFILIATE.awin}&clickref=PILOTO_AUTO&ued=${encodeURIComponent(`https://www.kabum.com.br/busca/${decodeURIComponent(urlEnc)}?ordem=mais_vendidos`)}`,
+    'AliExpress': (urlEnc) => `https://www.awin1.com/cread.php?awinmid=18879&awinaffid=${AFFILIATE.awin}&clickref=PILOTO_AUTO&ued=${encodeURIComponent(`https://pt.aliexpress.com/wholesale?SearchText=${decodeURIComponent(urlEnc)}&sortType=total_tranpro_desc`)}`
   };
 
   return affiliateBuilders[store]?.(enc) || '#';

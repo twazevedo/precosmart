@@ -18,8 +18,8 @@ async function shortenUrl(longUrl) {
   if (!longUrl || typeof longUrl !== 'string') return longUrl;
   const cleanUrl = longUrl.trim();
 
-  // Se já for tidd.ly ou outro link curto, retorna direto
-  if (cleanUrl.includes('tidd.ly') || cleanUrl.includes('tinyurl.com') || cleanUrl.includes('is.gd') || cleanUrl.includes('amzn.to')) {
+  // Se já for tidd.ly ou outro link curto confiável, retorna direto
+  if (cleanUrl.includes('tidd.ly') || cleanUrl.includes('is.gd') || cleanUrl.includes('amzn.to')) {
     return cleanUrl;
   }
 
@@ -27,19 +27,11 @@ async function shortenUrl(longUrl) {
     return shortLinkCache.get(cleanUrl);
   }
 
-  // 1. Encurtamento Automático de Links Mercado Livre e Amazon
+  // Links do Mercado Livre e Amazon utilizam o formato direto e limpo com tag de afiliado
+  // (evita redirecionadores gratuitos de terceiros como TinyURL que injetam VigLink ou quebram)
   if (cleanUrl.includes('mercadolivre.') || cleanUrl.includes('amazon.')) {
-    try {
-      const axios = require('axios');
-      const res = await axios.get(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(cleanUrl)}`, { timeout: 4000 });
-      if (res.data && typeof res.data === 'string' && res.data.startsWith('http')) {
-        const shortRes = res.data.trim();
-        shortLinkCache.set(cleanUrl, shortRes);
-        return shortRes;
-      }
-    } catch (e) {
-      return cleanUrl;
-    }
+    shortLinkCache.set(cleanUrl, cleanUrl);
+    return cleanUrl;
   }
 
   // 2. Encurtamento Oficial AWIN (tidd.ly) via Link Builder API
