@@ -227,24 +227,54 @@ let voucherIndex = Math.floor(Math.random() * Math.max(1, shuffledVouchers.lengt
 let rotationCounter = 0;
 
 /**
- * Determina o badge e categoria visual do produto pelo título
+ * Determina o badge e categoria visual do produto pelo título, anunciante e categoria
  */
-function getProductBadge(title = '') {
-  const t = title.toLowerCase();
+function getProductBadge(title = '', advertiser = '', categories = '') {
+  const t = `${title} ${advertiser} ${categories}`.toLowerCase();
   if (t.includes('lego') || t.includes('star wars') || t.includes('harry potter') || t.includes('minifigura') || t.includes('brinquedo')) {
     return '🧱 *LEGO BRASIL OFICIAL — UNIVERSO & COLECIONÁVEIS* 🚀✨';
   }
   if (t.includes('ninja') || t.includes('creami') || t.includes('shark') || t.includes('flexstyle') || t.includes('liquidificador')) {
     return '🌪️ *SHARK-NINJA BRASIL OFICIAL — CASA & TECNOLOGIA* 🍧⚡';
   }
-  if (t.includes('under armour') || t.includes('armour') || t.includes('treino') || t.includes('crossfit')) {
+  if (t.includes('under armour') || t.includes('armour') || t.includes('crossfit')) {
     return '⚡ *UNDER ARMOUR BRASIL — ALTA PERFORMANCE & TREINO* 🏋️‍♂️👟';
   }
-  if (t.includes('hope') || t.includes('lingerie') || t.includes('sutiã') || t.includes('calcinha') || t.includes('renda')) {
+  if (t.includes('hope') || t.includes('lingerie') || t.includes('sutiã') || t.includes('sutia') || t.includes('calcinha') || t.includes('renda') || t.includes('pijama')) {
     return '✨ *HOPE LINGERIE OFICIAL — CONFORTO & ELEGÂNCIA* 👙💖';
   }
   if (t.includes('lg') || t.includes('oled') || t.includes('ultragear') || t.includes('lava e seca') || t.includes('dual inverter')) {
     return '📺 *LG BRASIL OFICIAL — OLED, ULTRA ELETRO & TECH* 🖥️✨';
+  }
+  if (t.includes('stanley') || t.includes('quencher') || t.includes('copo térmico') || t.includes('garrafa térmica') || t.includes('térmicos') || t.includes('cuia')) {
+    return '🍺 *STANLEY BRASIL OFICIAL — TÉRMICOS LEGENDÁRIOS* ❄️🔥';
+  }
+  if (t.includes('decathlon') || t.includes('quechua') || t.includes('domyos') || t.includes('kalenji') || t.includes('kipsta') || t.includes('btwin') || t.includes('barraca')) {
+    return '🏕️ *DECATHLON BRASIL OFICIAL — O MAIOR DO ESPORTE* 🚴‍♂️⚽';
+  }
+  if (t.includes('venancio') || t.includes('drogaria') || t.includes('skincare') || t.includes('protetor solar') || t.includes('dermocosmético') || t.includes('la roche') || t.includes('cerave') || t.includes('vichy')) {
+    return '💊 *DROGARIA VENANCIO — SAÚDE, BELEZA & BEM-ESTAR* 🧴✨';
+  }
+  if (t.includes('c&a') || t.includes('cea') || t.includes('vestido') || t.includes('calça') || t.includes('jeans')) {
+    return '👗 *C&A BRASIL OFICIAL — MODA & TENDÊNCIA* ✨🛍️';
+  }
+  if (t.includes('clovis') || t.includes('melissa') || t.includes('via marte') || t.includes('sandália') || t.includes('rasteira') || t.includes('tamanco')) {
+    return '👠 *CLOVIS CALÇADOS — MODA & CONFORTO* 👡✨';
+  }
+  if (t.includes('olympikus') || t.includes('corre vento') || t.includes('corre grafeno') || t.includes('tênis corre') || t.includes('ultraleve')) {
+    return '🏃 *OLYMPIKUS BRASIL — ESPORTE, TREINO & CORRIDA* 👟⚡';
+  }
+  if (t.includes('lacoste') || t.includes('crocodilo') || t.includes('polo lacoste')) {
+    return '🐊 *LACOSTE BRASIL OFICIAL — MODA & ELEGÂNCIA* 👕✨';
+  }
+  if (t.includes('nike') || t.includes('air max') || t.includes('air force') || t.includes('dunk') || t.includes('jordan')) {
+    return '✔️ *NIKE BRASIL OFICIAL — JUST DO IT* 👟🔥';
+  }
+  if (t.includes('puma') || t.includes('suede') || t.includes('rs-x') || t.includes('carina') || t.includes('smash v2')) {
+    return '🐆 *PUMA BRASIL OFICIAL — FOREVER FASTER* 👟⚡';
+  }
+  if (t.includes('aliexpress') || t.includes('redmagic') || t.includes('ugreen') || t.includes('baseus') || t.includes('qcy') || t.includes('8bitdo') || t.includes('gamesir') || t.includes('drone')) {
+    return '🛒 *ALIEXPRESS BRASIL OFICIAL — OFERTA GLOBAL* 🌎⚡';
   }
   if (t.includes('switch') || t.includes('ps5') || t.includes('ps4') || t.includes('gamer') || t.includes('console') || t.includes('fifa')) {
     return '🎮 *ESPECIAL GAMES & CONSOLES* 🕹️🔥';
@@ -260,39 +290,6 @@ function getProductBadge(title = '') {
   }
   if (t.includes('smartwatch') || t.includes('xiaomi') || t.includes('celular') || t.includes('smartphone') || t.includes('redmi') || t.includes('poco') || t.includes('alexa') || t.includes('echo')) {
     return '📱 *ACHADINHO TECH & SMART DEVICES* ⌚✨';
-  }
-  if (t.includes('calçados') || t.includes('melissa') || t.includes('via marte') || t.includes('sandália')) {
-    return '🚨 *CLOVIS CALÇADOS — QUEIMA DE ESTOQUE TOTAL!* 👠👟';
-  }
-  if (t.includes('olympikus') || t.includes('corre vento') || t.includes('corre grafeno') || t.includes('tênis corre') || t.includes('ultraleve')) {
-    return '🏃 *OLYMPIKUS BRASIL — TÊNIS DE CORRIDA & TREINO* 👟⚡';
-  }
-  if (t.includes('adidas') || t.includes('samba') || t.includes('gazelle') || t.includes('ultraboost') || t.includes('adizero')) {
-    return '⚡ *ADIDAS BRASIL OFICIAL — SNEAKERS & ESPORTES* 👟🔥';
-  }
-  if (t.includes('lacoste') || t.includes('crocodilo') || t.includes('polo lacoste')) {
-    return '🐊 *LACOSTE BRASIL OFICIAL — MODA & ELEGÂNCIA* 👕✨';
-  }
-  if (t.includes('nike') || t.includes('air max') || t.includes('air force') || t.includes('dunk') || t.includes('jordan')) {
-    return '✔️ *NIKE BRASIL OFICIAL — JUST DO IT* 👟🔥';
-  }
-  if (t.includes('puma') || t.includes('suede') || t.includes('rs-x') || t.includes('carina') || t.includes('smash v2')) {
-    return '🐆 *PUMA BRASIL OFICIAL — FOREVER FASTER* 👟⚡';
-  }
-  if (t.includes('aliexpress') || t.includes('redmagic') || t.includes('ugreen') || t.includes('baseus') || t.includes('qcy') || t.includes('8bitdo') || t.includes('gamesir') || t.includes('drone')) {
-    return '🛒 *ALIEXPRESS BRASIL OFICIAL — OFERTA GLOBAL* 🌎⚡';
-  }
-  if (t.includes('c&a') || t.includes('cea') || t.includes('algodão peruano') || t.includes('moda feminina') || t.includes('jeans')) {
-    return '👗 *C&A BRASIL OFICIAL — MODA & TENDÊNCIA* ✨🛍️';
-  }
-  if (t.includes('stanley') || t.includes('copo térmico') || t.includes('garrafa térmica') || t.includes('cuia')) {
-    return '🍺 *STANLEY BRASIL OFICIAL — TÉRMICOS LEGENDÁRIOS* ❄️🔥';
-  }
-  if (t.includes('decathlon') || t.includes('quechua') || t.includes('domyos') || t.includes('kalenji') || t.includes('kipsta') || t.includes('btwin')) {
-    return '🏕️ *DECATHLON BRASIL OFICIAL — O MAIOR DO ESPORTE* 🚴‍♂️⚽';
-  }
-  if (t.includes('venancio') || t.includes('drogaria') || t.includes('skincare') || t.includes('protetor solar') || t.includes('dermocosmético') || t.includes('la roche') || t.includes('cerave') || t.includes('vichy')) {
-    return '💊 *DROGARIA VENANCIO — SAÚDE, BELEZA & BEM-ESTAR* 🧴✨';
   }
   return '🔥 *OFERTA EXCLUSIVA VERIFICADA PREÇOSMART* 🛒⚡';
 }
@@ -470,7 +467,9 @@ ${howToUse}
   }
   const descSection = desc ? `💡 _${desc}_\n\n` : '\n';
 
-  const text = `${hook}
+  const badge = getProductBadge(p.title, p.advertiser, p.categories);
+  const text = `${badge}
+${hook}
 
 🛒 *${p.title.trim()}*${discountBadge}
 🏪 Loja: *${storeName}*

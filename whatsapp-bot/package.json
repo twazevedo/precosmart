@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node bot.js",
     "dev": "node --watch bot.js",
+    "crawl:brands": "node scripts/crawl_all_approved_brands.js",
     "test": "node --test test/mirror.test.js"
   },
   "engines": {
