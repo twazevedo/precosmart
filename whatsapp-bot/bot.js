@@ -57,7 +57,8 @@ const {
   getSpecificCeaDeal,
   getSpecificStanleyDeal,
   getSpecificDecathlonDeal,
-  getSpecificVenancioDeal
+  getSpecificVenancioDeal,
+  getSpecificPumaDeal
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
@@ -1268,6 +1269,12 @@ app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Nike', getSpecificNikeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
+});
+
+app.get('/api/trigger-puma', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Puma Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Puma', getSpecificPumaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Puma: ' + e.message));
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
@@ -2499,6 +2506,7 @@ async function startBot() {
             `👉 *!ml* — Dispara oferta oficial Mercado Livre\n` +
             `👉 *!amazon* — Dispara oferta oficial Amazon Brasil\n` +
             `👉 *!nike* — Dispara oferta oficial Nike Brasil\n` +
+            `👉 *!puma* — Dispara oferta oficial Puma Brasil\n` +
             `👉 *!kabum* — Dispara oferta oficial KaBuM!\n` +
             `👉 *!olympikus* — Dispara oferta oficial Olympikus\n` +
             `👉 *!clovis* — Dispara oferta oficial Clovis Calçados\n` +
@@ -3133,6 +3141,29 @@ async function startBot() {
           return;
         } catch (err) {
           await replyToUser({ text: '❌ Erro ao postar Drogaria Venancio: ' + err.message });
+          return;
+        }
+      }
+
+      // 29. !puma (Admin) - Dispara oferta oficial Puma Brasil
+      if (command === '!puma') {
+        try {
+          const deal = await getSpecificPumaDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Puma enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Puma enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Puma: ' + err.message });
           return;
         }
       }

@@ -136,6 +136,7 @@ try {
 // Garante que TODAS as marcas parceiras sejam divulgadas ciclicamente sem monopólio de uma única loja!
 const BRAND_KEYS = [
   'nike',
+  'puma',
   'stanley',
   'kabum',
   'decathlon',
@@ -158,6 +159,7 @@ function getBrandPool(brandKey) {
   let list = [];
   switch (brandKey) {
     case 'nike':        list = awinMasterData.nikeDeals || []; break;
+    case 'puma':        list = awinMasterData.pumaDeals || []; break;
     case 'stanley':     list = awinMasterData.stanleyDeals || []; break;
     case 'kabum':       list = (awinMasterData.kabumDeals && awinMasterData.kabumDeals.length > 0) ? awinMasterData.kabumDeals : (awinMasterData.products || []); break;
     case 'decathlon':   list = awinMasterData.decathlonDeals || []; break;
@@ -186,6 +188,7 @@ let currentBrandSequenceIndex = 0;
 // Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD VERIFICADA
 const allAvailableProducts = [
   ...(awinMasterData.nikeDeals || []),
+  ...(awinMasterData.pumaDeals || []),
   ...(awinMasterData.stanleyDeals || []),
   ...(awinMasterData.decathlonDeals || []),
   ...(awinMasterData.venancioDeals || []),
@@ -272,6 +275,9 @@ function getProductBadge(title = '') {
   }
   if (t.includes('nike') || t.includes('air max') || t.includes('air force') || t.includes('dunk') || t.includes('jordan')) {
     return '✔️ *NIKE BRASIL OFICIAL — JUST DO IT* 👟🔥';
+  }
+  if (t.includes('puma') || t.includes('suede') || t.includes('rs-x') || t.includes('carina') || t.includes('smash v2')) {
+    return '🐆 *PUMA BRASIL OFICIAL — FOREVER FASTER* 👟⚡';
   }
   if (t.includes('aliexpress') || t.includes('redmagic') || t.includes('ugreen') || t.includes('baseus') || t.includes('qcy') || t.includes('8bitdo') || t.includes('gamesir') || t.includes('drone')) {
     return '🛒 *ALIEXPRESS BRASIL OFICIAL — OFERTA GLOBAL* 🌎⚡';
@@ -1156,11 +1162,43 @@ async function getSpecificVenancioDeal(index = 0) {
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Puma Brasil com link de afiliado e foto oficial
+ */
+async function getSpecificPumaDeal(index = 0) {
+  const list = (awinMasterData.pumaDeals && awinMasterData.pumaDeals.length > 0)
+    ? awinMasterData.pumaDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '32675' || (p.advertiser && p.advertiser.toLowerCase().includes('puma')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🐆 *PUMA BRASIL OFICIAL — FOREVER FASTER* 👟⚡\n\n🏷️ *${p.title}*\n🏪 *Loja:* Puma Brasil Oficial\n${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto oficial na Puma:*\n👉 ${shortUrl}\n\n👟 *Design icônico, conforto superior e produtos 100% originais Puma Brasil.*\n⚠️ *Aviso:* Estoque e numerações sujeitos à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'Puma Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
   getSpecificNikeDeal,
+  getSpecificPumaDeal,
   getSpecificStanleyDeal,
   getSpecificDecathlonDeal,
   getSpecificVenancioDeal,

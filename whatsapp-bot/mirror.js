@@ -340,6 +340,13 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return `https://www.awin1.com/cread.php?awinmid=17648&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanCea)}`;
     }
 
+    // 22. PUMA BR (AWIN - MID 32675 - Oficial Aprovado)
+    if (urlObj.hostname.includes('puma.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanPuma = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=32675&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanPuma)}`;
+    }
+
     // 12. Domínios externos e intermediários:
     // Normaliza para busca direta oficial com comissão
     const query = encodeURIComponent(productKeyword);
