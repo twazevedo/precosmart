@@ -54,7 +54,10 @@ const {
   getSpecificLacosteDeal,
   getSpecificLGDeal,
   getSpecificAliExpressDeal,
-  getSpecificCeaDeal
+  getSpecificCeaDeal,
+  getSpecificStanleyDeal,
+  getSpecificDecathlonDeal,
+  getSpecificVenancioDeal
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
@@ -1241,6 +1244,30 @@ app.get('/api/trigger-cea', requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais C&A Brasil iniciado com sucesso!` });
   dispatchBrandBatch('CeA', getSpecificCeaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast C&A: ' + e.message));
+});
+
+app.get('/api/trigger-stanley', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Stanley Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Stanley', getSpecificStanleyDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Stanley: ' + e.message));
+});
+
+app.get('/api/trigger-decathlon', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Decathlon Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Decathlon', getSpecificDecathlonDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Decathlon: ' + e.message));
+});
+
+app.get('/api/trigger-venancio', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Drogaria Venancio iniciado com sucesso!` });
+  dispatchBrandBatch('Venancio', getSpecificVenancioDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Venancio: ' + e.message));
+});
+
+app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike Brasil iniciado com sucesso!` });
+  dispatchBrandBatch('Nike', getSpecificNikeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
@@ -2481,6 +2508,11 @@ async function startBot() {
             `👉 *!hope* — Dispara oferta oficial Hope Lingerie\n` +
             `👉 *!lacoste* — Dispara oferta oficial Lacoste Brasil\n` +
             `👉 *!lg* — Dispara oferta oficial LG Brasil\n` +
+            `👉 *!stanley* — Dispara oferta oficial Stanley Brasil\n` +
+            `👉 *!decathlon* — Dispara oferta oficial Decathlon Brasil\n` +
+            `👉 *!venancio* — Dispara oferta oficial Drogaria Venancio\n` +
+            `👉 *!ali* — Dispara oferta oficial AliExpress\n` +
+            `👉 *!cea* — Dispara oferta oficial C&A Brasil\n` +
             `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
             `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
             `👉 *!status* — Exibe status do bot\n` +
@@ -3032,6 +3064,75 @@ async function startBot() {
           return;
         } catch (err) {
           await replyToUser({ text: '❌ Erro ao postar C&A: ' + err.message });
+          return;
+        }
+      }
+
+      // 26. !stanley (Admin) - Dispara oferta oficial Stanley Brasil
+      if (command === '!stanley' || command === '!copo') {
+        try {
+          const deal = await getSpecificStanleyDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Stanley enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Stanley enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Stanley: ' + err.message });
+          return;
+        }
+      }
+
+      // 27. !decathlon (Admin) - Dispara oferta oficial Decathlon Brasil
+      if (command === '!decathlon' || command === '!esporte') {
+        try {
+          const deal = await getSpecificDecathlonDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Decathlon enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Decathlon enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Decathlon: ' + err.message });
+          return;
+        }
+      }
+
+      // 28. !venancio (Admin) - Dispara oferta oficial Drogaria Venancio
+      if (command === '!venancio' || command === '!farmacia' || command === '!remedio') {
+        try {
+          const deal = await getSpecificVenancioDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Drogaria Venancio enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Drogaria Venancio enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Drogaria Venancio: ' + err.message });
           return;
         }
       }

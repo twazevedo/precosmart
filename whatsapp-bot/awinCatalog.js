@@ -132,10 +132,64 @@ try {
   }
 } catch (e) {}
 
+// ── Pools por Marca para ROTAÇÃO JUSTA & EQUITATIVA (Brand-Fair Round Robin) ──
+// Garante que TODAS as marcas parceiras sejam divulgadas ciclicamente sem monopólio de uma única loja!
+const BRAND_KEYS = [
+  'nike',
+  'stanley',
+  'kabum',
+  'decathlon',
+  'lacoste',
+  'venancio',
+  'lego',
+  'ninja',
+  'underArmour',
+  'hope',
+  'olympikus',
+  'lg',
+  'aliexpress',
+  'cea',
+  'clovis',
+  'ml',
+  'amazon'
+];
+
+function getBrandPool(brandKey) {
+  let list = [];
+  switch (brandKey) {
+    case 'nike':        list = awinMasterData.nikeDeals || []; break;
+    case 'stanley':     list = awinMasterData.stanleyDeals || []; break;
+    case 'kabum':       list = (awinMasterData.kabumDeals && awinMasterData.kabumDeals.length > 0) ? awinMasterData.kabumDeals : (awinMasterData.products || []); break;
+    case 'decathlon':   list = awinMasterData.decathlonDeals || []; break;
+    case 'lacoste':     list = awinMasterData.lacosteDeals || []; break;
+    case 'venancio':    list = awinMasterData.venancioDeals || []; break;
+    case 'lego':        list = awinMasterData.legoDeals || []; break;
+    case 'ninja':       list = awinMasterData.ninjaDeals || []; break;
+    case 'underArmour': list = awinMasterData.underArmourDeals || []; break;
+    case 'hope':        list = awinMasterData.hopeDeals || []; break;
+    case 'olympikus':   list = awinMasterData.olympikusDeals || []; break;
+    case 'lg':          list = awinMasterData.lgDeals || []; break;
+    case 'aliexpress':  list = awinMasterData.aliexpressDeals || []; break;
+    case 'cea':         list = awinMasterData.ceaDeals || []; break;
+    case 'clovis':      list = awinMasterData.clovisDeals || []; break;
+    case 'ml':          list = awinMasterData.mlDeals || []; break;
+    case 'amazon':      list = awinMasterData.amazonDeals || []; break;
+    default:            list = []; break;
+  }
+  return list.filter(p => p && p.imageUrl && p.imageUrl.startsWith('http') && !brokenImageUrls.has(p.imageUrl) && !brokenImageUrls.has(String(p.id)));
+}
+
+const brandPointers = {};
+BRAND_KEYS.forEach(k => { brandPointers[k] = 0; });
+let currentBrandSequenceIndex = 0;
+
 // Inicializa listas dinâmicas embaralhadas APENAS com ofertas que possuem foto oficial Full HD VERIFICADA
 const allAvailableProducts = [
-  ...(awinMasterData.products || []).filter(p => p.advertiserId !== '17652' && !String(p.id).startsWith('nike_')),
-  // nikeDeals removido do catalogo estatico pois fotos oficiais da Nike vem em tempo real do canal WhatsApp da Nike
+  ...(awinMasterData.nikeDeals || []),
+  ...(awinMasterData.stanleyDeals || []),
+  ...(awinMasterData.decathlonDeals || []),
+  ...(awinMasterData.venancioDeals || []),
+  ...(awinMasterData.products || []),
   ...(awinMasterData.olympikusDeals || []),
   ...(awinMasterData.kabumDeals || []),
   ...(awinMasterData.clovisDeals || []),
@@ -315,41 +369,55 @@ ${howToUse}
     }
   }
 
-  // 2. Vez de produto real: APENAS seleciona produtos com foto oficial Full HD
-  const list = shuffledProducts.length > 0 ? shuffledProducts : (awinMasterData.products || []).filter(p => p.imageUrl && p.imageUrl.startsWith('http'));
+  // 2. Vez de produto real: ROTAÇÃO EQUITATIVA ENTRE TODAS AS MARCAS PARCEIRAS (Brand-Fair Round Robin)
+  // Garante que cada marca (Nike, Stanley, KaBuM, Decathlon, Lacoste, Venancio, Lego, Ninja, etc.) tenha seu espaço garantido
   let p = null;
   let productImg = null;
 
-  for (let attempts = 0; attempts < list.length; attempts++) {
-    const candidate = list[productIndex % list.length];
-    productIndex = (productIndex + 1) % list.length;
-    if (productIndex === 0 && validInitialProducts.length > 1) {
-      shuffledProducts = shuffleArray(validInitialProducts);
-    }
-    let img = upgradeToHdImage(candidate.imageUrl);
-    if (!img && candidate.deeplink) {
-      try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
-    }
-    if (img) {
-      const key = `prod:${candidate.id || candidate.title}`;
-      if (!recentSentSet.has(key)) {
-        p = candidate;
-        productImg = img;
-        markAsSent(key);
-        break;
+  // Percorre as marcas em ordem cíclica
+  for (let brandAttempts = 0; brandAttempts < BRAND_KEYS.length; brandAttempts++) {
+    const brandKey = BRAND_KEYS[currentBrandSequenceIndex % BRAND_KEYS.length];
+    currentBrandSequenceIndex++;
+
+    const brandPool = getBrandPool(brandKey);
+    if (!brandPool || brandPool.length === 0) continue;
+
+    const brandPtr = brandPointers[brandKey] || 0;
+    for (let itemAttempts = 0; itemAttempts < brandPool.length; itemAttempts++) {
+      const idx = (brandPtr + itemAttempts) % brandPool.length;
+      const candidate = brandPool[idx];
+      let img = upgradeToHdImage(candidate.imageUrl);
+      if (!img && candidate.deeplink) {
+        try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
+      }
+      if (img) {
+        const key = `prod:${candidate.id || candidate.title}`;
+        if (!recentSentSet.has(key)) {
+          p = candidate;
+          productImg = img;
+          brandPointers[brandKey] = (idx + 1) % brandPool.length;
+          markAsSent(key);
+          break;
+        }
       }
     }
+    if (p && productImg) break;
   }
 
-  // Se todos foram enviados recentemente, seleciona qualquer produto COM FOTO OFICIAL
+  // Se todos os produtos foram enviados recentemente, pega o próximo item da marca seguinte com foto oficial
   if (!p || !productImg) {
-    for (let attempts = 0; attempts < list.length; attempts++) {
-      const candidate = list[productIndex % list.length];
-      productIndex = (productIndex + 1) % list.length;
+    for (let brandAttempts = 0; brandAttempts < BRAND_KEYS.length; brandAttempts++) {
+      const brandKey = BRAND_KEYS[currentBrandSequenceIndex % BRAND_KEYS.length];
+      currentBrandSequenceIndex++;
+      const brandPool = getBrandPool(brandKey);
+      if (!brandPool || brandPool.length === 0) continue;
+      const idx = (brandPointers[brandKey] || 0) % brandPool.length;
+      const candidate = brandPool[idx];
       let img = upgradeToHdImage(candidate.imageUrl);
       if (img) {
         p = candidate;
         productImg = img;
+        brandPointers[brandKey] = (idx + 1) % brandPool.length;
         break;
       }
     }
@@ -500,12 +568,14 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto verific
  * Retorna uma oferta real e verificada da Nike Brasil com foto Full HD e link tidd.ly
  */
 async function getSpecificNikeDeal(index = 0) {
-  const nikeList = (awinMasterData.products || []).filter(p => 
-    (p.advertiserId === '17652' || (p.advertiser && p.advertiser.toLowerCase().includes('nike'))) && 
-    p.imageUrl && !p.imageUrl.includes('01113751')
-  );
+  const list = ((awinMasterData.nikeDeals && awinMasterData.nikeDeals.length > 0)
+    ? awinMasterData.nikeDeals
+    : (awinMasterData.products || [])).filter(p => 
+      (p.advertiserId === '17652' || (p.advertiser && p.advertiser.toLowerCase().includes('nike'))) && 
+      p.imageUrl
+    );
   
-  const p = getSafeItem(nikeList, index);
+  const p = getSafeItem(list, index);
   if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
@@ -993,11 +1063,107 @@ async function getSpecificCeaDeal(index = 0) {
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Stanley Brasil com link de afiliado e foto oficial
+ */
+async function getSpecificStanleyDeal(index = 0) {
+  const list = (awinMasterData.stanleyDeals && awinMasterData.stanleyDeals.length > 0)
+    ? awinMasterData.stanleyDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '30599' || (p.advertiser && p.advertiser.toLowerCase().includes('stanley')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🍺 *STANLEY BRASIL OFICIAL — TÉRMICOS LEGENDÁRIOS* ❄️🔥\n\n🏷️ *${p.title}*\n🏪 *Loja:* Stanley Brasil Oficial\n${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto oficial na Stanley:*\n👉 ${shortUrl}\n\n🛡️ *Aço inoxidável 18/8, retenção térmica comprovada e garantia vitalícia.*\n⚠️ *Aviso:* Estoque limitado das cores mais desejadas.`;
+
+  return {
+    type: 'product',
+    store: 'Stanley Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Decathlon Brasil com link de afiliado e foto oficial
+ */
+async function getSpecificDecathlonDeal(index = 0) {
+  const list = (awinMasterData.decathlonDeals && awinMasterData.decathlonDeals.length > 0)
+    ? awinMasterData.decathlonDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '19296' || (p.advertiser && p.advertiser.toLowerCase().includes('decathlon')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🏕️ *DECATHLON BRASIL OFICIAL — O MAIOR DO ESPORTE* 🚴‍♂️⚽\n\n🏷️ *${p.title}*\n🏪 *Loja:* Decathlon Brasil Oficial\n${priceSection}${discountSection}${descSection}🛒 *Compre com garantia oficial na Decathlon:*\n👉 ${shortUrl}\n\n🏆 *Qualidade esportiva superior com as marcas Quechua, Kalenji e Domyos.*\n⚠️ *Aviso:* Estoque e tamanhos limitados.`;
+
+  return {
+    type: 'product',
+    store: 'Decathlon Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Drogaria Venancio com link de afiliado e foto oficial
+ */
+async function getSpecificVenancioDeal(index = 0) {
+  const list = (awinMasterData.venancioDeals && awinMasterData.venancioDeals.length > 0)
+    ? awinMasterData.venancioDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '47165' || (p.advertiser && p.advertiser.toLowerCase().includes('venancio')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `💊 *DROGARIA VENANCIO — SAÚDE, BELEZA & BEM-ESTAR* 🧴✨\n\n🏷️ *${p.title}*\n🏪 *Loja:* Drogaria Venancio Oficial\n${priceSection}${discountSection}${descSection}🛒 *Aproveite os descontos oficiais em dermocosméticos:*\n👉 ${shortUrl}\n\n🛡️ *Procedência 100% garantida, envio rápido e melhores marcas dermatológicas.*\n⚠️ *Aviso:* Condições promocionais válidas enquanto durarem os estoques.`;
+
+  return {
+    type: 'product',
+    store: 'Drogaria Venancio Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
   getSpecificNikeDeal,
+  getSpecificStanleyDeal,
+  getSpecificDecathlonDeal,
+  getSpecificVenancioDeal,
   getSpecificOlympikusDeal,
   getSpecificClovisDeal,
   getSpecificAmazonDeal,
