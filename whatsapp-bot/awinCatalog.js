@@ -1020,12 +1020,14 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto garanti
 async function getSpecificAliExpressDeal(index = 0) {
   const aliList = ((awinMasterData.aliexpressDeals || []).length > 0 ? awinMasterData.aliexpressDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '18879' || (p.advertiser && p.advertiser.toLowerCase().includes('aliexpress')));
   const cleanAli = aliList.filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
-  const listToUse = cleanAli.length > 0 ? cleanAli : (awinMasterData.products || []).filter(p => p.imageUrl && !brokenImageUrls.has(p.imageUrl));
-  
+  const listToUse = cleanAli.length > 0 ? cleanAli : aliList;
   const p = getSafeItem(listToUse, index);
   if (!p) return null;
   const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
-  const imageUrl = upgradeToHdImage(p.imageUrl);
+  let imageUrl = upgradeToHdImage(p.imageUrl);
+  if (!imageUrl && p.deeplink) {
+    try { imageUrl = await fetchOgImage(p.deeplink); } catch (e) {}
+  }
 
   const priceSection = p.priceCurrent ? `💵 *Preço Especial:* *${p.priceCurrent}*\n` : '';
   const descSection = p.description ? `📝 ${p.description}\n\n` : '';
