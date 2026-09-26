@@ -716,8 +716,8 @@ async function dispatchNextAwinRotation(options = {}) {
 }
 
 // ── Rotação Automática Contínua no Piloto Automático ─────────────────────────
-// Por padrão roda a cada 20 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
-const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '20', 10);
+// Por padrão roda a cada 12 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
+const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '12', 10);
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
@@ -1610,8 +1610,8 @@ app.listen(PORT, '0.0.0.0', () => logEntry('SERVER', `Dashboard rodando na porta
 function startKeepAlive() {
   const externalUrl = process.env.RENDER_EXTERNAL_URL || 'https://precosmart-b8pg.onrender.com';
   const pingUrl = `${externalUrl.replace(/\/+$/, '')}/api/status`;
-  // Render Free Tier suspende após 15 minutos sem requisição HTTP. Pingamos a cada 9 min:
-  const PING_INTERVAL_MS = 9 * 60 * 1000;
+  // Render Free Tier suspende após 15 minutos sem requisição HTTP. Pingamos a cada 4 min:
+  const PING_INTERVAL_MS = 4 * 60 * 1000;
 
   setInterval(() => {
     try {
