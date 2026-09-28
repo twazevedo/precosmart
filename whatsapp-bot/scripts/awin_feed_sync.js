@@ -50,12 +50,20 @@ const zlib  = require('zlib');
   }
 })();
 
-// ── Dependências opcionais (instala se necessário) ────────────────────────────
+// ── Resolver csv-parse (está em precosmart/node_modules, 3 níveis acima de scripts/) ──
 let csv;
-try {
-  csv = require('csv-parse/sync');
-} catch (e) {
-  console.error('[ERRO] Instale a dependência: npm install csv-parse');
+const CSV_PARSE_PATHS = [
+  path.join(__dirname, '../node_modules/csv-parse/sync'),    // whatsapp-bot/node_modules
+  path.join(__dirname, '../../node_modules/csv-parse/sync'), // precosmart/node_modules ← aqui está
+  path.join(__dirname, '../../../node_modules/csv-parse/sync'),
+  'csv-parse/sync',
+];
+for (const csvPath of CSV_PARSE_PATHS) {
+  try { csv = require(csvPath); break; } catch (_) {}
+}
+if (!csv) {
+  console.error('[ERRO] Módulo csv-parse não encontrado.');
+  console.error('Execute: cd precosmart && npm install csv-parse');
   process.exit(1);
 }
 
@@ -70,49 +78,52 @@ const BRAND_FILTER      = (() => {
   return idx !== -1 ? process.argv[idx + 1]?.toLowerCase() : null;
 })();
 
-// ── Colunas que queremos do feed AWIN ─────────────────────────────────────────
+// ── Colunas exatas do feed AWIN (extraídas da URL Create-a-Feed do usuário) ────
 const FEED_COLUMNS = [
-  'aw_product_id',
+  'aw_deep_link',
   'product_name',
-  'description',
+  'aw_product_id',
   'merchant_product_id',
-  'aw_image_url',
   'merchant_image_url',
+  'description',
+  'merchant_category',
   'search_price',
-  'store_price',
-  'rrp_price',
   'merchant_name',
   'merchant_id',
   'category_name',
-  'product_url',
-  'aw_deep_link',
-  'brand_name',
-  'in_stock',
-  'promotional_price',
-  'ean',
+  'category_id',
+  'aw_image_url',
+  'currency',
+  'store_price',
+  'delivery_cost',
+  'merchant_deep_link',
+  'language',
+  'last_updated',
+  'display_price',
+  'data_feed_id',
 ].join(',');
 
-// ── Mapeamento de marcas: brandKey → { feedId, mid, name } ────────────────────
-// feedId: ID do feed no painel AWIN (Toolbox > My Data Feeds)
-// mid: Merchant ID (mesmo usado no buildAwinUrl)
-// maxItems: máximo de produtos a importar por marca (evita catálogos gigantes)
+// ── Mapeamento de marcas com feedIds reais descobertos na AWIN ────────────────
+// feedId: descoberto via productdata.awin.com/datafeed/list — marcas sem feed
+//         usam null e o script tenta pelo mid (pode não funcionar para todas).
+// maxItems: limite de produtos por marca para evitar catálogos gigantes no JSON
 const BRAND_FEEDS = {
-  cea:        { feedId: null, mid: 17648,  name: 'C&A Brasil',         maxItems: 200 },
-  nike:       { feedId: null, mid: 17652,  name: 'Nike Brasil',        maxItems: 150 },
-  olympikus:  { feedId: null, mid: 17698,  name: 'Olympikus',          maxItems: 200 },
-  kabum:      { feedId: null, mid: 17729,  name: 'KaBuM!',             maxItems: 100 },
-  underArmour:{ feedId: null, mid: 18864,  name: 'Under Armour',       maxItems: 150 },
-  aliexpress: { feedId: null, mid: 18879,  name: 'AliExpress Brasil',  maxItems: 100 },
-  decathlon:  { feedId: null, mid: 19296,  name: 'Decathlon',          maxItems: 200 },
-  lego:       { feedId: null, mid: 30511,  name: 'LEGO Brasil',        maxItems: 150 },
-  stanley:    { feedId: null, mid: 30599,  name: 'Stanley Brasil',     maxItems: 200 },
-  puma:       { feedId: null, mid: 32675,  name: 'Puma Brasil',        maxItems: 150 },
-  lg:         { feedId: null, mid: 33061,  name: 'LG Brasil',          maxItems: 100 },
-  venancio:   { feedId: null, mid: 47165,  name: 'Drogaria Venâncio',  maxItems: 150 },
-  ninja:      { feedId: null, mid: 106763, name: 'Shark-Ninja',        maxItems: 150 },
-  hope:       { feedId: null, mid: 107039, name: 'Hope Lingerie',      maxItems: 150 },
-  clovis:     { feedId: null, mid: 107702, name: 'Clovis Calçados',    maxItems: 200 },
-  lacoste:    { feedId: null, mid: 112756, name: 'Lacoste Brasil',     maxItems: 100 },
+  cea:        { feedId: 58627,  mid: 17648,  name: 'C&A Brasil',         maxItems: 300 },
+  nike:       { feedId: 93360,  mid: 17652,  name: 'Nike Brasil',        maxItems: 200 },
+  olympikus:  { feedId: 51837,  mid: 17698,  name: 'Olympikus',          maxItems: 250 },
+  kabum:      { feedId: 46967,  mid: 17729,  name: 'KaBuM!',             maxItems: 150 },
+  underArmour:{ feedId: null,   mid: 18864,  name: 'Under Armour',       maxItems: 150 },
+  aliexpress: { feedId: 47247,  mid: 18879,  name: 'AliExpress Brasil',  maxItems: 150 },
+  decathlon:  { feedId: null,   mid: 19296,  name: 'Decathlon',          maxItems: 200 },
+  lego:       { feedId: 72027,  mid: 30511,  name: 'LEGO Brasil',        maxItems: 200 },
+  stanley:    { feedId: 72033,  mid: 30599,  name: 'Stanley Brasil',     maxItems: 200 },
+  puma:       { feedId: null,   mid: 32675,  name: 'Puma Brasil',        maxItems: 150 },
+  lg:         { feedId: 103134, mid: 33061,  name: 'LG Brasil',          maxItems: 150 },
+  venancio:   { feedId: null,   mid: 47165,  name: 'Drogaria Venâncio',  maxItems: 150 },
+  ninja:      { feedId: 98682,  mid: 106763, name: 'Shark-Ninja',        maxItems: 100 },
+  hope:       { feedId: null,   mid: 107039, name: 'Hope Lingerie',      maxItems: 150 },
+  clovis:     { feedId: 98680,  mid: 107702, name: 'Clovis Calçados',    maxItems: 250 },
+  lacoste:    { feedId: null,   mid: 112756, name: 'Lacoste Brasil',     maxItems: 100 },
 };
 
 // Mapeamento brandKey → chave no awinDealsData.json
@@ -159,8 +170,9 @@ function sleep(ms) {
 // ── Download de feed CSV com suporte a gzip ───────────────────────────────────
 function downloadFeed(url) {
   return new Promise((resolve, reject) => {
-    https.get(url, { timeout: 30000 }, (res) => {
+    https.get(url, { timeout: 60000 }, (res) => {
       if (res.statusCode === 302 || res.statusCode === 301) {
+        res.resume();
         return downloadFeed(res.headers.location).then(resolve).catch(reject);
       }
       if (res.statusCode !== 200) {
@@ -169,9 +181,11 @@ function downloadFeed(url) {
       }
 
       const chunks = [];
-      const stream = res.headers['content-encoding'] === 'gzip'
-        ? res.pipe(zlib.createGunzip())
-        : res;
+      // Detecta gzip pelo header OU pela URL (AWIN nem sempre envia Content-Encoding)
+      const isGzip = (res.headers['content-encoding'] || '').includes('gzip')
+                  || url.includes('/compression/gzip');
+
+      const stream = isGzip ? res.pipe(zlib.createGunzip()) : res;
 
       stream.on('data', chunk => chunks.push(chunk));
       stream.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')));
@@ -181,55 +195,65 @@ function downloadFeed(url) {
 }
 
 // ── Construção da URL do feed ─────────────────────────────────────────────────
-function buildFeedUrl(feedId, mid) {
-  if (!AWIN_FEED_API_KEY) return null;
+function buildFeedUrl(feedId) {
+  if (!AWIN_FEED_API_KEY || !feedId) return null;
 
-  if (feedId) {
-    // URL direta com feedId específico
-    return `https://productdata.awin.com/datafeed/download/apikey/${AWIN_FEED_API_KEY}/fid/${feedId}/columns/${FEED_COLUMNS}/format/csv/delimiter/%2C/compression/none/`;
-  }
+  const base = `https://productdata.awin.com/datafeed/download/apikey/${AWIN_FEED_API_KEY}`;
+  const tail = `/columns/${FEED_COLUMNS}/format/csv/delimiter/%2C/compression/gzip/adultcontent/1/`;
 
-  // URL por merchant ID (nem sempre funciona — depende de o anunciante ter feed público)
-  return `https://productdata.awin.com/datafeed/download/apikey/${AWIN_FEED_API_KEY}/mid/${mid}/columns/${FEED_COLUMNS}/format/csv/delimiter/%2C/compression/none/`;
+  return `${base}/fid/${feedId}${tail}`;
 }
 
 // ── Parseia uma linha CSV em um produto normalizado ───────────────────────────
+// Colunas disponíveis: aw_deep_link, product_name, aw_product_id,
+//   merchant_product_id, merchant_image_url, description, merchant_category,
+//   search_price, merchant_name, merchant_id, category_name, category_id,
+//   aw_image_url, currency, store_price, delivery_cost, merchant_deep_link,
+//   language, last_updated, display_price, data_feed_id
 function parseRow(row, brandKey, mid) {
   const name  = (row.product_name || '').trim();
-  const price = parseFloat(row.search_price || row.promotional_price || 0);
-  const orig  = parseFloat(row.rrp_price || row.store_price || 0);
-  const img   = (row.aw_image_url || row.merchant_image_url || '').trim();
-  const url   = (row.aw_deep_link || row.product_url || '').trim();
+  // merchant_image_url = imagem HD direto da loja (ex: stanley.fbitsstatic.net/?w=800)
+  // aw_image_url = thumbnail productserve.com com 200px — usar só como fallback
+  const img   = (row.merchant_image_url || row.aw_image_url || '').trim();
+  // aw_deep_link já é o link de afiliado pronto da AWIN
+  const url   = (row.aw_deep_link || row.merchant_deep_link || '').trim();
   const id    = (row.aw_product_id || row.merchant_product_id || '').trim();
-  const cat   = (row.category_name || '').trim();
-  const brand = (row.brand_name || row.merchant_name || '').trim();
-  const inStk = (row.in_stock || '1') !== '0';
+  const cat   = (row.category_name || row.merchant_category || '').trim();
 
-  // Filtros de qualidade
-  if (!name || !img || !url || !img.startsWith('http')) return null;
-  if (!inStk) return null;
-  if (price <= 5) return null;
+  // Preço: search_price é o preço atual (com desconto), store_price é o original
+  const price = parseFloat((row.search_price  || '').replace(',', '.')) || 0;
+  const orig  = parseFloat((row.store_price   || '').replace(',', '.')) || 0;
+
+  // Ignora linha de cabeçalho caso venha no CSV
+  if (!name || name.toLowerCase() === 'product_name') return null;
+  if (!img || !img.startsWith('http') || img.toLowerCase() === 'merchant_image_url') return null;
+  if (!url || !url.startsWith('http') || url.toLowerCase() === 'aw_deep_link') return null;
+  if (price <= 5)                         return null;
 
   const priceFmt = formatPrice(price);
   const origFmt  = orig > price ? formatPrice(orig) : null;
   const discount = calcDiscount(price, orig);
 
+  // display_price já vem formatado pela AWIN (ex: "R$ 299,90")
+  const displayPrice = (row.display_price || '').trim();
+
   return {
-    id:                `${brandKey}_feed_${id || Date.now()}`,
-    advertiser:        BRAND_FEEDS[brandKey]?.name || brand,
-    advertiserId:      String(mid),
-    source:            'awin_feed',
-    type:              'product',
-    title:             name,
-    description:       (row.description || '').substring(0, 200).trim() || `${name} — compre agora com preço especial`,
-    priceOriginal:     origFmt,
-    priceCurrent:      priceFmt,
-    discount:          discount,
-    categories:        cat || brandKey,
-    imageUrl:          img,
-    deeplink:          url,
-    deeplinkTracking:  buildAwinUrl(mid, url),
-    feedSyncedAt:      new Date().toISOString().split('T')[0],
+    id:               `${brandKey}_feed_${id || Math.random().toString(36).slice(2)}`,
+    advertiser:       BRAND_FEEDS[brandKey]?.name || (row.merchant_name || '').trim(),
+    advertiserId:     String(mid),
+    source:           'awin_feed',
+    type:             'product',
+    title:            name,
+    description:      (row.description || '').substring(0, 200).trim()
+                        || `${name} — oferta especial com preço garantido`,
+    priceOriginal:    origFmt,
+    priceCurrent:     displayPrice || priceFmt,
+    discount:         discount,
+    categories:       cat || brandKey,
+    imageUrl:         img,
+    deeplink:         url,        // já é o link afiliado AWIN (aw_deep_link)
+    deeplinkTracking: url,        // mesmo link — aw_deep_link já rastreia
+    feedSyncedAt:     new Date().toISOString().split('T')[0],
   };
 }
 
@@ -242,26 +266,55 @@ async function discoverFeedIds() {
     const listUrl = `https://productdata.awin.com/datafeed/list/apikey/${AWIN_FEED_API_KEY}`;
     const raw = await downloadFeed(listUrl);
 
-    // A lista retorna CSV com: feedId, feedName, merchantId, merchantName, etc.
-    const rows = csv.parse(raw, { columns: true, skip_empty_lines: true, relax_quotes: true });
+    // A lista retorna CSV com cabeçalho: "Advertiser ID","Advertiser Name",...,"Feed ID",...
+    const rows = csv.parse(raw, { columns: true, skip_empty_lines: true, relax_quotes: true, trim: true });
     const map = {};
 
     for (const row of rows) {
-      const mid = parseInt(row.merchantId || row.merchant_id || 0);
-      const feedId = row.feedId || row.feed_id || row.id;
-      if (mid && feedId) {
-        map[mid] = feedId;
+      const mid = parseInt(row['Advertiser ID'] || row['advertiser_id'] || row.merchantId || row.merchant_id || 0, 10);
+      const feedId = parseInt(row['Feed ID'] || row['feed_id'] || row.feedId || row.id || 0, 10);
+      const status = (row['Membership Status'] || row['membership_status'] || '').toLowerCase();
+      if (mid && feedId && (status === 'active' || status === 'joined' || !status)) {
+        // Guarda o feed ID se ainda não tinha ou se tem mais produtos
+        if (!map[mid]) {
+          map[mid] = feedId;
+        }
       }
     }
 
-    console.log(`   Encontrados ${Object.keys(map).length} feeds disponíveis.`);
+    console.log(`   Encontrados ${Object.keys(map).length} anunciantes com feeds ativos.`);
     return map;
   } catch (e) {
     console.warn(`   Aviso: não foi possível obter lista de feeds (${e.message})`);
-    console.warn('   Tentarei buscar por merchant ID diretamente.');
+    console.warn('   Usando feed IDs estáticos configurados.');
     return {};
   }
 }
+
+// ── Colunas na ordem exata que o feed CSV entrega (sem cabeçalho) ─────────────
+const FEED_COLUMN_NAMES = [
+  'aw_deep_link',
+  'product_name',
+  'aw_product_id',
+  'merchant_product_id',
+  'merchant_image_url',
+  'description',
+  'merchant_category',
+  'search_price',
+  'merchant_name',
+  'merchant_id',
+  'category_name',
+  'category_id',
+  'aw_image_url',
+  'currency',
+  'store_price',
+  'delivery_cost',
+  'merchant_deep_link',
+  'language',
+  'last_updated',
+  'display_price',
+  'data_feed_id',
+];
 
 // ── Sincroniza uma marca ──────────────────────────────────────────────────────
 async function syncBrand(brandKey, feedIdOverride) {
@@ -269,22 +322,30 @@ async function syncBrand(brandKey, feedIdOverride) {
   if (!cfg) return [];
 
   const feedId = feedIdOverride || cfg.feedId;
-  const url    = buildFeedUrl(feedId, cfg.mid);
+  if (!feedId) {
+    console.log(`  [${brandKey}] ℹ️  Marca sem feed CSV ativo na AWIN — mantendo catálogo existente`);
+    return [];
+  }
 
+  const url = buildFeedUrl(feedId);
   if (!url) {
-    console.warn(`  [${brandKey}] Sem AWIN_FEED_API_KEY — pulando feed AWIN`);
+    console.log(`  [${brandKey}] ℹ️  Sem chave AWIN_FEED_API_KEY — pulando feed AWIN`);
     return [];
   }
 
   console.log(`  [${brandKey}] Baixando feed: ${cfg.name}...`);
 
   try {
-    const raw  = await downloadFeed(url);
+    const raw = await downloadFeed(url);
+
+    // O feed AWIN não inclui linha de cabeçalho — fornecemos os nomes manualmente
     const rows = csv.parse(raw, {
-      columns:          true,
+      columns:          FEED_COLUMN_NAMES,
       skip_empty_lines: true,
       relax_quotes:     true,
+      relax_column_count: true,
       trim:             true,
+      bom:              true,
     });
 
     const products = [];
@@ -297,7 +358,7 @@ async function syncBrand(brandKey, feedIdOverride) {
     console.log(`  [${brandKey}] ✅ ${products.length} produtos válidos (de ${rows.length} no feed)`);
     return products;
   } catch (e) {
-    console.warn(`  [${brandKey}] ⚠️  Erro: ${e.message}`);
+    console.log(`  [${brandKey}] ⚠️  Aviso: ${e.message}`);
     return [];
   }
 }
