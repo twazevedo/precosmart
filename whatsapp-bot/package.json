@@ -8,6 +8,8 @@
     "start": "node bot.js",
     "dev": "node --watch bot.js",
     "crawl:brands": "node scripts/crawl_all_approved_brands.js",
+    "feed:sync": "node scripts/awin_feed_sync.js",
+    "feed:sync:dry": "node scripts/awin_feed_sync.js --dry-run",
     "test": "node --test test/mirror.test.js"
   },
   "engines": {
@@ -17,6 +19,7 @@
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.20.0",
     "cheerio": "^1.2.0",
+    "csv-parse": "^5.6.0",
     "express": "^4.21.2",
     "mongodb": "^7.6.0",
     "node-cron": "^4.6.0",

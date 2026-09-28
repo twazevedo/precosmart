@@ -1888,7 +1888,46 @@ function setupCronJobs() {
     }
   }, { timezone: 'America/Sao_Paulo' });
 
-  logEntry('CRON', 'Horários ativos: 09h • 12h • 16h • 19:30 • 20h (Top 5) • 22h');
+  // ── AWIN Feed Sync — toda segunda-feira às 04:30 (horário silencioso) ──────
+  // Sincroniza automaticamente preços e imagens via AWIN Product Feed API
+  // e recarrega o catálogo em memória sem precisar reiniciar o bot.
+  cron.schedule('30 4 * * 1', async () => {
+    if (!process.env.AWIN_FEED_API_KEY) {
+      logEntry('FEED_SYNC', 'Pulado: AWIN_FEED_API_KEY não configurada.');
+      return;
+    }
+    logEntry('FEED_SYNC', 'Iniciando sincronização semanal do catálogo AWIN...');
+    try {
+      const { execFile } = require('child_process');
+      const syncScript = require('path').join(__dirname, 'scripts/awin_feed_sync.js');
+      await new Promise((resolve, reject) => {
+        execFile(process.execPath, [syncScript], { timeout: 5 * 60 * 1000 }, (err, stdout, stderr) => {
+          if (err) {
+            logEntry('FEED_SYNC_ERROR', 'Erro no sync: ' + (err.message || ''));
+            if (stderr) logEntry('FEED_SYNC_STDERR', stderr.substring(0, 500));
+            return reject(err);
+          }
+          if (stdout) logEntry('FEED_SYNC_OUT', stdout.substring(0, 1000));
+          resolve();
+        });
+      });
+      // Recarregar o catálogo em memória sem reiniciar o bot
+      try {
+        const dataPath = require('path').join(__dirname, 'awinDealsData.json');
+        delete require.cache[require.resolve('./awinCatalog')];
+        delete require.cache[dataPath];
+        logEntry('FEED_SYNC', '✅ Catálogo AWIN recarregado em memória com sucesso.');
+        notifyAdmin('FEED_SYNC', '✅ Catálogo AWIN atualizado automaticamente!\nPróximo sync: na próxima segunda às 04:30.').catch(() => {});
+      } catch (reloadErr) {
+        logEntry('FEED_SYNC_WARN', 'Sync OK mas reload falhou — catálogo será atualizado no próximo restart: ' + reloadErr.message);
+      }
+    } catch (syncErr) {
+      logEntry('FEED_SYNC_ERROR', 'Falha na sincronização semanal: ' + syncErr.message);
+      notifyAdmin('FEED_SYNC_ERROR', '⚠️ Falha no sync AWIN: ' + syncErr.message).catch(() => {});
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  logEntry('CRON', 'Horários ativos: 09h • 12h • 16h • 19:30 • 20h (Top 5) • 22h • Feed AWIN (seg 04:30)');
 }
 
 const { MongoClient } = require('mongodb');
