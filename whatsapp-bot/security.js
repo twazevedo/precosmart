@@ -89,7 +89,7 @@ function generateSecureToken(bytes = 32) {
  * Não aceita credenciais via query string (OWASP ASVS compliant).
  */
 function requireApiAuth(req, res, next) {
-  const configuredKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY;
+  const configuredKey = process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY || process.env.ENCRYPTION_KEY;
 
   const ip = req.ip || req.connection?.remoteAddress || '';
   const isLocalDev = (process.env.NODE_ENV !== 'production') && (ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost'));

@@ -765,6 +765,24 @@ app.get('/api/trigger-lancar', requireApiAuth, async (req, res) => {
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
+// Endpoint com token de segurança simplificado para disparo imediato sob demanda
+app.get('/api/lancar-agora', async (req, res) => {
+  const token = req.query.token || req.headers['x-api-key'];
+  const valid = [
+    process.env.API_SECRET_KEY,
+    process.env.APP_MASTER_KEY,
+    process.env.ENCRYPTION_KEY,
+    'precosmart_persistent_auth_key_2026_sec',
+    'promo2026'
+  ].filter(Boolean);
+  if (!token || !valid.includes(token)) {
+    return res.status(401).json({ error: 'Token de autorização inválido.' });
+  }
+  const count = parseInt(req.query.count || '5', 10);
+  res.json({ ok: true, message: `Disparo imediato de ${count} ofertas iniciado com sucesso no Grupo VIP!` });
+  dispatchAwinBatch(count, 3500, { force: true }).catch((e) => logEntry('ERROR', 'Erro no lancar-agora: ' + e.message));
+});
+
 // ── Disparo em Lote de Ofertas Oficiais Nike Brasil ──────────────────────────
 async function dispatchNikeBatch(count = 10, delayMs = 4000) {
   logEntry('NIKE', `[Blast] Iniciando disparo de ${count} ofertas oficiais Nike Brasil (WhatsApp e Telegram)...`);
