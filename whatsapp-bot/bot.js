@@ -58,7 +58,9 @@ const {
   getSpecificStanleyDeal,
   getSpecificDecathlonDeal,
   getSpecificVenancioDeal,
-  getSpecificPumaDeal
+  getSpecificPumaDeal,
+  getSpecificMizunoDeal,
+  getSpecificHavaianasDeal
 } = require('./awinCatalog');
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
@@ -1900,14 +1902,16 @@ function setupCronJobs() {
     try {
       const { execFile } = require('child_process');
       const syncScript = require('path').join(__dirname, 'scripts/awin_feed_sync.js');
-      await new Promise((resolve, reject) => {
+      const havaianasScript = require('path').join(__dirname, 'scripts/crawl_havaianas.js');
+      await new Promise((resolve) => {
         execFile(process.execPath, [syncScript], { timeout: 5 * 60 * 1000 }, (err, stdout, stderr) => {
-          if (err) {
-            logEntry('FEED_SYNC_ERROR', 'Erro no sync: ' + (err.message || ''));
-            if (stderr) logEntry('FEED_SYNC_STDERR', stderr.substring(0, 500));
-            return reject(err);
-          }
-          if (stdout) logEntry('FEED_SYNC_OUT', stdout.substring(0, 1000));
+          if (err) logEntry('FEED_SYNC_WARN', 'Aviso no feed sync: ' + (err.message || ''));
+          resolve();
+        });
+      });
+      await new Promise((resolve) => {
+        execFile(process.execPath, [havaianasScript], { timeout: 3 * 60 * 1000 }, (err) => {
+          if (err) logEntry('FEED_SYNC_WARN', 'Aviso no sync Havaianas: ' + (err.message || ''));
           resolve();
         });
       });

@@ -137,6 +137,8 @@ try {
 const BRAND_KEYS = [
   'nike',
   'puma',
+  'mizuno',
+  'havaianas',
   'stanley',
   'kabum',
   'decathlon',
@@ -160,6 +162,8 @@ function getBrandPool(brandKey) {
   switch (brandKey) {
     case 'nike':        list = awinMasterData.nikeDeals || []; break;
     case 'puma':        list = awinMasterData.pumaDeals || []; break;
+    case 'mizuno':      list = awinMasterData.mizunoDeals || []; break;
+    case 'havaianas':   list = awinMasterData.havaianasDeals || []; break;
     case 'stanley':     list = awinMasterData.stanleyDeals || []; break;
     case 'kabum':       list = (awinMasterData.kabumDeals && awinMasterData.kabumDeals.length > 0) ? awinMasterData.kabumDeals : (awinMasterData.products || []); break;
     case 'decathlon':   list = awinMasterData.decathlonDeals || []; break;
@@ -189,6 +193,8 @@ let currentBrandSequenceIndex = 0;
 const allAvailableProducts = [
   ...(awinMasterData.nikeDeals || []),
   ...(awinMasterData.pumaDeals || []),
+  ...(awinMasterData.mizunoDeals || []),
+  ...(awinMasterData.havaianasDeals || []),
   ...(awinMasterData.stanleyDeals || []),
   ...(awinMasterData.decathlonDeals || []),
   ...(awinMasterData.venancioDeals || []),
@@ -263,6 +269,12 @@ function getProductBadge(title = '', advertiser = '', categories = '') {
   }
   if (t.includes('olympikus') || t.includes('corre vento') || t.includes('corre grafeno') || t.includes('tênis corre') || t.includes('ultraleve')) {
     return '🏃 *OLYMPIKUS BRASIL — ESPORTE, TREINO & CORRIDA* 👟⚡';
+  }
+  if (t.includes('mizuno') || t.includes('wave prophecy') || t.includes('wave rider') || t.includes('wave creation') || t.includes('morelia')) {
+    return '🏃‍♂️ *MIZUNO BRASIL OFICIAL — WAVE & ALTA PERFORMANCE* 👟⚡';
+  }
+  if (t.includes('havaianas') || t.includes('chinelo havaianas') || t.includes('sandália havaianas')) {
+    return '🩴 *HAVAIANAS BRASIL OFICIAL — TODO MUNDO USA* ✨🇧🇷';
   }
   if (t.includes('lacoste') || t.includes('crocodilo') || t.includes('polo lacoste')) {
     return '🐊 *LACOSTE BRASIL OFICIAL — MODA & ELEGÂNCIA* 👕✨';
@@ -1194,12 +1206,76 @@ async function getSpecificPumaDeal(index = 0) {
   };
 }
 
+/**
+ * Retorna uma oferta oficial da Mizuno Brasil com link de afiliado e foto oficial
+ */
+async function getSpecificMizunoDeal(index = 0) {
+  const list = (awinMasterData.mizunoDeals && awinMasterData.mizunoDeals.length > 0)
+    ? awinMasterData.mizunoDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '51271' || (p.advertiser && p.advertiser.toLowerCase().includes('mizuno')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🏃‍♂️ *MIZUNO BRASIL OFICIAL — WAVE & ALTA PERFORMANCE* 👟⚡\n\n🏷️ *${p.title}*\n🏪 *Loja:* Mizuno Brasil Oficial\n${priceSection}${discountSection}${descSection}🛒 *Garanta o seu com desconto oficial na Mizuno:*\n👉 ${shortUrl}\n\n⚡ *Tecnologia Wave, amortecimento máximo e durabilidade lendária japonesa.*\n⚠️ *Aviso:* Estoque e numerações sujeitos à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'Mizuno Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
+/**
+ * Retorna uma oferta oficial da Havaianas Brasil com link de afiliado e foto oficial
+ */
+async function getSpecificHavaianasDeal(index = 0) {
+  const list = (awinMasterData.havaianasDeals && awinMasterData.havaianasDeals.length > 0)
+    ? awinMasterData.havaianasDeals
+    : (awinMasterData.products || []).filter(p => p.advertiserId === '119883' || (p.advertiser && p.advertiser.toLowerCase().includes('havaianas')));
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const imageUrl = upgradeToHdImage(p.imageUrl);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `💵 *Preço:* De ~${p.priceOriginal}~ por apenas *${p.priceCurrent}*\n`
+    : (p.priceCurrent ? `💵 *Preço:* *${p.priceCurrent}*\n` : '');
+  const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
+  const descSection = p.description ? `📝 ${p.description}\n\n` : '';
+
+  const text = `🩴 *HAVAIANAS BRASIL OFICIAL — TODO MUNDO USA* ✨🇧🇷\n\n🏷️ *${p.title}*\n🏪 *Loja:* Havaianas Brasil Oficial\n${priceSection}${discountSection}${descSection}🛒 *Compre direto na loja oficial Havaianas:*\n👉 ${shortUrl}\n\n🏖️ *Borracha 100% legítima, conforto consagrado e originalidade garantida.*\n⚠️ *Aviso:* Estoque e tamanhos sujeitos à disponibilidade.`;
+
+  return {
+    type: 'product',
+    store: 'Havaianas Brasil Oficial',
+    title: p.title,
+    url: shortUrl,
+    rawUrl: p.deeplinkTracking,
+    imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
   getSpecificKabumDeal,
   getSpecificNikeDeal,
   getSpecificPumaDeal,
+  getSpecificMizunoDeal,
+  getSpecificHavaianasDeal,
   getSpecificStanleyDeal,
   getSpecificDecathlonDeal,
   getSpecificVenancioDeal,
