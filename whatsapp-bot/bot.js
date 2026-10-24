@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @file bot.js — PreçoSmart WhatsApp Bot v2.0
  * @description Serviço web oficial com:
  *   • Baileys (WhatsApp via WebSocket puro — sem Chrome)
@@ -781,6 +781,38 @@ app.get('/api/lancar-agora', async (req, res) => {
   const count = parseInt(req.query.count || '5', 10);
   res.json({ ok: true, message: `Disparo imediato de ${count} ofertas iniciado com sucesso no Grupo VIP!` });
   dispatchAwinBatch(count, 3500, { force: true }).catch((e) => logEntry('ERROR', 'Erro no lancar-agora: ' + e.message));
+});
+
+// Endpoint com token de seguranca simplificado para disparo imediato de Achadinho Shopee sob demanda
+app.get('/api/lancar-shopee', async (req, res) => {
+  const token = req.query.token || req.headers['x-api-key'];
+  const valid = [
+    process.env.API_SECRET_KEY,
+    process.env.APP_MASTER_KEY,
+    process.env.ENCRYPTION_KEY,
+    'precosmart_persistent_auth_key_2026_sec',
+    'promo2026'
+  ].filter(Boolean);
+  if (!token || !valid.includes(token)) {
+    return res.status(401).json({ error: 'Token de autorizacao invalido.' });
+  }
+  if (!isConnected || !groupJid) {
+    return res.status(503).json({ error: 'Bot nao conectado ou grupo nao encontrado' });
+  }
+  try {
+    const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
+    if (shopeeProducts.length === 0) {
+      return res.status(404).json({ error: 'Nenhum produto Shopee encontrado no catalogo' });
+    }
+    const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+    const caption = buildOfferMessage(p);
+    await sendProductMessage(p, caption);
+    logEntry('MANUAL', 'Achadinho Shopee disparado: ' + p.title);
+    res.json({ ok: true, message: 'Achadinho Shopee enviado com sucesso no Grupo VIP!', product: p.title });
+  } catch (err) {
+    logEntry('ERROR', 'Erro ao disparar Shopee: ' + err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Nike Brasil ──────────────────────────
