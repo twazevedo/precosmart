@@ -2385,6 +2385,13 @@ async function startBot() {
       return;
     }
 
+    function extractCleanPhone(jid) {
+      if (!jid) return '';
+      const part = String(jid).split('@')[0];
+      const noDevice = part.split(':')[0];
+      return noDevice.replace(/[^0-9]/g, '');
+    }
+
     let cleanReplyJid = remoteJid;
     if (remoteJid.includes('@s.whatsapp.net')) {
       cleanReplyJid = remoteJid.split(':')[0].replace(/@.+/, '') + '@s.whatsapp.net';
@@ -2392,11 +2399,13 @@ async function startBot() {
 
     async function replyToUser(content) {
       try {
-        const res = await waSocket.sendMessage(cleanReplyJid, content);
+        const payload = typeof content === 'string' ? { text: content } : content;
+        const target = (msg.key.fromMe && !isGroup && groupJid) ? groupJid : (cleanReplyJid || remoteJid);
+        const res = await waSocket.sendMessage(target, payload);
         if (res?.key?.id && res?.message) messageStore.set(res.key.id, res);
-        logEntry('CMD_SENT', `Resposta enviada para ${cleanReplyJid}`);
+        logEntry('CMD_SENT', `Resposta enviada para ${target}`);
       } catch (replyErr) {
-        logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid}: ${replyErr.message}`);
+        logEntry('CMD_ERR', `Erro ao responder para ${cleanReplyJid || remoteJid}: ${replyErr.message}`);
       }
     }
 
@@ -2413,30 +2422,34 @@ async function startBot() {
 
       const rawOwners = process.env.OWNER_NUMBER || '';
       const ownerList = rawOwners.split(/[,;\s]+/).map((n) => n.replace(/[^0-9]/g, '')).filter(Boolean);
-      const senderPhone = (msg.key.fromMe ? (sock.user?.id || '') : senderJid).replace(/[^0-9]/g, '');
+      const senderPhone = extractCleanPhone(msg.key.fromMe ? (sock.user?.id || '') : senderJid);
 
-      // Verifica se o remetente é admin do grupo VIP
+      // Verifica se o remetente e admin do grupo VIP
       let isGroupAdmin = false;
       try {
         if (isGroup && remoteJid) {
           const groupMeta = await sock.groupMetadata(remoteJid);
-          const found = groupMeta.participants.find(p => p.id.includes(senderPhone) || p.id === senderJid);
+          const found = groupMeta.participants.find(p => {
+            const pClean = extractCleanPhone(p.id);
+            return (pClean && pClean === senderPhone) || p.id === senderJid || p.lid === senderJid;
+          });
           if (found && (found.admin === 'admin' || found.admin === 'superadmin')) {
             isGroupAdmin = true;
           }
         }
       } catch (e) {}
 
-      // Autorizado se enviado do próprio número (fromMe), admin do grupo VIP, ou da lista oficial de donos
+      // Autorizado se enviado do proprio numero (fromMe), admin do grupo VIP, ou da lista oficial de donos
       const isAuthorized = Boolean(
         msg.key.fromMe || 
         isGroupAdmin ||
         (ownerList.length > 0 && ownerList.some((owner) => {
           if (!owner || !senderPhone) return false;
-          return senderPhone === owner || (owner.length >= 10 && senderPhone.endsWith(owner));
+          return senderPhone === owner || 
+                 (owner.length >= 10 && senderPhone.endsWith(owner)) || 
+                 (senderPhone.length >= 10 && owner.endsWith(senderPhone));
         }))
       );
-
       logEntry('CMD', `Comando recebido: "${text}" | de: ${senderJid} (fromMe: ${!!msg.key.fromMe}, auth: ${isAuthorized})`);
 
       const [cmd, ...args] = text.split(' ');
