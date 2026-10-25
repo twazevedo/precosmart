@@ -101,6 +101,10 @@ const FEED_COLUMNS = [
   'last_updated',
   'display_price',
   'data_feed_id',
+  'product_price_old',
+  'rrp_price',
+  'savings_percent',
+  'in_stock',
 ].join(',');
 
 // ── Mapeamento de marcas com feedIds reais descobertos na AWIN ────────────────
@@ -108,23 +112,23 @@ const FEED_COLUMNS = [
 //         usam null e o script tenta pelo mid (pode não funcionar para todas).
 // maxItems: limite de produtos por marca para evitar catálogos gigantes no JSON
 const BRAND_FEEDS = {
-  cea:        { feedId: 58627,  mid: 17648,  name: 'C&A Brasil',         maxItems: 300 },
-  nike:       { feedId: 93360,  mid: 17652,  name: 'Nike Brasil',        maxItems: 200 },
-  olympikus:  { feedId: 51837,  mid: 17698,  name: 'Olympikus',          maxItems: 250 },
-  kabum:      { feedId: 46967,  mid: 17729,  name: 'KaBuM!',             maxItems: 150 },
+  cea:        { feedId: 58627,  mid: 17648,  name: 'C&A Brasil',         maxItems: 1500 },
+  nike:       { feedId: 93360,  mid: 17652,  name: 'Nike Brasil',        maxItems: 1500 },
+  olympikus:  { feedId: 51837,  mid: 17698,  name: 'Olympikus',          maxItems: 1200 },
+  kabum:      { feedId: 46967,  mid: 17729,  name: 'KaBuM!',             maxItems: 1000 },
   underArmour:{ feedId: null,   mid: 18864,  name: 'Under Armour',       maxItems: 150 },
-  aliexpress: { feedId: 47247,  mid: 18879,  name: 'AliExpress Brasil',  maxItems: 150 },
+  aliexpress: { feedId: 47247,  mid: 18879,  name: 'AliExpress Brasil',  maxItems: 400 },
   decathlon:  { feedId: null,   mid: 19296,  name: 'Decathlon',          maxItems: 200 },
-  lego:       { feedId: 72027,  mid: 30511,  name: 'LEGO Brasil',        maxItems: 200 },
+  lego:       { feedId: 72027,  mid: 30511,  name: 'LEGO Brasil',        maxItems: 500 },
   stanley:    { feedId: 72033,  mid: 30599,  name: 'Stanley Brasil',     maxItems: 200 },
   puma:       { feedId: null,   mid: 32675,  name: 'Puma Brasil',        maxItems: 150 },
-  lg:         { feedId: 103134, mid: 33061,  name: 'LG Brasil',          maxItems: 150 },
+  lg:         { feedId: 103134, mid: 33061,  name: 'LG Brasil',          maxItems: 400 },
   venancio:   { feedId: null,   mid: 47165,  name: 'Drogaria Venâncio',  maxItems: 150 },
   ninja:      { feedId: 98682,  mid: 106763, name: 'Shark-Ninja',        maxItems: 100 },
   hope:       { feedId: null,   mid: 107039, name: 'Hope Lingerie',      maxItems: 150 },
-  clovis:     { feedId: 98680,  mid: 107702, name: 'Clovis Calçados',    maxItems: 250 },
+  clovis:     { feedId: 98680,  mid: 107702, name: 'Clovis Calçados',    maxItems: 1500 },
   lacoste:    { feedId: null,   mid: 112756, name: 'Lacoste Brasil',     maxItems: 100 },
-  mizuno:     { feedId: 85451,  mid: 51271,  name: 'Mizuno Brasil',      maxItems: 250 },
+  mizuno:     { feedId: 85451,  mid: 51271,  name: 'Mizuno Brasil',      maxItems: 1500 },
 };
 
 // Mapeamento brandKey → chave no awinDealsData.json
@@ -224,17 +228,21 @@ function parseRow(row, brandKey, mid) {
 
   // Preço: search_price é o preço atual (com desconto), store_price é o original
   const price = parseFloat((row.search_price  || '').replace(',', '.')) || 0;
-  const orig  = parseFloat((row.store_price   || '').replace(',', '.')) || 0;
+  const num   = (v) => parseFloat(String(v || '').replace(',', '.')) || 0;
+  const orig  = num(row.product_price_old) || num(row.rrp_price) || num(row.store_price);
 
   // Ignora linha de cabeçalho caso venha no CSV
   if (!name || name.toLowerCase() === 'product_name') return null;
   if (!img || !img.startsWith('http') || img.toLowerCase() === 'merchant_image_url') return null;
   if (!url || !url.startsWith('http') || url.toLowerCase() === 'aw_deep_link') return null;
   if (price <= 5)                         return null;
+  const stock = String(row.in_stock || '').trim().toLowerCase();
+  if (['0', 'false', 'no', 'n', 'nao', 'n\u00e3o', 'out of stock', 'out_of_stock', 'outofstock'].includes(stock)) return null;
 
   const priceFmt = formatPrice(price);
   const origFmt  = orig > price ? formatPrice(orig) : null;
   const discount = calcDiscount(price, orig);
+  const pctNum   = orig > price ? Math.round((1 - price / orig) * 100) : 0;
 
   // display_price já vem formatado pela AWIN (ex: "R$ 299,90")
   const displayPrice = (row.display_price || '').trim();
@@ -251,6 +259,7 @@ function parseRow(row, brandKey, mid) {
     priceOriginal:    origFmt,
     priceCurrent:     displayPrice || priceFmt,
     discount:         discount,
+    __pct:            pctNum,   // só para ranking; removido antes de salvar
     categories:       cat || brandKey,
     imageUrl:         img,
     deeplink:         url,        // já é o link afiliado AWIN (aw_deep_link)
@@ -316,6 +325,10 @@ const FEED_COLUMN_NAMES = [
   'last_updated',
   'display_price',
   'data_feed_id',
+  'product_price_old',
+  'rrp_price',
+  'savings_percent',
+  'in_stock',
 ];
 
 // ── Sincroniza uma marca ──────────────────────────────────────────────────────
@@ -350,19 +363,53 @@ async function syncBrand(brandKey, feedIdOverride) {
       bom:              true,
     });
 
-    const products = [];
+    // 1 produto por título (ignora variantes de cor/tamanho) e guarda TODOS os links do feed (para limpar o que saiu)
+    const normTitle = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 90);
+    const feedLinks = new Set();
+    const byTitle = new Map();
     for (const row of rows) {
-      if (products.length >= cfg.maxItems) break;
       const p = parseRow(row, brandKey, cfg.mid);
-      if (p) products.push(p);
+      if (!p) continue;
+      feedLinks.add(p.deeplink);
+      const k = normTitle(p.title);
+      const cur = byTitle.get(k);
+      if (!cur || p.__pct > cur.__pct) byTitle.set(k, p);
     }
+    const unique = [...byTitle.values()];
+    const discounted = unique.filter(p => p.__pct > 0).sort((a, b) => b.__pct - a.__pct);
+    const others = unique.filter(p => !(p.__pct > 0));
+    for (let i = others.length - 1; i > 0; i--) {  // embaralha os sem desconto conhecido
+      const j = Math.floor(Math.random() * (i + 1));
+      [others[i], others[j]] = [others[j], others[i]];
+    }
+    const products = [...discounted, ...others].slice(0, cfg.maxItems);
+    products.forEach(p => { delete p.__pct; });
+    products.feedLinks = feedLinks;
+    products.uniqueTitles = unique.length;
 
-    console.log(`  [${brandKey}] ✅ ${products.length} produtos válidos (de ${rows.length} no feed)`);
+    console.log(`  [${brandKey}] OK ${products.length} selecionados (${unique.length} t\u00edtulos \u00fanicos, ${discounted.length} com desconto, de ${rows.length} linhas no feed)`);
     return products;
   } catch (e) {
     console.log(`  [${brandKey}] ⚠️  Aviso: ${e.message}`);
     return [];
   }
+}
+
+// ── Remove itens vindos de feed que não existem mais no feed (evita link morto no grupo) ──
+function pruneStale(data, dataKey, feedProducts, brandKey) {
+  const links = feedProducts.feedLinks;
+  if (!links || links.size < 50) return;
+  const list = data[dataKey] || [];
+  const fromFeed = list.filter(p => p.source === 'awin_feed');
+  const stale = fromFeed.filter(p => p.deeplink && !links.has(p.deeplink));
+  if (!stale.length) return;
+  if (stale.length / fromFeed.length > 0.6) {
+    console.log(`  [${brandKey}] AVISO: ${stale.length}/${fromFeed.length} itens sumiram do feed - poda ignorada por segurança`);
+    return;
+  }
+  const staleSet = new Set(stale);
+  data[dataKey] = list.filter(p => !staleSet.has(p));
+  console.log(`  [${brandKey}] ${stale.length} itens removidos (saíram do feed)`);
 }
 
 // ── Mescla produtos do feed com os existentes ─────────────────────────────────
@@ -460,6 +507,7 @@ async function main() {
 
     if (!DRY_RUN) {
       data[dataKey] = mergeProducts(existing, feedProducts, brandKey);
+      pruneStale(data, dataKey, feedProducts, brandKey);
     }
 
     stats.brands[brandKey] = {
