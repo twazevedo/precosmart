@@ -283,17 +283,21 @@
     async function triggerBrand(brand) {
       showToast('Disparando oferta de ' + brand + '...');
       try {
-        let endpoint = `${apiUrl}/api/send-awin`;
-        if (brand !== 'awin') {
-          endpoint = `${apiUrl}/api/trigger-${brand}`;
+        let endpoint = `${apiUrl}/api/trigger-${brand}`;
+        if (brand === 'awin') {
+          endpoint = `${apiUrl}/api/send-awin`;
         }
         const res = await fetch(endpoint, {
           method: 'GET',
           headers: { 'x-api-key': apiKey }
         });
-        showToast('Oferta enviada para o Grupo VIP!');
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || 'Erro HTTP ' + res.status);
+        }
+        showToast(`✅ Oferta de ${data.store || brand} enviada ao Grupo!`);
       } catch (e) {
-        showToast('Erro ao disparar: ' + e.message, true);
+        showToast('Falha no envio: ' + e.message, true);
       }
     }
 
@@ -302,7 +306,7 @@
       const text = document.getElementById('customText').value.trim();
       if (!url) return showToast('Cole um link válido!', true);
 
-      showToast('Enviando oferta...');
+      showToast('Enviando oferta para o Grupo VIP...');
       try {
         const res = await fetch(`${apiUrl}/api/send-custom`, {
           method: 'POST',
@@ -312,7 +316,11 @@
           },
           body: JSON.stringify({ url, text })
         });
-        showToast('Oferta personalizada postada no Grupo VIP!');
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          throw new Error(data.error || 'Erro ' + res.status);
+        }
+        showToast('✅ Oferta personalizada postada no Grupo VIP!');
         document.getElementById('customUrl').value = '';
         document.getElementById('customText').value = '';
       } catch (e) {

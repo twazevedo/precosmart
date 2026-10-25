@@ -653,19 +653,29 @@ app.post('/api/send-flash', requireApiAuth, async (req, res) => {
 
 app.post('/api/send-custom', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
-  const { text, imageUrl } = req.body;
+  const { text, imageUrl, url } = req.body;
+  let fullText = text || '';
+  if (url && !fullText.includes(url)) {
+    fullText = fullText 
+      ? `${fullText}\n\n👉 *COMPRE COM DESCONTO AQUI:*\n🔗 ${url}\n\n🛡️ _Compra 100% segura e garantida._`
+      : `🔥 *OFERTA RECOMENDADA PREÇOSMART* 🔥\n\n👉 *COMPRE COM DESCONTO AQUI:*\n🔗 ${url}\n\n⚡ _Aproveite enquanto durar o estoque!_`;
+  }
   try {
-    if (imageUrl) {
-      await waSocket.sendMessage(groupJid, {
-        image: { url: imageUrl },
-        caption: text,
-        mimetype: 'image/jpeg'
-      });
-    } else {
-      await waSocket.sendMessage(groupJid, { text });
+    const targetJids = getTargetJids();
+    for (const jid of targetJids) {
+      if (!jid.endsWith('@g.us')) continue;
+      if (imageUrl) {
+        await waSocket.sendMessage(jid, {
+          image: { url: imageUrl },
+          caption: fullText,
+          mimetype: 'image/jpeg'
+        });
+      } else {
+        await waSocket.sendMessage(jid, { text: fullText });
+      }
     }
-    logEntry('MANUAL', 'Oferta personalizada enviada com sucesso');
-    res.json({ ok: true });
+    logEntry('MANUAL', 'Oferta personalizada enviada com sucesso para o grupo');
+    res.json({ ok: true, message: 'Oferta personalizada enviada com sucesso!' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -810,7 +820,7 @@ app.get('/api/lancar-agora', async (req, res) => {
   if (!token || !valid.includes(token)) {
     return res.status(401).json({ error: 'Token de autorização inválido.' });
   }
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo imediato de ${count} ofertas iniciado com sucesso no Grupo VIP!` });
   dispatchAwinBatch(count, 3500, { force: true }).catch((e) => logEntry('ERROR', 'Erro no lancar-agora: ' + e.message));
 });
@@ -1036,7 +1046,7 @@ async function dispatchMLBatch(count = 5, delayMs = 4000) {
 }
 
 app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais do Mercado Livre iniciado com sucesso!` });
   dispatchMLBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Mercado Livre: ' + e.message));
 });
@@ -1098,7 +1108,7 @@ async function dispatchKabumBatch(count = 5, delayMs = 4000) {
 }
 
 app.get('/api/trigger-kabum', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais KaBuM! iniciado com sucesso!` });
   dispatchKabumBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast KaBuM: ' + e.message));
 });
@@ -1160,7 +1170,7 @@ async function dispatchOlympikusBatch(count = 5, delayMs = 4000) {
 }
 
 app.get('/api/trigger-olympikus', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Olympikus iniciado com sucesso!` });
   dispatchOlympikusBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Olympikus: ' + e.message));
 });
@@ -1222,7 +1232,7 @@ async function dispatchClovisBatch(count = 5, delayMs = 4000) {
 }
 
 app.get('/api/trigger-clovis', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Clovis Calçados iniciado com sucesso!` });
   dispatchClovisBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Clovis Calçados: ' + e.message));
 });
@@ -1284,81 +1294,115 @@ async function dispatchBrandBatch(brandName, getterFn, count = 5, delayMs = 4000
 }
 
 app.get('/api/trigger-lego', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Lego Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Lego', getSpecificLegoDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Lego: ' + e.message));
 });
 
 app.get('/api/trigger-ninja', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Shark-Ninja iniciado com sucesso!` });
   dispatchBrandBatch('SharkNinja', getSpecificNinjaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Ninja: ' + e.message));
 });
 
 app.get('/api/trigger-underarmour', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Under Armour iniciado com sucesso!` });
   dispatchBrandBatch('UnderArmour', getSpecificUnderArmourDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Under Armour: ' + e.message));
 });
 
 app.get('/api/trigger-hope', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Hope Lingerie iniciado com sucesso!` });
   dispatchBrandBatch('HopeLingerie', getSpecificHopeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Hope Lingerie: ' + e.message));
 });
 
 app.get('/api/trigger-lacoste', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Lacoste Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Lacoste', getSpecificLacosteDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Lacoste: ' + e.message));
 });
 
 app.get('/api/trigger-lg', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais LG Brasil iniciado com sucesso!` });
   dispatchBrandBatch('LG', getSpecificLGDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast LG: ' + e.message));
 });
 
 app.get('/api/trigger-aliexpress', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais AliExpress iniciado com sucesso!` });
   dispatchBrandBatch('AliExpress', getSpecificAliExpressDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast AliExpress: ' + e.message));
 });
 
 app.get('/api/trigger-cea', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais C&A Brasil iniciado com sucesso!` });
   dispatchBrandBatch('CeA', getSpecificCeaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast C&A: ' + e.message));
 });
 
 app.get('/api/trigger-stanley', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Stanley Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Stanley', getSpecificStanleyDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Stanley: ' + e.message));
 });
 
 app.get('/api/trigger-decathlon', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Decathlon Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Decathlon', getSpecificDecathlonDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Decathlon: ' + e.message));
 });
 
 app.get('/api/trigger-venancio', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Drogaria Venancio iniciado com sucesso!` });
   dispatchBrandBatch('Venancio', getSpecificVenancioDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Venancio: ' + e.message));
 });
 
 app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
+  const count = parseInt(req.query.count || '1', 10);
   res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike Brasil iniciado com sucesso!` });
   dispatchBrandBatch('Nike', getSpecificNikeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
 });
 
-app.get('/api/trigger-puma', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '5', 10);
-  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Puma Brasil iniciado com sucesso!` });
+app.all(['/api/trigger-puma', '/api/send-puma'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'Puma', message: `Disparo de ${count} ofertas Puma iniciado!` });
   dispatchBrandBatch('Puma', getSpecificPumaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Puma: ' + e.message));
+});
+
+app.all(['/api/trigger-giuliana', '/api/trigger-gflores', '/api/send-giuliana'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'Giuliana Flores', message: `Disparo de ${count} ofertas Giuliana Flores iniciado!` });
+  dispatchBrandBatch('Giuliana Flores', getSpecificGiulianaDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Giuliana Flores: ' + e.message));
+});
+
+app.all(['/api/trigger-mizuno', '/api/send-mizuno'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'Mizuno', message: `Disparo de ${count} ofertas Mizuno iniciado!` });
+  dispatchBrandBatch('Mizuno', getSpecificMizunoDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Mizuno: ' + e.message));
+});
+
+app.all(['/api/trigger-havaianas', '/api/send-havaianas'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'Havaianas', message: `Disparo de ${count} ofertas Havaianas iniciado!` });
+  dispatchBrandBatch('Havaianas', getSpecificHavaianasDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Havaianas: ' + e.message));
+});
+
+app.all(['/api/trigger-ali', '/api/trigger-aliexpress', '/api/send-ali', '/api/send-aliexpress'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'AliExpress', message: `Disparo de ${count} ofertas AliExpress iniciado!` });
+  dispatchBrandBatch('AliExpress', getSpecificAliExpressDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast AliExpress: ' + e.message));
+});
+
+app.all(['/api/send-awin', '/api/trigger-awin'], requireApiAuth, async (req, res) => {
+  try {
+    const deal = await dispatchNextAwinRotation({ force: true });
+    if (!deal) return res.status(500).json({ ok: false, error: 'Não foi possível disparar oferta AWIN no momento' });
+    res.json({ ok: true, store: deal.store, title: deal.title, url: deal.url });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // Endpoint para sincronização manual imediata com o GitHub
