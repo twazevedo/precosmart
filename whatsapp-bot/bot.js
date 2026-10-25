@@ -40,7 +40,8 @@ const { createShortLink, recordClick, getAnalyticsSummary } = require('./analyti
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, securityHeaders, maskSensitiveData } = require('./security');
 const { 
-  getNextAwinDeal, 
+  getNextAwinDeal,
+  getNextBrandDeal, 
   getSpecificKabumDeal, 
   getSpecificNikeDeal, 
   getSpecificOlympikusDeal, 
