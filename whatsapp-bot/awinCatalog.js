@@ -1393,20 +1393,35 @@ ${priceSection}👉 *PEÇA AGORA COM DESCONTO:*
  * Utiliza o rotationState (persistido no MongoDB/disco) para garantir
  * que nenhum produto se repita até que todo o catálogo da marca tenha sido enviado.
  */
+function normalizeBrandKey(raw) {
+  if (!raw) return '';
+  const s = String(raw).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (s.includes('giuliana') || s.includes('flore')) return 'giuliana';
+  if (s.includes('kabum')) return 'kabum';
+  if (s.includes('nike')) return 'nike';
+  if (s.includes('puma')) return 'puma';
+  if (s.includes('mizuno')) return 'mizuno';
+  if (s.includes('havaiana')) return 'havaianas';
+  if (s.includes('stanley')) return 'stanley';
+  if (s.includes('decathlon')) return 'decathlon';
+  if (s.includes('lacoste')) return 'lacoste';
+  if (s.includes('venancio')) return 'venancio';
+  if (s.includes('lego')) return 'lego';
+  if (s.includes('ninja')) return 'ninja';
+  if (s.includes('underarmour') || s.includes('under')) return 'underArmour';
+  if (s.includes('hope')) return 'hope';
+  if (s.includes('olympikus') || s.includes('olymp')) return 'olympikus';
+  if (s === 'lg' || s.includes('lgtv') || s.includes('lgeletro')) return 'lg';
+  if (s.includes('ali')) return 'aliexpress';
+  if (s.includes('cea') || s === 'ca') return 'cea';
+  if (s.includes('clovis')) return 'clovis';
+  if (s.includes('mercadolivre') || s === 'ml') return 'ml';
+  if (s.includes('amazon')) return 'amazon';
+  return s;
+}
+
 async function getNextBrandDeal(brandKey) {
-  const normKey = (brandKey || '').toLowerCase();
-  const keyMap = {
-    'gflores': 'giuliana',
-    'giulianaflores': 'giuliana',
-    'giuliana': 'giuliana',
-    'ali': 'aliexpress',
-    'aliexpress': 'aliexpress',
-    'under-armour': 'underArmour',
-    'underarmour': 'underArmour',
-    'mercadolivre': 'ml',
-    'mercado-livre': 'ml'
-  };
-  const targetKey = keyMap[normKey] || normKey;
+  const targetKey = normalizeBrandKey(brandKey);
 
   const st = await rotationState.load();
   const pool = getUniquePool(targetKey);

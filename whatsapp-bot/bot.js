@@ -928,59 +928,8 @@ app.post('/api/send-nike', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Amazon Brasil ────────────────────────
-async function dispatchAmazonBatch(count = 5, delayMs = 4000) {
-  logEntry('AMAZON', `[Blast] Iniciando disparo de ${count} ofertas oficiais da Amazon Brasil...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificAmazonDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('AMAZON_WA', `Foto HD Amazon enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD Amazon (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Oferta Exclusiva',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text
-        });
-      }
-
-      results.push(deal);
-      logEntry('AMAZON', `✅ [${i + 1}/${count}] Oferta Amazon enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} da Amazon: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('AMAZON', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Amazon.`);
-  return results;
+async function dispatchAmazonBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('amazon', getSpecificAmazonDeal, count, delayMs);
 }
 
 app.get('/api/trigger-amazon', requireApiAuth, async (req, res) => {
@@ -990,59 +939,8 @@ app.get('/api/trigger-amazon', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Mercado Livre ─────────────────────────
-async function dispatchMLBatch(count = 5, delayMs = 4000) {
-  logEntry('ML', `[Blast] Iniciando disparo de ${count} ofertas oficiais do Mercado Livre...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificMLDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('ML_WA', `Foto HD Mercado Livre enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD Mercado Livre (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Oferta Exclusiva',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text
-        });
-      }
-
-      results.push(deal);
-      logEntry('ML', `✅ [${i + 1}/${count}] Oferta Mercado Livre enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} do Mercado Livre: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('ML', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Mercado Livre.`);
-  return results;
+async function dispatchMLBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('ml', getSpecificMLDeal, count, delayMs);
 }
 
 app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
@@ -1052,59 +950,8 @@ app.get('/api/trigger-ml', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais KaBuM! ──────────────────────────────
-async function dispatchKabumBatch(count = 5, delayMs = 4000) {
-  logEntry('KABUM', `[Blast] Iniciando disparo de ${count} ofertas oficiais KaBuM! (WhatsApp e Telegram)...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificKabumDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text || deal.formattedText
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('KABUM_WA', `Foto HD KaBuM enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD KaBuM (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Oferta Gamer',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text || deal.formattedText
-        });
-      }
-
-      results.push(deal);
-      logEntry('KABUM', `✅ [${i + 1}/${count}] Oferta KaBuM enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} da KaBuM: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('KABUM', `[Blast] Concluído disparo de ${results.length}/${count} ofertas KaBuM!.`);
-  return results;
+async function dispatchKabumBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('kabum', getSpecificKabumDeal, count, delayMs);
 }
 
 app.get('/api/trigger-kabum', requireApiAuth, async (req, res) => {
@@ -1114,59 +961,8 @@ app.get('/api/trigger-kabum', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Olympikus ────────────────────────────
-async function dispatchOlympikusBatch(count = 5, delayMs = 4000) {
-  logEntry('OLYMPIKUS', `[Blast] Iniciando disparo de ${count} ofertas oficiais Olympikus (WhatsApp e Telegram)...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificOlympikusDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text || deal.formattedText
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('OLY_WA', `Foto HD Olympikus enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD Olympikus (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Oferta Oficial',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text || deal.formattedText
-        });
-      }
-
-      results.push(deal);
-      logEntry('OLYMPIKUS', `✅ [${i + 1}/${count}] Oferta Olympikus enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} da Olympikus: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('OLYMPIKUS', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Olympikus.`);
-  return results;
+async function dispatchOlympikusBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('olympikus', getSpecificOlympikusDeal, count, delayMs);
 }
 
 app.get('/api/trigger-olympikus', requireApiAuth, async (req, res) => {
@@ -1176,59 +972,8 @@ app.get('/api/trigger-olympikus', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Clovis Calçados ───────────────────────
-async function dispatchClovisBatch(count = 5, delayMs = 4000) {
-  logEntry('CLOVIS', `[Blast] Iniciando disparo de ${count} ofertas oficiais Clovis Calçados (WhatsApp e Telegram)...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificClovisDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text || deal.formattedText
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('CLOVIS_WA', `Foto HD Clovis enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD Clovis (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Super Desconto',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text || deal.formattedText
-        });
-      }
-
-      results.push(deal);
-      logEntry('CLOVIS', `✅ [${i + 1}/${count}] Oferta Clovis enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} da Clovis: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('CLOVIS', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Clovis Calçados.`);
-  return results;
+async function dispatchClovisBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('clovis', getSpecificClovisDeal, count, delayMs);
 }
 
 app.get('/api/trigger-clovis', requireApiAuth, async (req, res) => {
