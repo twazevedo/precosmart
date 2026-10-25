@@ -1238,17 +1238,28 @@ app.get('/api/trigger-clovis', requireApiAuth, async (req, res) => {
 });
 
 // ── Disparo Genérico em Lote por Marca Oficial AWIN ───────────────────────────
-async function dispatchBrandBatch(brandName, getterFn, count = 5, delayMs = 4000) {
-  logEntry(brandName.toUpperCase(), `[Blast] Iniciando disparo de ${count} ofertas oficiais ${brandName} (WhatsApp e Telegram)...`);
+async function dispatchBrandBatch(brandName, getterFn, count = 1, delayMs = 4000) {
+  logEntry(brandName.toUpperCase(), `[Disparo] Enviando ${count} oferta(s) oficial(is) sem repetição de ${brandName}...`);
   const results = [];
   for (let i = 0; i < count; i++) {
     try {
-      const deal = await getterFn(i);
+      // 1. Prioriza getNextBrandDeal com rotação anti-duplicidade salva no MongoDB
+      let deal = null;
+      try {
+        if (typeof getNextBrandDeal === 'function') {
+          deal = await getNextBrandDeal(brandName);
+        }
+      } catch (err) {
+        logEntry('WARN', `Aviso na rotação de ${brandName}: ${err.message}`);
+      }
+
+      // 2. Fallback para getterFn se necessário
+      if (!deal && typeof getterFn === 'function') {
+        deal = await getterFn(i);
+      }
       if (!deal || !deal.imageUrl) continue;
 
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
+      const hdImageUrl = upgradeToHdImage(deal.imageUrl) || deal.imageUrl;
       const jids = getTargetJids();
       if (isConnected && waSocket && jids.length > 0) {
         for (const jid of jids) {
@@ -1281,15 +1292,14 @@ async function dispatchBrandBatch(brandName, getterFn, count = 5, delayMs = 4000
       }
 
       results.push(deal);
-      logEntry(brandName.toUpperCase(), `✅ [${i + 1}/${count}] Oferta ${brandName} enviada: ${deal.title}`);
+      logEntry(brandName.toUpperCase(), `✅ Oferta ${brandName} enviada: ${deal.title}`);
     } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} de ${brandName}: ${e.message}`);
+      logEntry('WARN', `Erro no disparo de ${brandName}: ${e.message}`);
     }
     if (i < count - 1) {
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
-  logEntry(brandName.toUpperCase(), `[Blast] Concluído disparo de ${results.length}/${count} ofertas ${brandName}.`);
   return results;
 }
 
@@ -1928,7 +1938,7 @@ function setupCronJobs() {
   cronJobsInitialized = true;
   // 09:00 — Resumo matinal (O que esperar do dia)
   cron.schedule('0 9 * * *', async () => {
-    if (!isConnected) return;
+    if (!isConnected || !isAutoPilotActive) return;
     const jidsToSend = getTargetJids();
     for (const targetJid of jidsToSend) {
       try {
@@ -1945,7 +1955,7 @@ function setupCronJobs() {
 
   // 15:00 — Achadinhos Shopee Automáticos
   cron.schedule('0 15 * * *', async () => {
-    if (!isConnected) return;
+    if (!isConnected || !isAutoPilotActive) return;
     try {
       // Buscar apenas produtos da Shopee no catálogo
       const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
@@ -1960,7 +1970,7 @@ function setupCronJobs() {
 
   // 14:00 — Achadinhos Shopee Automáticos (1 produto por vez com foto)
   cron.schedule('0 14 * * *', async () => {
-    if (!isConnected) return;
+    if (!isConnected || !isAutoPilotActive) return;
     try {
       const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
       if (shopeeProducts.length > 0) {
@@ -1984,7 +1994,7 @@ function setupCronJobs() {
 
   // 20:00 — Resumo Diário (Top 5 Ofertas Mais Clicadas)
   cron.schedule('0 20 * * *', async () => {
-    if (!isConnected) return;
+    if (!isConnected || !isAutoPilotActive) return;
     const stats = getAnalyticsSummary();
     if (stats.topLinks.length === 0) return;
     

@@ -1388,6 +1388,116 @@ ${priceSection}👉 *PEÇA AGORA COM DESCONTO:*
   };
 }
 
+/**
+ * Retorna uma oferta real e NUNCA repetida para a marca solicitada.
+ * Utiliza o rotationState (persistido no MongoDB/disco) para garantir
+ * que nenhum produto se repita até que todo o catálogo da marca tenha sido enviado.
+ */
+async function getNextBrandDeal(brandKey) {
+  const normKey = (brandKey || '').toLowerCase();
+  const keyMap = {
+    'gflores': 'giuliana',
+    'giulianaflores': 'giuliana',
+    'giuliana': 'giuliana',
+    'ali': 'aliexpress',
+    'aliexpress': 'aliexpress',
+    'under-armour': 'underArmour',
+    'underarmour': 'underArmour',
+    'mercadolivre': 'ml',
+    'mercado-livre': 'ml'
+  };
+  const targetKey = keyMap[normKey] || normKey;
+
+  const st = await rotationState.load();
+  const pool = getUniquePool(targetKey);
+  if (!pool || pool.length === 0) {
+    console.log(`[ROTATION] Marca "${brandKey}" sem pool exclusivo. Usando rotação global Awin.`);
+    return getNextAwinDeal();
+  }
+
+  if (!st.sent[targetKey]) st.sent[targetKey] = {};
+  let unsent = pool.filter(e => !st.sent[targetKey][e.key]);
+  if (unsent.length === 0) {
+    console.log(`[ROTATION] Marca ${targetKey} completou o ciclo de ${pool.length} produtos. Reiniciando ciclo limpo.`);
+    st.sent[targetKey] = {};
+    st.cycles[targetKey] = (st.cycles[targetKey] || 0) + 1;
+    unsent = pool;
+  }
+
+  // Embaralha para variedade e tenta encontrar item com foto válida
+  const candidates = [...unsent].sort(() => Math.random() - 0.5);
+  for (const entry of candidates) {
+    const item = entry.variants[Math.floor(Math.random() * entry.variants.length)];
+    const img = await resolveImage(item);
+    if (!img) continue;
+
+    // Registra como enviado e salva no MongoDB imediatamente
+    st.sent[targetKey][entry.key] = Date.now();
+    await rotationState.save();
+
+    const targetUrl = item.deeplink || 'https://www.kabum.com.br';
+    const rawUrl = item.deeplinkTracking || (item.advertiserId && item.advertiserId !== 'amazon' && item.advertiserId !== 'mercadolivre' ? buildAwinUrl(item.advertiserId, targetUrl) : targetUrl);
+    const safeShort = resolveSafeDealUrl(item);
+    const shortUrl = safeShort || await shortenUrl(rawUrl);
+
+    const urgencyHeaders = [
+      '🚨 *ACHADO EXCLUSIVO • PREÇO CAIU!* 💥',
+      '🔥 *CORRE QUE TÁ VALENDO MUITO!* ⚡',
+      '⚡ *OFERTA RELÂMPAGO • ESTOQUE LIMITADO!* 🛒',
+      '💥 *PREÇO DERRETEU • APROVEITE!* 🎯',
+      '🏷️ *OPORTUNIDADE DO DIA PREÇOSMART!* ⭐'
+    ];
+    const hook = urgencyHeaders[Math.floor(Math.random() * urgencyHeaders.length)];
+
+    const storeName = item.advertiser
+      ? (item.advertiser.endsWith('Oficial') ? item.advertiser : `${item.advertiser} Oficial`)
+      : 'PreçoSmart Oficial';
+
+    let priceSection = '';
+    if (item.priceOriginal && item.priceCurrent) {
+      priceSection = `📉 De: ~${item.priceOriginal}~\n💥 *POR APENAS: ${item.priceCurrent}*\n`;
+    } else if (item.priceCurrent) {
+      priceSection = `💥 *POR APENAS: ${item.priceCurrent}*\n`;
+    } else {
+      priceSection = `💥 *Preço promocional exclusivo no Pix ou Parcelado*\n`;
+    }
+
+    const cleanDiscount = (item.discount || '').replace(/\s*off\s*$/i, '').trim();
+    const discountBadge = cleanDiscount ? ` 🎯 (${cleanDiscount} OFF)` : '';
+    const couponSection = item.code ? `🎟️ *Cupom:* \`${item.code}\` _(toque para copiar)_\n` : '';
+    let desc = item.description ? item.description.trim() : '';
+    if (desc.length > 140) {
+      desc = desc.substring(0, 137).replace(/\s+\S*$/, '') + '...';
+    }
+    const descSection = desc ? `💡 _${desc}_\n\n` : '\n';
+
+    const badge = getProductBadge(item.title, item.advertiser, item.categories);
+    const text = `${badge}
+${hook}
+
+🛒 *${item.title.trim()}*${discountBadge}
+🏪 Loja: *${storeName}*
+
+${priceSection}${couponSection}${descSection}👉 *COMPRE COM DESCONTO AQUI:*
+🔗 ${shortUrl}
+
+⚡ _Preço e estoque podem variar a qualquer momento._
+🛡️ _Compra 100% segura e garantida pela loja oficial._`;
+
+    return {
+      type: 'product',
+      store: storeName,
+      title: item.title,
+      url: shortUrl,
+      rawUrl,
+      imageUrl: img,
+      text
+    };
+  }
+
+  return null;
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
@@ -1414,5 +1524,6 @@ module.exports = {
   getSpecificGiulianaDeal,
   getAllActiveVouchers,
   formatVoucherList,
-  awinMasterData
+  awinMasterData,
+  getNextBrandDeal
 };
