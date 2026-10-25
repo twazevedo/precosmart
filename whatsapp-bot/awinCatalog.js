@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { shortenUrl } = require('./linkShortener');
 const { fetchOgImage, upgradeToHdImage } = require('./mirror');
+const rotationState = require('./rotationState');
 
 const AWIN_PUBLISHER_ID = process.env.AFFILIATE_AWIN || process.env.AWIN_PUBLISHER_ID || '3077915';
 const CLICKREF = 'PILOTO_AUTO';
@@ -314,35 +315,150 @@ function getFallbackImage() {
   return null;
 }
 
+// ── Rotação SEM REPETIÇÃO e PERSISTENTE (sobrevive a reinícios) ───────────────
+// Cada produto (por título normalizado, ignorando variantes de cor/tamanho) só é postado de novo
+// depois que TODOS os outros da mesma marca já foram postados. O estado fica salvo no MongoDB/arquivo.
+const VOUCHER_EVERY = 6;                          // 1 cupom a cada 6 postagens
+const VOUCHER_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const BRAND_SHARE_CAP = 0.12;                     // nenhuma marca passa de ~12% das postagens
+const RECENT_BRANDS_BLOCK = 3;                    // não repete a mesma marca nas últimas 3 postagens
+
+function normalizeTitleKey(title) {
+  return String(title || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .slice(0, 90);
+}
+
+function parseBrDate(str) {
+  const m = String(str || '').match(/(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}):(\d{2}))?/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 23), +(m[5] || 59), +(m[6] || 59));
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+const uniquePoolCache = {};
+function getUniquePool(brandKey) {
+  if (uniquePoolCache[brandKey]) return uniquePoolCache[brandKey];
+  const groups = new Map();
+  for (const p of getBrandPool(brandKey)) {
+    const key = normalizeTitleKey(p.title);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  }
+  uniquePoolCache[brandKey] = [...groups.entries()].map(([key, variants]) => ({ key, variants }));
+  return uniquePoolCache[brandKey];
+}
+
+async function resolveImage(item) {
+  let img = upgradeToHdImage(item.imageUrl);
+  if (!img && item.deeplink) {
+    try { img = await fetchOgImage(item.deeplink); } catch (e) {}
+  }
+  return img || null;
+}
+
+async function pickNextProduct() {
+  const st = await rotationState.load();
+
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const cands = [];
+    for (const brandKey of BRAND_KEYS) {
+      const pool = getUniquePool(brandKey);
+      if (pool.length === 0) continue;
+      if (!st.sent[brandKey]) st.sent[brandKey] = {};
+      let unsent = pool.filter(e => !st.sent[brandKey][e.key]);
+      if (unsent.length === 0) {
+        // Marca completou o ciclo: recomeça SÓ ela
+        st.sent[brandKey] = {};
+        st.cycles[brandKey] = (st.cycles[brandKey] || 0) + 1;
+        unsent = pool;
+      }
+      cands.push({ brandKey, unsent });
+    }
+    if (cands.length === 0) return null;
+
+    const total = cands.reduce((a, c) => a + c.unsent.length, 0);
+    const cap = Math.max(1, total * BRAND_SHARE_CAP);
+    let eligible = cands.filter(c => !st.recentBrands.includes(c.brandKey));
+    if (eligible.length === 0) eligible = cands;
+
+    // Sorteio ponderado: marcas com mais itens ainda não postados aparecem mais (com teto por marca)
+    const weights = eligible.map(c => Math.min(c.unsent.length, cap));
+    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+    let chosen = eligible[eligible.length - 1];
+    for (let i = 0; i < eligible.length; i++) {
+      r -= weights[i];
+      if (r <= 0) { chosen = eligible[i]; break; }
+    }
+
+    const entry = chosen.unsent[Math.floor(Math.random() * chosen.unsent.length)];
+    const item = entry.variants[Math.floor(Math.random() * entry.variants.length)];
+
+    // Marca como enviado ANTES de validar a foto: item sem foto válida não é tentado de novo no ciclo
+    st.sent[chosen.brandKey][entry.key] = Date.now();
+    st.recentBrands.push(chosen.brandKey);
+    while (st.recentBrands.length > RECENT_BRANDS_BLOCK) st.recentBrands.shift();
+
+    const img = await resolveImage(item);
+    if (img) {
+      await rotationState.save();
+      return { item, img, brandKey: chosen.brandKey };
+    }
+  }
+  await rotationState.save();
+  return null;
+}
+
+async function pickVoucher() {
+  const st = await rotationState.load();
+  const now = Date.now();
+
+  const fresh = (awinMasterData.vouchers || []).filter(v => {
+    if (!v) return false;
+    const ends = parseBrDate(v.ends);
+    const starts = parseBrDate(v.starts);
+    if (ends && ends.getTime() < now) return false;     // vencido
+    if (starts && starts.getTime() > now) return false; // ainda não começou
+    if (v.imageUrl && brokenImageUrls.has(v.imageUrl)) return false;
+    const last = st.voucherSent['voucher:' + (v.id || v.code || v.title)];
+    return !last || now - last > VOUCHER_COOLDOWN_MS;
+  });
+
+  for (const v of shuffleArray(fresh).slice(0, 10)) {
+    const img = await resolveImage(v);
+    if (!img) continue;
+    st.voucherSent['voucher:' + (v.id || v.code || v.title)] = now;
+    for (const k of Object.keys(st.voucherSent)) {
+      if (now - st.voucherSent[k] > 30 * 24 * 60 * 60 * 1000) delete st.voucherSent[k];
+    }
+    await rotationState.save();
+    return { item: v, img };
+  }
+  return null;
+}
+
 /**
  * Obtém a próxima oferta da rotação AWIN.
  * Alterna entre produtos reais da KaBuM/Clovis e destaques de cupons ativos.
  * Puxa automaticamente a foto oficial do site via OG Image.
  */
 async function getNextAwinDeal() {
-  rotationCounter++;
+  const st = await rotationState.load();
+  st.counter = (st.counter || 0) + 1;
 
-  // 1. Rotação de Cupom: APENAS se houver cupom com foto oficial verificada
-  const isVoucherTurn = rotationCounter % 4 === 0 && shuffledVouchers.length > 0;
+  // 1. Rotação de Cupom: 1 a cada VOUCHER_EVERY posts, APENAS cupons ativos (não vencidos) e com foto
+  const isVoucherTurn = st.counter % VOUCHER_EVERY === 0;
   if (isVoucherTurn) {
     let v = null;
     let voucherImg = null;
-    for (let attempts = 0; attempts < shuffledVouchers.length; attempts++) {
-      const candidate = shuffledVouchers[voucherIndex % shuffledVouchers.length];
-      voucherIndex = (voucherIndex + 1) % shuffledVouchers.length;
-      let img = upgradeToHdImage(candidate.imageUrl);
-      if (!img && candidate.deeplink) {
-        try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
-      }
-      if (img) {
-        const key = `voucher:${candidate.id || candidate.code || candidate.title}`;
-        if (!recentSentSet.has(key)) {
-          v = candidate;
-          voucherImg = img;
-          markAsSent(key);
-          break;
-        }
-      }
+    const pickedVoucher = await pickVoucher();
+    if (pickedVoucher) {
+      v = pickedVoucher.item;
+      voucherImg = pickedVoucher.img;
     }
 
     if (v && voucherImg) {
@@ -384,58 +500,13 @@ ${howToUse}
     }
   }
 
-  // 2. Vez de produto real: ROTAÇÃO EQUITATIVA ENTRE TODAS AS MARCAS PARCEIRAS (Brand-Fair Round Robin)
-  // Garante que cada marca (Nike, Stanley, KaBuM, Decathlon, Lacoste, Venancio, Lego, Ninja, etc.) tenha seu espaço garantido
+  // 2. Vez de produto real: rotação sem repetição, persistente e proporcional ao tamanho do catálogo de cada marca
   let p = null;
   let productImg = null;
-
-  // Percorre as marcas em ordem cíclica
-  for (let brandAttempts = 0; brandAttempts < BRAND_KEYS.length; brandAttempts++) {
-    const brandKey = BRAND_KEYS[currentBrandSequenceIndex % BRAND_KEYS.length];
-    currentBrandSequenceIndex++;
-
-    const brandPool = getBrandPool(brandKey);
-    if (!brandPool || brandPool.length === 0) continue;
-
-    const brandPtr = brandPointers[brandKey] || 0;
-    for (let itemAttempts = 0; itemAttempts < brandPool.length; itemAttempts++) {
-      const idx = (brandPtr + itemAttempts) % brandPool.length;
-      const candidate = brandPool[idx];
-      let img = upgradeToHdImage(candidate.imageUrl);
-      if (!img && candidate.deeplink) {
-        try { img = await fetchOgImage(candidate.deeplink); } catch (e) {}
-      }
-      if (img) {
-        const key = `prod:${candidate.id || candidate.title}`;
-        if (!recentSentSet.has(key)) {
-          p = candidate;
-          productImg = img;
-          brandPointers[brandKey] = (idx + 1) % brandPool.length;
-          markAsSent(key);
-          break;
-        }
-      }
-    }
-    if (p && productImg) break;
-  }
-
-  // Se todos os produtos foram enviados recentemente, pega o próximo item da marca seguinte com foto oficial
-  if (!p || !productImg) {
-    for (let brandAttempts = 0; brandAttempts < BRAND_KEYS.length; brandAttempts++) {
-      const brandKey = BRAND_KEYS[currentBrandSequenceIndex % BRAND_KEYS.length];
-      currentBrandSequenceIndex++;
-      const brandPool = getBrandPool(brandKey);
-      if (!brandPool || brandPool.length === 0) continue;
-      const idx = (brandPointers[brandKey] || 0) % brandPool.length;
-      const candidate = brandPool[idx];
-      let img = upgradeToHdImage(candidate.imageUrl);
-      if (img) {
-        p = candidate;
-        productImg = img;
-        brandPointers[brandKey] = (idx + 1) % brandPool.length;
-        break;
-      }
-    }
+  const pickedProduct = await pickNextProduct();
+  if (pickedProduct) {
+    p = pickedProduct.item;
+    productImg = pickedProduct.img;
   }
 
   // Garantia absoluta: NUNCA envia sem foto oficial

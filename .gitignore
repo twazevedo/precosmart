@@ -20,6 +20,7 @@ whatsapp-bot/data/
 whatsapp-bot/alerts.json
 whatsapp-bot/price_history.json
 whatsapp-bot/analytics.json
+whatsapp-bot/awinRotationState.json
 
 # Logs & temp files
 *.log

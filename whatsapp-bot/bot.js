@@ -196,7 +196,8 @@ function getTargetJids() {
   const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
   return envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
 }
-let isAutoPilotActive = false;
+// Piloto automático começa DESLIGADO. Para ligar sem enviar comandos: defina AUTO_PILOT_ENABLED=true no Render.
+let isAutoPilotActive = process.env.AUTO_PILOT_ENABLED === 'true';
 let waSocket       = null;
 let qrCodeDataUrl  = null;
 let isConnected    = false;
