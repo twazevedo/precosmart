@@ -859,73 +859,14 @@ app.get('/api/lancar-shopee', async (req, res) => {
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Nike Brasil ──────────────────────────
-async function dispatchNikeBatch(count = 10, delayMs = 4000) {
-  logEntry('NIKE', `[Blast] Iniciando disparo de ${count} ofertas oficiais Nike Brasil (WhatsApp e Telegram)...`);
-  const results = [];
-  for (let i = 0; i < count; i++) {
-    try {
-      const deal = await getSpecificNikeDeal(i);
-      if (!deal || !deal.imageUrl) continue;
-
-      const hdImageUrl = upgradeToHdImage(deal.imageUrl);
-      if (!hdImageUrl) continue;
-
-      // 1. WhatsApp Grupo VIP (@g.us)
-      const jids = getTargetJids();
-      if (isConnected && waSocket && jids.length > 0) {
-        for (const jid of jids) {
-          if (!jid.endsWith('@g.us')) continue;
-          try {
-            const imgBuf = await prepareWhatsAppImage(hdImageUrl);
-            if (imgBuf) {
-              const resMsg = await waSocket.sendMessage(jid, {
-                image: imgBuf,
-                mimetype: 'image/jpeg',
-                caption: deal.text
-              });
-              if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-              logEntry('NIKE_WA', `Foto HD Nike enviada para ${jid}: ${deal.title}`);
-            }
-          } catch (imgErr) {
-            logEntry('WARN', `Falha ao enviar foto HD Nike (${jid}): ${imgErr.message}`);
-          }
-        }
-      }
-
-      // 2. Telegram
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Oferta Exclusiva',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text
-        });
-      }
-
-      results.push(deal);
-      logEntry('NIKE', `✅ [${i + 1}/${count}] Oferta Nike enviada: ${deal.title}`);
-    } catch (e) {
-      logEntry('WARN', `Erro no disparo #${i + 1} da Nike: ${e.message}`);
-    }
-    if (i < count - 1) {
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
-  logEntry('NIKE', `[Blast] Concluído disparo de ${results.length}/${count} ofertas Nike.`);
-  return results;
+async function dispatchNikeBatch(count = 1, delayMs = 4000) {
+  return dispatchBrandBatch('nike', getSpecificNikeDeal, count, delayMs);
 }
 
-app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '10', 10);
-  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike iniciado com sucesso no WhatsApp e Telegram!` });
-  dispatchNikeBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
-});
-
-app.post('/api/send-nike', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.body?.count || req.query.count || '10', 10);
-  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike iniciado com sucesso no WhatsApp e Telegram!` });
-  dispatchNikeBatch(count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
+app.all(['/api/trigger-nike', '/api/send-nike'], requireApiAuth, async (req, res) => {
+  const count = parseInt(req.query.count || req.body?.count || '1', 10);
+  res.json({ ok: true, store: 'Nike', message: `Disparo de ${count} ofertas oficiais Nike iniciado!` });
+  dispatchBrandBatch('nike', getSpecificNikeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
 });
 
 // ── Disparo em Lote de Ofertas Oficiais Amazon Brasil ────────────────────────
@@ -1115,11 +1056,7 @@ app.get('/api/trigger-venancio', requireApiAuth, async (req, res) => {
   dispatchBrandBatch('Venancio', getSpecificVenancioDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Venancio: ' + e.message));
 });
 
-app.get('/api/trigger-nike', requireApiAuth, async (req, res) => {
-  const count = parseInt(req.query.count || '1', 10);
-  res.json({ ok: true, message: `Disparo de ${count} ofertas oficiais Nike Brasil iniciado com sucesso!` });
-  dispatchBrandBatch('Nike', getSpecificNikeDeal, count, 4000).catch((e) => logEntry('ERROR', 'Erro no blast Nike: ' + e.message));
-});
+
 
 app.all(['/api/trigger-puma', '/api/send-puma'], requireApiAuth, async (req, res) => {
   const count = parseInt(req.query.count || req.body?.count || '1', 10);
