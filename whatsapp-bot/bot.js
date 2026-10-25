@@ -196,6 +196,7 @@ function getTargetJids() {
   const envJids = (process.env.WA_GROUP_JID || '').split(',').map(x => x.trim()).filter(Boolean);
   return envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
 }
+let isAutoPilotActive = process.env.AUTO_PILOT_ENABLED !== 'false';
 let waSocket       = null;
 let qrCodeDataUrl  = null;
 let isConnected    = false;
@@ -582,6 +583,23 @@ app.post('/api/send-boticario', requireApiAuth, async (req, res) => {
   }
 });
 
+app.post('/api/pause', requireApiAuth, (req, res) => {
+  isAutoPilotActive = false;
+  dealQueue.length = 0;
+  logEntry('API', 'Piloto automático PAUSADO via API');
+  res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado e fila limpa.' });
+});
+
+app.post('/api/resume', requireApiAuth, (req, res) => {
+  isAutoPilotActive = true;
+  logEntry('API', 'Piloto automático RETOMADO via API');
+  res.json({ ok: true, isAutoPilotActive: true, message: 'Envio automático retomado.' });
+});
+
+app.get('/api/autopilot-status', requireApiAuth, (req, res) => {
+  res.json({ ok: true, isAutoPilotActive });
+});
+
 app.post('/api/send-now', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado ou grupo não encontrado' });
   try {
@@ -642,7 +660,7 @@ app.post('/api/send-custom', requireApiAuth, async (req, res) => {
 // ── Rotação Automática de Ofertas AWIN (EXCLUSIVAMENTE Grupo WhatsApp e Telegram) ─────
 async function dispatchNextAwinRotation(options = {}) {
   const force = options.force || false;
-  if (!force && isNightQuietHours()) {
+  if (!force && (!isAutoPilotActive || isNightQuietHours())) {
     return null;
   }
   try {
@@ -1825,6 +1843,10 @@ async function sendProductMessage(product, caption) {
 }
 
 async function sendScheduledOffer(label, productFn) {
+  if (!isAutoPilotActive) {
+    logEntry('SKIP', `[${label}] Envio automático pausado`);
+    return;
+  }
   if (!isConnected || !groupJid) {
     logEntry('SKIP', `[${label}] Bot offline ou grupo não encontrado`);
     return;
@@ -2630,7 +2652,9 @@ async function startBot() {
             `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
             `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
             `👉 *!status* — Exibe status do bot\n` +
-            `👉 *!limpar* — Esvazia a fila pendente`;
+            `👉 *!limpar* — Esvazia a fila pendente\n` +
+            `👉 *!pausar* — Pausa todos os envios automáticos para o grupo\n` +
+            `👉 *!retomar* — Retoma os envios automáticos do piloto automático`;
         }
 
         await replyToUser({ text: helpMsg });
@@ -2651,11 +2675,29 @@ async function startBot() {
           `⏱️ Tempo Online: ${uptimeHours} horas\n` +
           `📦 Fila de Ofertas: ${dealQueue.length} aguardando\n` +
           `🔔 Alertas Ativos: ${countTotalAlerts()} monitorados\n` +
+          `🤖 Piloto Automático: ${isAutoPilotActive ? '🟢 Ativo (Enviando)' : '🔴 Pausado'}\n` +
           `🌙 Modo Noturno: ${isNightQuietHours() ? 'Ativo (Pausado)' : 'Desligado (Ativo)'}\n` +
           `📡 Fontes Monitoradas: ${sourceGroupJids.length} canais\n` +
           `📸 Instagram Webhook: ${instagramWebhookUrl ? 'Conectado' : 'Desligado'}\n` +
           `🎯 Grupo VIP: ${groupJid || 'Buscando...'}`;
         await replyToUser({ text: statusMsg });
+        return;
+      }
+
+      // 6.1 !pausar / !parar (Admin)
+      if (command === '!pausar' || command === '!parar') {
+        isAutoPilotActive = false;
+        dealQueue.length = 0;
+        await replyToUser({ text: '⏸️ *Envio automático PAUSADO!*\nNenhuma oferta automática ou de canais monitorados será enviada para o grupo.\n\nPara reativar a qualquer momento, envie *!retomar* ou *!iniciar*.' });
+        logEntry('ADMIN', 'Envio automático PAUSADO pelo administrador.');
+        return;
+      }
+
+      // 6.2 !retomar / !iniciar (Admin)
+      if (command === '!retomar' || command === '!iniciar' || command === '!despausar') {
+        isAutoPilotActive = true;
+        await replyToUser({ text: '▶️ *Envio automático RETOMADO!*\nO piloto automático de ofertas voltou a operar normalmente.' });
+        logEntry('ADMIN', 'Envio automático RETOMADO pelo administrador.');
         return;
       }
 
@@ -3336,6 +3378,7 @@ async function startBot() {
 
     // Ingestão: processa apenas canais sincronizados
     if (!sourceGroupJids.includes(msg.key.remoteJid)) return;
+    if (!isAutoPilotActive) return;
 
     // Processamento e normalização da oferta
     try {
