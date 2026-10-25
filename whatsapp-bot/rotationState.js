@@ -15,7 +15,7 @@ let state = null;
 let loading = null;
 
 function emptyState() {
-  return { v: 1, counter: 0, recentBrands: [], sent: {}, cycles: {}, voucherSent: {} };
+  return { v: 1, counter: 0, recentBrands: [], sent: {}, cycles: {}, voucherSent: {}, isAutoPilotActive: true };
 }
 
 async function load() {

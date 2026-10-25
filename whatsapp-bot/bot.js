@@ -199,13 +199,24 @@ function getTargetJids() {
   return envJids.length > 0 ? envJids : (groupJid ? [groupJid] : []);
 }
 // Piloto automático começa DESLIGADO. Para ligar sem enviar comandos: defina AUTO_PILOT_ENABLED=true no Render.
-let isAutoPilotActive = process.env.AUTO_PILOT_ENABLED === 'true';
+let isAutoPilotActive = process.env.AUTO_PILOT_ENABLED !== 'false';
 let waSocket       = null;
 let qrCodeDataUrl  = null;
 let isConnected    = false;
 let groupJid       = null;
 const messageLog   = [];
 const messageStore = new Map();
+
+// Restaura estado persistente do piloto automático do MongoDB/disco
+(async () => {
+  try {
+    const st = await rotationState.load();
+    if (st && typeof st.isAutoPilotActive === 'boolean') {
+      isAutoPilotActive = st.isAutoPilotActive;
+      logEntry('BOOT', `Estado do piloto automático restaurado: ${isAutoPilotActive ? 'ATIVO' : 'PAUSADO'}`);
+    }
+  } catch (e) {}
+})();
 const groupMetadataCache = new Map();
 let mongoClient = null;
 
@@ -598,17 +609,27 @@ app.post('/api/send-boticario', requireApiAuth, async (req, res) => {
   }
 });
 
-app.post('/api/pause', requireApiAuth, (req, res) => {
+app.all(['/api/pause'], requireApiAuth, async (req, res) => {
   isAutoPilotActive = false;
   dealQueue.length = 0;
-  logEntry('API', 'Piloto automático PAUSADO via API');
+  try {
+    const st = await rotationState.load();
+    st.isAutoPilotActive = false;
+    await rotationState.save();
+  } catch (e) {}
+  logEntry('API', 'Piloto automático PAUSADO via API / App');
   res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado e fila limpa.' });
 });
 
-app.post('/api/resume', requireApiAuth, (req, res) => {
+app.all(['/api/resume'], requireApiAuth, async (req, res) => {
   isAutoPilotActive = true;
-  logEntry('API', 'Piloto automático RETOMADO via API');
-  res.json({ ok: true, isAutoPilotActive: true, message: 'Envio automático retomado.' });
+  try {
+    const st = await rotationState.load();
+    st.isAutoPilotActive = true;
+    await rotationState.save();
+  } catch (e) {}
+  logEntry('API', 'Piloto automático RETOMADO via API / App');
+  res.json({ ok: true, isAutoPilotActive: true, message: 'Envio automático retomado com sucesso.' });
 });
 
 app.get('/api/autopilot-status', requireApiAuth, (req, res) => {
