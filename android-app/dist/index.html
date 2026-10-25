@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>PreçoSmart Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    body {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen pb-16 font-sans">
+
+  <!-- Top App Bar -->
+  <header class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center space-x-2">
+      <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-black text-white text-lg shadow-md shadow-indigo-500/30">
+        ⚡
+      </div>
+      <div>
+        <h1 class="text-base font-bold leading-none text-white">PreçoSmart</h1>
+        <span class="text-[10px] text-slate-400">Painel de Controle Mobile</span>
+      </div>
+    </div>
+    <button onclick="toggleConfigModal()" class="p-2 text-slate-400 hover:text-white transition">
+      <i class="fa-solid fa-gear text-lg"></i>
+    </button>
+  </header>
+
+  <!-- Main Container -->
+  <main class="p-4 space-y-4 max-w-lg mx-auto">
+
+    <!-- Status Card -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-xs uppercase tracking-wider font-semibold text-slate-400">Status dos Envios</span>
+        <div id="statusBadge" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="statusText">Verificando...</span>
+        </div>
+      </div>
+
+      <!-- Quick Action: Pause / Resume -->
+      <div class="grid grid-cols-2 gap-2 mt-2">
+        <button id="btnPause" onclick="pauseBot()" class="py-3 px-4 rounded-xl bg-rose-600/20 text-rose-400 border border-rose-500/30 font-bold text-sm flex items-center justify-center space-x-2 active:scale-95 transition">
+          <i class="fa-solid fa-pause"></i>
+          <span>Pausar Envios</span>
+        </button>
+        <button id="btnResume" onclick="resumeBot()" class="py-3 px-4 rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-bold text-sm flex items-center justify-center space-x-2 active:scale-95 transition">
+          <i class="fa-solid fa-play"></i>
+          <span>Iniciar Envios</span>
+        </button>
+      </div>
+      <div class="mt-3 text-[11px] text-slate-400 flex items-center justify-between border-t border-slate-800/80 pt-2.5">
+        <span class="flex items-center space-x-1.5 truncate pr-2">
+          <i class="fa-solid fa-users text-indigo-400"></i>
+          <span id="groupLabel" class="truncate">Grupo: Verificando...</span>
+        </span>
+        <span id="botUserLabel" class="text-slate-500 shrink-0">WhatsApp: Conectando...</span>
+      </div>
+    </div>
+
+    <!-- Quick Dispatches / Brands -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs uppercase tracking-wider font-semibold text-slate-400">Disparo Rápido de Ofertas</h2>
+        <span class="text-[11px] text-slate-500">Postar agora</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2.5">
+        <button onclick="triggerBrand('nike')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">👟</div>
+          <div class="text-xs font-semibold">Nike</div>
+        </button>
+        <button onclick="triggerBrand('kabum')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🖥️</div>
+          <div class="text-xs font-semibold">KaBuM!</div>
+        </button>
+        <button onclick="triggerBrand('giuliana')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🌸</div>
+          <div class="text-xs font-semibold">G. Flores</div>
+        </button>
+        <button onclick="triggerBrand('olympikus')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🏃</div>
+          <div class="text-xs font-semibold">Olympikus</div>
+        </button>
+        <button onclick="triggerBrand('mizuno')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">⚡</div>
+          <div class="text-xs font-semibold">Mizuno</div>
+        </button>
+        <button onclick="triggerBrand('stanley')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🍺</div>
+          <div class="text-xs font-semibold">Stanley</div>
+        </button>
+        <button onclick="triggerBrand('cea')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">👗</div>
+          <div class="text-xs font-semibold">C&A</div>
+        </button>
+        <button onclick="triggerBrand('clovis')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">👠</div>
+          <div class="text-xs font-semibold">Clovis</div>
+        </button>
+        <button onclick="triggerBrand('lego')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🧱</div>
+          <div class="text-xs font-semibold">LEGO</div>
+        </button>
+        <button onclick="triggerBrand('lg')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">📺</div>
+          <div class="text-xs font-semibold">LG TV</div>
+        </button>
+        <button onclick="triggerBrand('ali')" class="p-3 bg-slate-800/80 hover:bg-slate-800 rounded-xl text-center active:scale-95 transition border border-slate-750">
+          <div class="text-xl mb-1">🛒</div>
+          <div class="text-xs font-semibold">AliExpress</div>
+        </button>
+        <button onclick="triggerBrand('awin')" class="p-3 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 rounded-xl text-center active:scale-95 transition border border-indigo-500/30">
+          <div class="text-xl mb-1">🎲</div>
+          <div class="text-xs font-bold">Qualquer Loja</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Custom Deal Poster -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+      <h2 class="text-xs uppercase tracking-wider font-semibold text-slate-400">Postar Link Personalizado</h2>
+      <div>
+        <label class="text-[11px] text-slate-400 block mb-1">Link do Produto (Amazon, Magalu, Shopee, etc.)</label>
+        <input type="url" id="customUrl" placeholder="https://..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="text-[11px] text-slate-400 block mb-1">Texto / Legenda (Opcional)</label>
+        <textarea id="customText" rows="2" placeholder="Ex: Tênis com super desconto hoje no grupo..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500"></textarea>
+      </div>
+      <button onclick="sendCustomDeal()" class="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-600/20 active:scale-98 transition flex items-center justify-center space-x-2">
+        <i class="fa-solid fa-paper-plane"></i>
+        <span>Enviar Agora para o Grupo VIP</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Modal Configuração da API -->
+  <div id="configModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <h3 class="font-bold text-white text-base">Configurações do Servidor</h3>
+        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">URL do Bot (Render)</label>
+        <input type="url" id="serverUrl" placeholder="https://precosmart-whatsapp-bot.onrender.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+      </div>
+      <div>
+        <label class="text-xs text-slate-400 block mb-1">Chave de Segurança (API Key)</label>
+        <input type="password" id="serverKey" placeholder="Sua chave de segurança" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+      </div>
+      <button onclick="saveConfig()" class="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-md transition">
+        Salvar Configuração
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-slate-800 border border-slate-700 text-white text-xs font-medium rounded-full shadow-lg opacity-0 pointer-events-none transition-all duration-300">
+  </div>
+
+  <script>
+    const DEFAULT_URL = 'https://precosmart-b8pg.onrender.com';
+    let storedUrl = localStorage.getItem('ps_api_url');
+    if (!storedUrl || storedUrl.includes('precosmart-whatsapp-bot') || storedUrl.includes('precosmart.onrender.com')) {
+      storedUrl = DEFAULT_URL;
+      localStorage.setItem('ps_api_url', DEFAULT_URL);
+    }
+    let apiUrl = storedUrl;
+    let apiKey = localStorage.getItem('ps_api_key') || 'precosmart_persistent_auth_key_2026_sec';
+
+    document.getElementById('serverUrl').value = apiUrl;
+    document.getElementById('serverKey').value = apiKey;
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.className = `fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 text-xs font-medium rounded-full shadow-lg transition-all duration-300 ${isError ? 'bg-rose-900 border border-rose-700 text-rose-200' : 'bg-slate-800 border border-slate-700 text-white'} opacity-100`;
+      setTimeout(() => {
+        toast.className = toast.className.replace('opacity-100', 'opacity-0 pointer-events-none');
+      }, 3000);
+    }
+
+    function toggleConfigModal() {
+      document.getElementById('configModal').classList.toggle('hidden');
+    }
+
+    function saveConfig() {
+      apiUrl = document.getElementById('serverUrl').value.trim() || DEFAULT_URL;
+      apiKey = document.getElementById('serverKey').value.trim() || 'precosmart_persistent_auth_key_2026_sec';
+      localStorage.setItem('ps_api_url', apiUrl);
+      localStorage.setItem('ps_api_key', apiKey);
+      toggleConfigModal();
+      showToast('Configurações salvas!');
+      checkStatus();
+    }
+
+    async function checkStatus() {
+      try {
+        // 1. Consulta o status geral do bot e do WhatsApp
+        const statusRes = await fetch(`${apiUrl}/api/status`);
+        let isConnected = false;
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          isConnected = statusData.connected;
+          if (statusData.groupName) {
+            document.getElementById('groupLabel').innerText = `Grupo: ${statusData.groupName}`;
+          }
+          if (statusData.botUser?.name) {
+            document.getElementById('botUserLabel').innerText = `WhatsApp: ${statusData.botUser.name}`;
+          }
+        }
+
+        // 2. Consulta o status do piloto automático
+        const autoRes = await fetch(`${apiUrl}/api/autopilot-status`, {
+          headers: { 'x-api-key': apiKey }
+        });
+        const autoData = autoRes.ok ? await autoRes.json() : { isAutoPilotActive: false };
+        const badge = document.getElementById('statusBadge');
+        const text = document.getElementById('statusText');
+
+        if (!isConnected && statusRes.ok) {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20";
+          badge.querySelector('span').className = "w-2 h-2 rounded-full bg-amber-400";
+          text.innerText = "WhatsApp Desconectado";
+        } else if (autoData.isAutoPilotActive) {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+          badge.querySelector('span').className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+          text.innerText = "Envios Ativos";
+        } else {
+          badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20";
+          badge.querySelector('span').className = "w-2 h-2 rounded-full bg-rose-400";
+          text.innerText = "Envios Pausados";
+        }
+      } catch (e) {
+        const badge = document.getElementById('statusBadge');
+        const text = document.getElementById('statusText');
+        badge.className = "flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700";
+        badge.querySelector('span').className = "w-2 h-2 rounded-full bg-slate-500";
+        text.innerText = "Servidor Desconectado";
+        document.getElementById('groupLabel').innerText = "Servidor não alcançado";
+      }
+    }
+
+    async function pauseBot() {
+      try {
+        const res = await fetch(`${apiUrl}/api/pause`, {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey }
+        });
+        const data = await res.json();
+        showToast('Envios pausados com sucesso!');
+        checkStatus();
+      } catch (e) {
+        showToast('Falha ao pausar: ' + e.message, true);
+      }
+    }
+
+    async function resumeBot() {
+      try {
+        const res = await fetch(`${apiUrl}/api/resume`, {
+          method: 'POST',
+          headers: { 'x-api-key': apiKey }
+        });
+        const data = await res.json();
+        showToast('Envios retomados com sucesso!');
+        checkStatus();
+      } catch (e) {
+        showToast('Falha ao retomar: ' + e.message, true);
+      }
+    }
+
+    async function triggerBrand(brand) {
+      showToast('Disparando oferta de ' + brand + '...');
+      try {
+        let endpoint = `${apiUrl}/api/send-awin`;
+        if (brand !== 'awin') {
+          endpoint = `${apiUrl}/api/trigger-${brand}`;
+        }
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: { 'x-api-key': apiKey }
+        });
+        showToast('Oferta enviada para o Grupo VIP!');
+      } catch (e) {
+        showToast('Erro ao disparar: ' + e.message, true);
+      }
+    }
+
+    async function sendCustomDeal() {
+      const url = document.getElementById('customUrl').value.trim();
+      const text = document.getElementById('customText').value.trim();
+      if (!url) return showToast('Cole um link válido!', true);
+
+      showToast('Enviando oferta...');
+      try {
+        const res = await fetch(`${apiUrl}/api/send-custom`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+          },
+          body: JSON.stringify({ url, text })
+        });
+        showToast('Oferta personalizada postada no Grupo VIP!');
+        document.getElementById('customUrl').value = '';
+        document.getElementById('customText').value = '';
+      } catch (e) {
+        showToast('Falha ao enviar: ' + e.message, true);
+      }
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 15000);
+  </script>
+</body>
+</html>
