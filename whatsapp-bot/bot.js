@@ -55,6 +55,7 @@ const {
   getSpecificLGDeal,
   getSpecificAliExpressDeal,
   getSpecificCeaDeal,
+  getSpecificGiulianaDeal,
   getSpecificStanleyDeal,
   getSpecificDecathlonDeal,
   getSpecificVenancioDeal,
@@ -2650,6 +2651,7 @@ async function startBot() {
             `👉 *!venancio* — Dispara oferta oficial Drogaria Venancio\n` +
             `👉 *!ali* — Dispara oferta oficial AliExpress\n` +
             `👉 *!cea* — Dispara oferta oficial C&A Brasil\n` +
+            `👉 *!giuliana* — Dispara oferta oficial Giuliana Flores\n` +
             `👉 *!magalu* — Dispara oferta Magalu imediata\n` +
             `👉 *!postar <link>* — Fura a fila e envia oferta com afiliado\n` +
             `👉 *!status* — Exibe status do bot\n` +
@@ -3295,6 +3297,30 @@ async function startBot() {
       }
 
       // 29. !puma (Admin) - Dispara oferta oficial Puma Brasil
+
+      // 32. !giuliana ou !flores (Admin) - Dispara oferta oficial Giuliana Flores
+      if (command === '!giuliana' || command === '!flores') {
+        try {
+          const deal = await getSpecificGiulianaDeal();
+          if (deal && deal.imageUrl) {
+            const imgBuf = await prepareWhatsAppImage(deal.imageUrl);
+            if (imgBuf) {
+              await waSocket.sendMessage(groupJid, {
+                image: imgBuf,
+                mimetype: 'image/jpeg',
+                caption: deal.text || deal.formattedText
+              });
+              if (!isGroup) await replyToUser({ text: '✅ Oferta oficial Giuliana Flores enviada para o grupo VIP!' });
+              logEntry('ADMIN', `Oferta Giuliana Flores enviada: ${deal.title}`);
+            }
+          }
+          return;
+        } catch (err) {
+          await replyToUser({ text: '❌ Erro ao postar Giuliana Flores: ' + err.message });
+          return;
+        }
+      }
+
       if (command === '!puma') {
         try {
           const deal = await getSpecificPumaDeal();

@@ -129,6 +129,7 @@ const BRAND_FEEDS = {
   clovis:     { feedId: 98680,  mid: 107702, name: 'Clovis Calçados',    maxItems: 1500 },
   lacoste:    { feedId: null,   mid: 112756, name: 'Lacoste Brasil',     maxItems: 100 },
   mizuno:     { feedId: 85451,  mid: 51271,  name: 'Mizuno Brasil',      maxItems: 1500 },
+  giuliana:   { feedId: 98944,  mid: 109198, name: 'Giuliana Flores',    maxItems: 600 },
 };
 
 // Mapeamento brandKey → chave no awinDealsData.json
@@ -150,6 +151,7 @@ const BRAND_KEY_MAP = {
   clovis:      'clovisDeals',
   lacoste:     'lacosteDeals',
   mizuno:      'mizunoDeals',
+  giuliana:    'giulianaDeals',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

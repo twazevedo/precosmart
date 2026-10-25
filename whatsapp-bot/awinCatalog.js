@@ -155,7 +155,8 @@ const BRAND_KEYS = [
   'cea',
   'clovis',
   'ml',
-  'amazon'
+  'amazon',
+  'giuliana'
 ];
 
 function getBrandPool(brandKey) {
@@ -181,6 +182,7 @@ function getBrandPool(brandKey) {
     case 'clovis':      list = awinMasterData.clovisDeals || []; break;
     case 'ml':          list = awinMasterData.mlDeals || []; break;
     case 'amazon':      list = awinMasterData.amazonDeals || []; break;
+    case 'giuliana':    list = awinMasterData.giulianaDeals || []; break;
     default:            list = []; break;
   }
   return list.filter(p => p && p.imageUrl && p.imageUrl.startsWith('http') && !brokenImageUrls.has(p.imageUrl) && !brokenImageUrls.has(String(p.id)));
@@ -212,7 +214,8 @@ const allAvailableProducts = [
   ...(awinMasterData.aliexpressDeals || []),
   ...(awinMasterData.ceaDeals || []),
   ...(awinMasterData.mlDeals || []),
-  ...(awinMasterData.amazonDeals || [])
+  ...(awinMasterData.amazonDeals || []),
+  ...(awinMasterData.giulianaDeals || [])
 ];
 const validInitialProducts = allAvailableProducts.filter(p => 
   p.imageUrl && 
@@ -238,6 +241,9 @@ let rotationCounter = 0;
  */
 function getProductBadge(title = '', advertiser = '', categories = '') {
   const t = `${title} ${advertiser} ${categories}`.toLowerCase();
+  if (t.includes('giuliana') || t.includes('flores') || t.includes('orquídea') || t.includes('orquidea') || t.includes('buquê') || t.includes('buque') || t.includes('cesta de café') || t.includes('cesta')) {
+    return '💐 *GIULIANA FLORES OFICIAL — FLORES & PRESENTES* 🎁✨';
+  }
   if (t.includes('lego') || t.includes('star wars') || t.includes('harry potter') || t.includes('minifigura') || t.includes('brinquedo')) {
     return '🧱 *LEGO BRASIL OFICIAL — UNIVERSO & COLECIONÁVEIS* 🚀✨';
   }
@@ -1339,6 +1345,49 @@ async function getSpecificHavaianasDeal(index = 0) {
   };
 }
 
+
+/**
+ * 21. Obtém oferta oficial da Giuliana Flores
+ */
+async function getSpecificGiulianaDeal(index = 0) {
+  const list = (awinMasterData.giulianaDeals && awinMasterData.giulianaDeals.length > 0)
+    ? awinMasterData.giulianaDeals
+    : [];
+  const p = getSafeItem(list, index);
+  if (!p) return null;
+
+  const targetUrl = p.deeplink || 'https://www.giulianaflores.com.br';
+  const shortUrl = await shortenUrl(p.deeplinkTracking || buildAwinUrl('109198', targetUrl));
+  const badge = getProductBadge(p.title, 'Giuliana Flores', p.categories);
+
+  const priceSection = p.priceOriginal && p.priceCurrent
+    ? `📉 De: ~${p.priceOriginal}~
+💥 *POR APENAS: ${p.priceCurrent}*
+`
+    : `💥 *POR APENAS: ${p.priceCurrent || 'Preço Especial'}*
+`;
+
+  const text = `${badge}
+🚨 *PRESENTE ESPECIAL & FLORES COM DESCONTO!* 🎁
+
+🌸 *${p.title.trim()}*
+🏪 Loja: *Giuliana Flores Oficial*
+
+${priceSection}👉 *PEÇA AGORA COM DESCONTO:*
+🔗 ${shortUrl}
+
+⚡ _Entrega rápida em todo o Brasil para presentear quem você ama._`;
+
+  return {
+    type: 'product',
+    store: 'Giuliana Flores Oficial',
+    title: p.title,
+    url: shortUrl,
+    imageUrl: p.imageUrl,
+    text
+  };
+}
+
 module.exports = {
   buildAwinUrl,
   getNextAwinDeal,
@@ -1362,6 +1411,7 @@ module.exports = {
   getSpecificLGDeal,
   getSpecificAliExpressDeal,
   getSpecificCeaDeal,
+  getSpecificGiulianaDeal,
   getAllActiveVouchers,
   formatVoucherList,
   awinMasterData
