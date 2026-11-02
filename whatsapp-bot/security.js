@@ -84,6 +84,17 @@ function generateSecureToken(bytes = 32) {
 }
 
 /**
+ * Extrai a chave de API SOMENTE de cabecalhos HTTP (X-API-Key ou Authorization: Bearer).
+ * Query string e proposital ignorada: tokens em URL vazam em logs, historico e Referer.
+ */
+function extractApiKey(req) {
+  const headers = (req && req.headers) || {};
+  if (headers['x-api-key']) return headers['x-api-key'];
+  if (headers['authorization']) return String(headers['authorization']).replace(/^Bearer\s+/i, '').trim();
+  return null;
+}
+
+/**
  * Chaves de API aceitas - SOMENTE variaveis de ambiente (nunca valores fixos no codigo).
  */
 function getAllowedApiKeys() {
@@ -120,8 +131,7 @@ function requireApiAuth(req, res, next) {
   }
 
   // Apenas cabeçalhos HTTP autorizados (previne vazamento de tokens em URLs/logs)
-  const clientKey = req.headers['x-api-key'] || 
-                   (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
+  const clientKey = extractApiKey(req);
 
   if (isValidApiKey(clientKey)) {
     return next();
@@ -137,6 +147,7 @@ function requireApiAuth(req, res, next) {
 function securityHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '0'); // auditor legado dos navegadores e fonte de falhas; CSP e a protecao correta (mesmo valor do helmet)
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   res.removeHeader('X-Powered-By');
@@ -163,6 +174,7 @@ module.exports = {
   generateSecureToken,
   requireApiAuth,
   isValidApiKey,
+  extractApiKey,
   securityHeaders,
   maskSensitiveData
 };

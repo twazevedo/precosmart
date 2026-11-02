@@ -113,7 +113,7 @@ test('6. Auditoria de Headers de Proteção HTTP (OWASP)', () => {
 
   assert.equal(headersDefinidos['x-content-type-options'], 'nosniff', 'Anti MIME-sniffing obrigatório');
   assert.equal(headersDefinidos['x-frame-options'], 'DENY', 'Anti Clickjacking obrigatório');
-  assert.equal(headersDefinidos['x-xss-protection'], '1; mode=block', 'Filtro Anti-XSS obrigatório');
+  assert.equal(headersDefinidos['x-xss-protection'], '0', 'X-XSS-Protection deve ser 0 (auditor legado desativado, igual ao helmet)');
   assert.equal(headerRemovido, 'X-Powered-By', 'Express fingerprinting deve ser removido');
   assert.equal(chamouNext, true, 'Middleware de headers deve prosseguir');
 });
@@ -162,4 +162,12 @@ test('8. Validação Anti-SSRF e Open Redirect (isSafePublicUrl)', () => {
   assert.equal(isSafePublicUrl('https://www.amazon.com.br/dp/B0CX23V2ZH'), true, 'URL pública da Amazon deve ser permitida');
   assert.equal(isSafePublicUrl('https://www.mercadolivre.com.br/p/MLB12345'), true, 'URL pública do ML deve ser permitida');
   assert.equal(isSafePublicUrl('https://m.magazineluiza.com.br/p/123'), true, 'URL pública do Magazine Luiza deve ser permitida');
+});
+
+test('9. extractApiKey: aceita header X-API-Key e Bearer; ignora query string', () => {
+  const { extractApiKey } = require('../security');
+  assert.equal(extractApiKey({ headers: { 'x-api-key': 'abc' } }), 'abc');
+  assert.equal(extractApiKey({ headers: { authorization: 'Bearer xyz' } }), 'xyz');
+  assert.equal(extractApiKey({ headers: {}, query: { token: 'naoDeveValer', key: 'naoDeveValer' } }), null);
+  assert.equal(extractApiKey({}), null);
 });

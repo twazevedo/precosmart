@@ -38,7 +38,7 @@ const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal, notifyAdmin } = require('./telegram');
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
-const { requireApiAuth, isValidApiKey, securityHeaders, maskSensitiveData } = require('./security');
+const { requireApiAuth, isValidApiKey, extractApiKey, securityHeaders, maskSensitiveData } = require('./security');
 const { 
   getNextAwinDeal,
   getNextBrandDeal, 
@@ -831,7 +831,7 @@ app.get('/api/trigger-lancar', requireApiAuth, async (req, res) => {
 
 // Endpoint com token de segurança simplificado para disparo imediato sob demanda
 app.get('/api/lancar-agora', async (req, res) => {
-  const token = req.query.token || req.headers['x-api-key'];
+  const token = extractApiKey(req);
   if (!isValidApiKey(token)) {
     return res.status(401).json({ error: 'Token de autorização inválido.' });
   }
@@ -842,7 +842,7 @@ app.get('/api/lancar-agora', async (req, res) => {
 
 // Endpoint com token de seguranca simplificado para disparo imediato de Achadinho Shopee sob demanda
 app.get('/api/lancar-shopee', async (req, res) => {
-  const token = req.query.token || req.headers['x-api-key'];
+  const token = extractApiKey(req);
   if (!isValidApiKey(token)) {
     return res.status(401).json({ error: 'Token de autorizacao invalido.' });
   }
