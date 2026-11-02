@@ -14,13 +14,13 @@
     "test": "node --test test/mirror.test.js"
   },
   "engines": {
-    "node": "20.x"
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
     "axios": "^1.20.0",
     "cheerio": "^1.2.0",
-    "csv-parse": "^5.6.0",
+    "csv-parse": "^7.0.3",
     "express": "^4.21.2",
     "mongodb": "^7.6.0",
     "node-cron": "^4.6.0",

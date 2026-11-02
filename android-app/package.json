@@ -15,5 +15,10 @@
     "@capacitor/android": "^8.5.3",
     "@capacitor/cli": "^8.5.3",
     "@capacitor/core": "^8.5.3"
+  },
+  "overrides": {
+    "uuid": "^11.1.0",
+    "glob": "^14.0.2",
+    "minimatch": "^11.0.1"
   }
 }
