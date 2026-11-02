@@ -118,17 +118,31 @@ test('6. Auditoria de Headers de Proteção HTTP (OWASP)', () => {
   assert.equal(chamouNext, true, 'Middleware de headers deve prosseguir');
 });
 
-test('7. Portão de Autenticação: Aprovação via Query Param e Chave Mestra Padronizada', () => {
-  const reqQuery = {
-    ip: '203.0.113.195',
-    headers: {},
-    query: { key: 'precosmart_adm_sec_994586' }
+test('7. Autenticacao: query param e chaves antigas hardcoded sao rejeitadas; chave do ambiente via header e aceita', () => {
+  process.env.API_SECRET_KEY = 'chave_de_teste_do_ambiente';
+  const mkRes = () => { const r = { code: null, status(c) { r.code = c; return r; }, json() {} }; return r; };
+  const tentar = (req) => {
+    let passou = false;
+    const res = mkRes();
+    requireApiAuth(req, res, () => { passou = true; });
+    return { passou, code: res.code };
   };
 
-  let chamouNext = false;
-  requireApiAuth(reqQuery, {}, () => { chamouNext = true; });
+  // Query param nunca autentica (OWASP ASVS)
+  const q = tentar({ ip: '203.0.113.195', headers: {}, query: { key: 'chave_de_teste_do_ambiente' } });
+  assert.equal(q.passou, false, 'Chave via query param deve ser rejeitada');
+  assert.equal(q.code, 401);
 
-  assert.equal(chamouNext, true, 'Requisição com query param key válida deve ser aprovada');
+  // Chaves antigas que estiveram hardcoded no repositorio publico nao podem mais autenticar
+  for (const antiga of ['precosmart_adm_sec_994586', 'precosmart_persistent_auth_key_2026_sec', 'promo2026']) {
+    const r = tentar({ ip: '203.0.113.195', headers: { 'x-api-key': antiga } });
+    assert.equal(r.passou, false, 'Chave antiga hardcoded deve ser rejeitada: ' + antiga);
+    assert.equal(r.code, 401);
+  }
+
+  // Chave do ambiente via header continua valida
+  const ok = tentar({ ip: '203.0.113.195', headers: { 'x-api-key': 'chave_de_teste_do_ambiente' } });
+  assert.equal(ok.passou, true, 'Chave do ambiente via header deve ser aceita');
 });
 
 test('8. Validação Anti-SSRF e Open Redirect (isSafePublicUrl)', () => {

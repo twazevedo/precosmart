@@ -26,11 +26,10 @@ function requireAdminAuth(req, res, next) {
 
   const apiKey = req.headers['x-api-key'] || (req.headers['authorization']?.replace(/^Bearer\s+/i, ''));
   const configuredKey = process.env.API_SECRET_KEY;
-  const adminKey = 'precosmart_adm_sec_994586';
   const isLocal = req.ip?.includes('127.0.0.1') || req.ip?.includes('::1');
 
   if (apiKey) {
-    const validKeys = [configuredKey, adminKey].filter(Boolean);
+    const validKeys = [configuredKey].filter(Boolean);
     for (const validKey of validKeys) {
       const bufKey = Buffer.from(String(apiKey));
       const bufConfig = Buffer.from(String(validKey));

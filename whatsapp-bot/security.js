@@ -84,18 +84,34 @@ function generateSecureToken(bytes = 32) {
 }
 
 /**
+ * Chaves de API aceitas - SOMENTE variaveis de ambiente (nunca valores fixos no codigo).
+ */
+function getAllowedApiKeys() {
+  return [
+    process.env.API_SECRET_KEY,
+    process.env.APP_MASTER_KEY,
+    process.env.ENCRYPTION_KEY
+  ].filter(Boolean);
+}
+
+/**
+ * Valida uma chave candidata em tempo constante contra as chaves do ambiente.
+ */
+function isValidApiKey(candidate) {
+  if (!candidate) return false;
+  const bufClient = Buffer.from(String(candidate));
+  return getAllowedApiKeys().some((validKey) => {
+    const bufValid = Buffer.from(String(validKey));
+    return bufClient.length === bufValid.length && crypto.timingSafeEqual(bufClient, bufValid);
+  });
+}
+
+/**
  * Middleware de Autenticação para Endpoints Administrativos do Express
  * Exige cabeçalho X-API-KEY ou Authorization: Bearer <token>.
  * Não aceita credenciais via query string (OWASP ASVS compliant).
  */
 function requireApiAuth(req, res, next) {
-  const allowedKeys = [
-    process.env.API_SECRET_KEY,
-    process.env.APP_MASTER_KEY,
-    process.env.ENCRYPTION_KEY,
-    'precosmart_persistent_auth_key_2026_sec'
-  ].filter(Boolean);
-
   const ip = req.ip || req.connection?.remoteAddress || '';
   const isLocalDev = (process.env.NODE_ENV !== 'production') && (ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost'));
 
@@ -107,14 +123,8 @@ function requireApiAuth(req, res, next) {
   const clientKey = req.headers['x-api-key'] || 
                    (req.headers['authorization'] ? req.headers['authorization'].replace(/^Bearer\s+/i, '').trim() : null);
 
-  if (clientKey) {
-    for (const validKey of allowedKeys) {
-      const bufClient = Buffer.from(String(clientKey));
-      const bufValid = Buffer.from(String(validKey));
-      if (bufClient.length === bufValid.length && crypto.timingSafeEqual(bufClient, bufValid)) {
-        return next();
-      }
-    }
+  if (isValidApiKey(clientKey)) {
+    return next();
   }
 
   console.warn(`[ALERTA DE SEGURANÇA] Tentativa de acesso não autorizado bloqueada! IP: ${ip} | Rota: ${req.originalUrl || req.url}`);
@@ -152,6 +162,7 @@ module.exports = {
   decryptSecret,
   generateSecureToken,
   requireApiAuth,
+  isValidApiKey,
   securityHeaders,
   maskSensitiveData
 };
