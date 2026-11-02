@@ -33,6 +33,7 @@ const {
 
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
 const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal } = require('./shopeeCatalog');
+const { shortenLinksInText } = require('./linkShortener');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
@@ -1535,6 +1536,7 @@ async function findGroupJid(sock) {
  * Envia produto como imagem + legenda. Fallback para texto se a imagem falhar.
  */
 async function sendProductMessage(product, caption) {
+  caption = await shortenLinksInText(caption);
   const jidsToSend = getTargetJids();
   
   if (jidsToSend.length === 0) return;
@@ -2069,6 +2071,7 @@ async function startBot() {
           continue;
         }
 
+        deal.text = await shortenLinksInText(deal.text);
         for (const targetJid of jidsToSend) {
           if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
           try {

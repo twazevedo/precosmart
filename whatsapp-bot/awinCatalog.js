@@ -671,7 +671,7 @@ async function getSpecificNikeDeal(index = 0) {
   
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const discountSection = p.discount ? `🔥 *Desconto:* ${p.discount}\n` : '';
@@ -793,7 +793,7 @@ async function getSpecificOlympikusDeal(index = 0) {
 
   const p = getSafeItem(olyList, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -833,7 +833,7 @@ async function getSpecificClovisDeal(index = 0) {
 
   const p = getSafeItem(clovisList, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -873,7 +873,7 @@ async function getSpecificLegoDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -913,7 +913,7 @@ async function getSpecificNinjaDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -953,7 +953,7 @@ async function getSpecificUnderArmourDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -993,7 +993,7 @@ async function getSpecificHopeDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1033,7 +1033,7 @@ async function getSpecificLacosteDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1073,7 +1073,7 @@ async function getSpecificLGDeal(index = 0) {
 
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1112,7 +1112,7 @@ async function getSpecificAliExpressDeal(index = 0) {
   const listToUse = cleanAli.length > 0 ? cleanAli : aliList;
   const p = getSafeItem(listToUse, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   let imageUrl = upgradeToHdImage(p.imageUrl);
   if (!imageUrl && p.deeplink) {
     try { imageUrl = await fetchOgImage(p.deeplink); } catch (e) {}
@@ -1141,7 +1141,7 @@ async function getSpecificCeaDeal(index = 0) {
   const ceaList = ((awinMasterData.ceaDeals || []).length > 0 ? awinMasterData.ceaDeals : (awinMasterData.products || [])).filter(p => p.advertiserId === '17648' || (p.advertiser && p.advertiser.toLowerCase().includes('c&a')));
   const p = getSafeItem(ceaList, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const descSection = p.description ? `📝 ${p.description}\n\n` : '';
@@ -1168,7 +1168,7 @@ async function getSpecificStanleyDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '30599' || (p.advertiser && p.advertiser.toLowerCase().includes('stanley')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1199,7 +1199,7 @@ async function getSpecificDecathlonDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '19296' || (p.advertiser && p.advertiser.toLowerCase().includes('decathlon')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1230,7 +1230,7 @@ async function getSpecificVenancioDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '47165' || (p.advertiser && p.advertiser.toLowerCase().includes('venancio')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1261,7 +1261,7 @@ async function getSpecificPumaDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '32675' || (p.advertiser && p.advertiser.toLowerCase().includes('puma')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1292,7 +1292,7 @@ async function getSpecificMizunoDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '51271' || (p.advertiser && p.advertiser.toLowerCase().includes('mizuno')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -1323,7 +1323,7 @@ async function getSpecificHavaianasDeal(index = 0) {
     : (awinMasterData.products || []).filter(p => p.advertiserId === '119883' || (p.advertiser && p.advertiser.toLowerCase().includes('havaianas')));
   const p = getSafeItem(list, index);
   if (!p) return null;
-  const shortUrl = p.shortUrl || p.deeplinkTracking || await shortenUrl(p.deeplinkTracking || p.deeplink);
+  const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
 
   const priceSection = p.priceOriginal && p.priceCurrent

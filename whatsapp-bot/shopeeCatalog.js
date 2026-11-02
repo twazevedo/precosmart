@@ -8,6 +8,7 @@
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
+const { shortenUrl } = require('./linkShortener');
 
 const SHOPEE_AFFILIATE_ID = process.env.AFFILIATE_SHOPEE || '18361251220';
 const GZ_PATH = path.join(__dirname, 'shopeeFeedsData.tsv.gz');
@@ -137,6 +138,7 @@ async function getSpecificShopeeDeal(index = null) {
   const p = index !== null ? getShopeeProductByIndex(index) : getNextShopeeProduct();
   if (!p || !p.imageUrl) return null;
 
+  const shortUrl = await shortenUrl(p.directAffiliateUrl);
   const hasDiscount = p.origPrice > p.salePrice && p.discPct > 0;
   const priceSection = hasDiscount
     ? `📉 De: ~${brl(p.origPrice)}~\n💥 *POR APENAS: ${brl(p.salePrice)}* 🎯 (${p.discPct}% OFF)\n`
@@ -151,7 +153,7 @@ ${shopSection}${ratingSection}
 ${priceSection}📦 _Use seus cupons de Frete Grátis no App da Shopee!_
 
 👉 *COMPRE COM DESCONTO AQUI:*
-🔗 ${p.directAffiliateUrl}
+🔗 ${shortUrl}
 
 ⚡ _Preço e estoque podem variar a qualquer momento._
 🛡️ _Compra 100% segura com Garantia Shopee._`;
@@ -161,7 +163,7 @@ ${priceSection}📦 _Use seus cupons de Frete Grátis no App da Shopee!_
     store: 'Shopee Oficial',
     title: p.title,
     price: brl(p.salePrice),
-    url: p.directAffiliateUrl,
+    url: shortUrl,
     rawUrl: p.directUrl,
     imageUrl: p.imageUrl,
     text
