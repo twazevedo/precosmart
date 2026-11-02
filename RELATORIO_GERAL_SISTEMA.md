@@ -49,7 +49,7 @@ Nesta sessão, o sistema PreçoSmart foi completamente profissionalizado e estru
   ```
 * **Chave de Segurança (API Key):**
   ```text
-  precosmart_persistent_auth_key_2026_sec
+  <SUA_API_SECRET_KEY>
   ```
 
 ### Onde baixar o aplicativo:

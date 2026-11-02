@@ -177,7 +177,7 @@
       localStorage.setItem('ps_api_url', DEFAULT_URL);
     }
     let apiUrl = storedUrl;
-    let apiKey = localStorage.getItem('ps_api_key') || 'precosmart_persistent_auth_key_2026_sec';
+    let apiKey = localStorage.getItem('ps_api_key') || '';
 
     document.getElementById('serverUrl').value = apiUrl;
     document.getElementById('serverKey').value = apiKey;
@@ -197,7 +197,7 @@
 
     function saveConfig() {
       apiUrl = document.getElementById('serverUrl').value.trim() || DEFAULT_URL;
-      apiKey = document.getElementById('serverKey').value.trim() || 'precosmart_persistent_auth_key_2026_sec';
+      apiKey = document.getElementById('serverKey').value.trim() || '';
       localStorage.setItem('ps_api_url', apiUrl);
       localStorage.setItem('ps_api_key', apiKey);
       toggleConfigModal();

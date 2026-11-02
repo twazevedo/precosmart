@@ -1208,7 +1208,7 @@ Showing lines 720-775 of 3361
 772:     process.env.API_SECRET_KEY,
 773:     process.env.APP_MASTER_KEY,
 774:     process.env.ENCRYPTION_KEY,
-775:     'precosmart_persistent_auth_key_2026_sec',
+775:     '<SUA_API_SECRET_KEY>',
 
 ---
 
@@ -9446,7 +9446,7 @@ Command output:
   <script>
     const DEFAULT_URL = 'https://precosmart-whatsapp-bot.onrender.com';
     let apiUrl = localStorage.getItem('ps_api_url') || DEFAULT_URL;
-    let apiKey = localStorage.getItem('ps_api_key') || 'precosmart_persistent_auth_key_2026_sec';
+    let apiKey = localStorage.getItem('ps_api_key') || '<SUA_API_SECRET_KEY>';
 
     document.getElementById('serverUrl').value = apiUrl;
     document.getElementById('serverKey').value = apiKey;
@@ -9917,7 +9917,7 @@ https://precosmart-b8pg.onrender.com
 
 ### 2. **Chave de Segurança (API Key):**
 ```text
-precosmart_persistent_auth_key_2026_sec
+<SUA_API_SECRET_KEY>
 ```
 
 ---
@@ -11289,7 +11289,7 @@ const options = {
   path: '/api/trigger-giuliana',
   method: 'GET',
   headers: {
-    'x-api-key': 'precosmart_persistent_auth_key_2026_sec'
+    'x-api-key': '<SUA_API_SECRET_KEY>'
   }
 };
 const req = https.request(options, res => {
@@ -11463,7 +11463,7 @@ const options = {
   path: '/api/send-awin',
   method: 'GET',
   headers: {
-    'x-api-key': 'precosmart_persistent_auth_key_2026_sec'
+    'x-api-key': '<SUA_API_SECRET_KEY>'
   }
 };
 const req = https.request(options, res => {
@@ -13783,7 +13783,7 @@ Todas as alterações foram comitadas e enviadas para a branch `main`:
 O seu aplicativo **PrecoSmart Admin** está pronto para uso a qualquer momento (pelo 4G ou Wi-Fi):
 * **Configuração salva no app:**
   * **URL:** `https://precosmart-b8pg.onrender.com`
-  * **Chave API:** `precosmart_persistent_auth_key_2026_sec`
+  * **Chave API:** `<SUA_API_SECRET_KEY>`
 * **Instalador APK:**
   * Na sua **Área de Trabalho (Desktop):** `C:\Users\Thiag\Desktop\PrecoSmart-Admin.apk`
   * Ou baixe direto pelo celular: [Baixar PrecoSmart-Admin.apk](https://github.com/twazevedo/precosmart/raw/main/PrecoSmart-Admin.apk)
