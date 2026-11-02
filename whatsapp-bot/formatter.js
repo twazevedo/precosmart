@@ -25,7 +25,7 @@ function buildOfferCaption(product) {
   const coupon   = getBestCoupon(cheapest.store, cheapest.pix, product);
   const final    = coupon ? coupon.finalPrice : cheapest.pix;
   const oldPrice = product.history30dAvg;
-  const url      = getAffiliateUrl(cheapest.store, product.title);
+  const url      = product.directAffiliateUrl || cheapest.url || getAffiliateUrl(cheapest.store, product.title);
 
   // Frases de efeito de alta conversão
   const catchphrases = [
@@ -116,7 +116,7 @@ function buildFlashCaption(product) {
   const coupon   = getBestCoupon(cheapest.store, cheapest.pix);
   const final    = coupon ? coupon.finalPrice : cheapest.pix;
   const oldPrice = product.history30dAvg;
-  const url      = getAffiliateUrl(cheapest.store, product.title);
+  const url      = product.directAffiliateUrl || cheapest.url || getAffiliateUrl(cheapest.store, product.title);
 
   let instructions = '';
   if (coupon) {

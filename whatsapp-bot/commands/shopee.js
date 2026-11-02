@@ -4,6 +4,7 @@
 'use strict';
 
 const { PRODUCTS } = require('../catalog');
+const { getNextShopeeProduct } = require('../shopeeCatalog');
 const { buildOfferMessage } = require('../formatter');
 
 module.exports = {
@@ -11,12 +12,12 @@ module.exports = {
   description: 'Dispara 1 oferta com foto e comissão garantida da Shopee',
   adminOnly: true,
   async execute({ isGroup, replyToUser, sendProductMessage, logEntry }) {
-    const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
-    if (shopeeProducts.length === 0) {
-      await replyToUser({ text: '⚠️ Nenhuma oferta da Shopee disponível no momento.' });
+    const fallbackList = PRODUCTS.filter(item => item.quotes.some(q => q.store === 'Shopee'));
+    const p = getNextShopeeProduct() || fallbackList[Math.floor(Math.random() * fallbackList.length)];
+    if (!p) {
+      await replyToUser({ text: 'Nenhuma oferta da Shopee disponivel no momento.' });
       return;
     }
-    const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
     const caption = buildOfferMessage(p);
     await sendProductMessage(p, caption);
     if (!isGroup) await replyToUser({ text: '✅ Produto da Shopee enviado para os grupos VIP!' });

@@ -32,6 +32,7 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
+const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal } = require('./shopeeCatalog');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
@@ -486,6 +487,7 @@ app.get('/api/status', (req, res) => res.json({
   analytics:   getAnalyticsSummary(),
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
+  shopeeCatalogCount: getShopeeCatalogCount(),
   lastMessage: messageLog[0] || null,
   version:     '2.2.0'
 }));
@@ -716,7 +718,8 @@ async function dispatchNextAwinRotation(options = {}) {
 
     // Tenta até 5 ofertas consecutivas até encontrar uma com foto HD 100% baixada com sucesso
     for (let attempt = 0; attempt < 5; attempt++) {
-      const candidate = await getNextAwinDeal();
+      const useShopeeTurn = ((global.__shopeeRotTurn = (global.__shopeeRotTurn || 0) + 1) % 3 === 0);
+      const candidate = useShopeeTurn ? (await getSpecificShopeeDeal() || await getNextAwinDeal()) : await getNextAwinDeal();
       if (!candidate || !candidate.imageUrl) continue;
 
       const candidateHdUrl = upgradeToHdImage(candidate.imageUrl);
@@ -850,11 +853,11 @@ app.get('/api/lancar-shopee', async (req, res) => {
     return res.status(503).json({ error: 'Bot nao conectado ou grupo nao encontrado' });
   }
   try {
-    const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
-    if (shopeeProducts.length === 0) {
+    const fallbackShopee = PRODUCTS.filter(item => item.quotes.some(q => q.store === 'Shopee'));
+    const p = getNextShopeeProduct() || fallbackShopee[Math.floor(Math.random() * fallbackShopee.length)];
+    if (!p) {
       return res.status(404).json({ error: 'Nenhum produto Shopee encontrado no catalogo' });
     }
-    const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
     const caption = buildOfferMessage(p);
     await sendProductMessage(p, caption);
     logEntry('MANUAL', 'Achadinho Shopee disparado: ' + p.title);
@@ -1648,9 +1651,9 @@ function setupCronJobs() {
     if (!isConnected || !isAutoPilotActive) return;
     try {
       // Buscar apenas produtos da Shopee no catálogo
-      const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
-      if (shopeeProducts.length > 0) {
-        const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+      const fallbackShopee = PRODUCTS.filter(item => item.quotes.some(q => q.store === 'Shopee'));
+      const p = getNextShopeeProduct() || fallbackShopee[Math.floor(Math.random() * fallbackShopee.length)];
+      if (p) {
         const caption = buildOfferMessage(p);
         await sendProductMessage(p, caption);
         logEntry('SENT', '[15:00] Achadinho Shopee automático enviado');
@@ -1662,9 +1665,9 @@ function setupCronJobs() {
   cron.schedule('0 14 * * *', async () => {
     if (!isConnected || !isAutoPilotActive) return;
     try {
-      const shopeeProducts = PRODUCTS.filter(p => p.quotes.some(q => q.store === 'Shopee'));
-      if (shopeeProducts.length > 0) {
-        const p = shopeeProducts[Math.floor(Math.random() * shopeeProducts.length)];
+      const fallbackShopee = PRODUCTS.filter(item => item.quotes.some(q => q.store === 'Shopee'));
+      const p = getNextShopeeProduct() || fallbackShopee[Math.floor(Math.random() * fallbackShopee.length)];
+      if (p) {
         const caption = buildOfferMessage(p);
         await sendProductMessage(p, caption);
         logEntry('SENT', '[14:00] Achadinho Shopee automático enviado: ' + p.title);
