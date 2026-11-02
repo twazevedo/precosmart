@@ -1,5 +1,11 @@
 # render.yaml — Deploy automático do Bot WhatsApp PreçoSmart no Render.com
 # Docs: https://render.com/docs/render-yaml
+#
+# ATENCAO: o bot de producao ja roda em um servico criado manualmente (precosmart-b8pg).
+# Aplicar este arquivo como "Blueprint" criaria UM SEGUNDO servico precosmart-whatsapp-bot
+# na mesma conta de WhatsApp (sessoes duplicadas / ofertas em dobro). Para subir so o
+# backend e o frontend, crie-os manualmente (New > Web Service / Static Site) usando os
+# valores abaixo, ou remova o bloco do bot antes de aplicar o Blueprint.
 
 services:
   - type: web
@@ -57,10 +63,13 @@ services:
     rootDir: backend
     buildCommand: npm install
     startCommand: node src/server.js
+    healthCheckPath: /api/stats
     plan: free
     envVars:
       - key: PORT
         value: "3001"
+      - key: NODE_VERSION
+        value: "22"
       - key: NODE_ENV
         value: production
       - key: API_SECRET_KEY
@@ -73,4 +82,9 @@ services:
     name: precosmart-frontend
     buildCommand: cd frontend && npm install && npm run build
     publishDir: frontend/dist
+    routes:
+      # O frontend chama /api/... (relativo); sem este rewrite o site estatico responde 404.
+      - type: rewrite
+        source: /api/*
+        destination: https://precosmart-backend.onrender.com/api/*
 

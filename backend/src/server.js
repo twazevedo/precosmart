@@ -26,7 +26,7 @@ function requireAdminAuth(req, res, next) {
 
   const apiKey = req.headers['x-api-key'] || (req.headers['authorization']?.replace(/^Bearer\s+/i, ''));
   const configuredKey = process.env.API_SECRET_KEY;
-  const isLocal = req.ip?.includes('127.0.0.1') || req.ip?.includes('::1');
+  const isLocal = process.env.NODE_ENV !== 'production' && (req.ip?.includes('127.0.0.1') || req.ip?.includes('::1'));
 
   if (apiKey) {
     const validKeys = [configuredKey].filter(Boolean);
