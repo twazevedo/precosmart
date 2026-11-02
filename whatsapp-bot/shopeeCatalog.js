@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 const { shortenUrl } = require('./linkShortener');
+const { cleanText } = require('./textSanitizer');
 
 const SHOPEE_AFFILIATE_ID = process.env.AFFILIATE_SHOPEE || '18361251220';
 const GZ_PATH = path.join(__dirname, 'shopeeFeedsData.tsv.gz');
@@ -136,9 +137,9 @@ function getShopeeProductByIndex(index) {
     id: `shp_${shopid}_${itemid}`,
     shopid,
     itemid,
-    title,
+    title: cleanText(title),
     category: cat || 'Achadinhos Shopee',
-    shopName: shopName || 'Loja Oficial Shopee',
+    shopName: cleanText(shopName) || 'Loja Oficial Shopee',
     salePrice,
     origPrice,
     discPct,

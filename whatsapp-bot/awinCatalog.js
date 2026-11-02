@@ -7,6 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 const { shortenUrl } = require('./linkShortener');
+const { cleanText, cleanPrice } = require('./textSanitizer');
 const { fetchOgImage, upgradeToHdImage } = require('./mirror');
 const rotationState = require('./rotationState');
 
@@ -50,8 +51,17 @@ function sanitizeDealsData(data) {
   for (const key of Object.keys(data)) {
     if (Array.isArray(data[key])) {
       data[key].forEach(item => {
-        if (item && item.shortUrl && (item.shortUrl.includes('tinyurl.com') || item.shortUrl.includes('viglink'))) {
+        if (!item || typeof item !== 'object') return;
+        if (item.shortUrl && (item.shortUrl.includes('tinyurl.com') || item.shortUrl.includes('viglink'))) {
           delete item.shortUrl;
+        }
+        if (item.title) item.title = cleanText(item.title);
+        if (item.description) item.description = cleanText(item.description);
+        if (item.advertiser) item.advertiser = cleanText(item.advertiser);
+        if (item.priceCurrent) item.priceCurrent = cleanPrice(item.priceCurrent);
+        if (item.priceOriginal) item.priceOriginal = cleanPrice(item.priceOriginal);
+        if (item.priceOriginal && item.priceCurrent && item.priceOriginal === item.priceCurrent) {
+          item.priceOriginal = null;
         }
       });
     }
