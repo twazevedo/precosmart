@@ -1,7 +1,7 @@
 /**
- * @file formatter.js — PreçoSmart Bot v2.1
- * @description Mensagens limpas, sem assinatura de IA, sem menção à extensão.
- * As ofertas são enviadas como imagem + legenda pelo bot.js.
+ * @file formatter.js — PreçoSmart Bot v2.2
+ * @description Mensagens limpas, sem assinatura de IA, sem menção à extensão,
+ * com Curadoria Inteligente, Selos Dinâmicos e Cálculo de Economia em Reais.
  */
 'use strict';
 
@@ -35,14 +35,25 @@ function buildOfferCaption(product) {
     '💥 *PREÇO DERRETEU • APROVEITE!* 🎯',
     '🏷️ *OPORTUNIDADE DO DIA PREÇOSMART!* ⭐'
   ];
-  const catchphrase = catchphrases[Math.floor(Math.random() * catchphrases.length)];
+
+  const savings = oldPrice && oldPrice > final ? Number((oldPrice - final).toFixed(2)) : 0;
+  let catchphrase = catchphrases[Math.floor(Math.random() * catchphrases.length)];
+  if (final > 0 && final <= 29.90) {
+    catchphrase = '🪙 *ACHADINHO BARATINHO • MENOS DE R$ 29!* 🔥⚡';
+  } else if (product.rating && product.rating >= 4.9) {
+    catchphrase = `🏆 *CAMPEÃO DE AVALIAÇÕES (${Number(product.rating).toFixed(1)}/5.0)!* ⭐🔥`;
+  }
 
   let instructions = '';
   if (coupon) {
     instructions = `\n🎟️ *Cupom:* \`${coupon.code}\` _(toque para copiar)_`;
   } else if (cheapest.store === 'KaBuM!' || cheapest.store === 'Mercado Livre') {
-     instructions = `\n💳 _Melhor preço no Pix ou parcelado._`;
+    instructions = `\n💳 _Melhor preço no Pix ou parcelado._`;
   }
+
+  const savingsLine = savings >= 1 ? `\n💰 *Você economiza: ${brl(savings)} na hora!*` : '';
+  const ratingLine  = product.rating && product.rating >= 4.5 ? `\n⭐ *Avaliação:* ${Number(product.rating).toFixed(1)}/5.0` : '';
+  const storeDisplay = product.storeLabel || `${cheapest.store} Oficial`;
 
   const dealEval = evaluateDeal(product.title, final, oldPrice);
   const scoreBadge = dealEval && dealEval.badge ? `\n\n${dealEval.badge}` : '';
@@ -50,10 +61,10 @@ function buildOfferCaption(product) {
   return `${catchphrase}
 
 ${product.emoji} *${sanitizeForWhatsApp(product.title)}*
-🏪 Loja: *${cheapest.store} Oficial*
+🏪 Loja: *${storeDisplay}*${ratingLine}
 
 📉 De: ~${brl(oldPrice)}~
-💥 *POR APENAS: ${brl(final)}*${instructions}${scoreBadge}
+💥 *POR APENAS: ${brl(final)}*${savingsLine}${instructions}${scoreBadge}
 
 👉 *COMPRE COM DESCONTO AQUI:*
 🔗 ${url}
