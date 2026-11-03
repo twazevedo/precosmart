@@ -900,7 +900,7 @@ async function sendHolidayGiftDeal(source = 'MANUAL') {
       text: deal.text
     }).catch(() => {});
   }
-  logEntry('NATAL', `🎁 [${source}] Especial de Natal enviado: ${deal.title} (R$ ${deal.price ? deal.price.toFixed(2) : 'N/A'})`);
+  logEntry('NATAL', `🎁 [${source}] Especial de Natal enviado: ${deal.title} (R$ ${deal.price ? deal.price : 'N/A'})`);
   return deal;
 }
 
