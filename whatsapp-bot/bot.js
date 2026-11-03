@@ -1963,13 +1963,23 @@ let tgListenerStarted = false;
 let initialDispatchDone = false;
 
 async function startBot() {
+  if (waSocket) {
+    try {
+      waSocket.ev.removeAllListeners();
+      waSocket.end();
+    } catch (e) {}
+    waSocket = null;
+  }
+
   let state, saveCreds;
 
   if (process.env.MONGO_URI) {
     try {
-      logEntry('BOOT', 'Conectando ao MongoDB...');
-      mongoClient = new MongoClient(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
-      await mongoClient.connect();
+      if (!mongoClient) {
+        logEntry('BOOT', 'Conectando ao MongoDB...');
+        mongoClient = new MongoClient(process.env.MONGO_URI, { serverSelectionTimeoutMS: 5000 });
+        await mongoClient.connect();
+      }
       const collection = mongoClient.db('precosmart').collection('auth_info');
       const auth = await useMongoDBAuthState(collection);
       state = auth.state;
@@ -2166,6 +2176,13 @@ async function startBot() {
     if (connection === 'close') {
       isConnected = false;
       groupJid    = null;
+      try {
+        if (waSocket) {
+          waSocket.ev.removeAllListeners();
+          waSocket.end();
+          waSocket = null;
+        }
+      } catch (cleanupErr) {}
       const code  = lastDisconnect?.error?.output?.statusCode;
       const isLoggedOut = code === DisconnectReason.loggedOut;
       logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
