@@ -120,11 +120,15 @@
           <div class="text-xl mb-1">🎲</div>
           <div class="text-xs font-bold">Qualquer Loja</div>
         </button>
-        <button onclick="triggerBrand('natal')" class="p-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 rounded-xl text-center active:scale-95 transition border border-rose-500/30 col-span-2">
+        <button onclick="triggerBrand('natal')" class="p-3 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 rounded-xl text-center active:scale-95 transition border border-rose-500/30">
           <div class="text-xl mb-1">🎁</div>
           <div class="text-xs font-bold">Presente de Natal (&lt; R$ 50)</div>
         </button>
-        <button onclick="triggerBrand('shopee')" class="p-3 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded-xl text-center active:scale-95 transition border border-amber-500/30">
+        <button onclick="triggerBrand('natal-test')" class="p-3 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 rounded-xl text-center active:scale-95 transition border border-emerald-500/30">
+          <div class="text-xl mb-1">⏱️</div>
+          <div class="text-xs font-bold">Teste 30 min (5 em 5)</div>
+        </button>
+        <button onclick="triggerBrand('shopee')" class="p-3 bg-amber-600/20 hover:bg-amber-600/30 text-amber-400 rounded-xl text-center active:scale-95 transition border border-amber-500/30 col-span-2">
           <div class="text-xl mb-1">🛍️</div>
           <div class="text-xs font-bold">Shopee 109k</div>
         </button>
@@ -298,6 +302,9 @@
           endpoint = `${apiUrl}/api/lancar-shopee`;
         } else if (brand === 'natal') {
           endpoint = `${apiUrl}/api/trigger-natal`;
+        } else if (brand === 'natal-test') {
+          endpoint = `${apiUrl}/api/start-holiday-test`;
+        }
         const res = await fetch(endpoint, {
           method: 'GET',
           headers: { 'x-api-key': apiKey }

@@ -311,6 +311,7 @@ function isHolidayGiftProduct(p) {
 }
 
 let holidayGiftCursor = -1;
+const recentHolidayGiftIds = new Set();
 
 function getNextHolidayGiftProduct() {
   const total = getShopeeCatalogCount();
@@ -318,10 +319,17 @@ function getNextHolidayGiftProduct() {
   if (holidayGiftCursor < 0) {
     holidayGiftCursor = Math.floor(Math.random() * total);
   }
-  for (let tries = 0; tries < 250; tries++) {
+  for (let tries = 0; tries < 400; tries++) {
     holidayGiftCursor = (holidayGiftCursor + 4093) % total;
     const p = getShopeeProductByIndex(holidayGiftCursor);
-    if (isHolidayGiftProduct(p)) return p;
+    if (p && isHolidayGiftProduct(p) && !recentHolidayGiftIds.has(p.id)) {
+      recentHolidayGiftIds.add(p.id);
+      if (recentHolidayGiftIds.size > 200) {
+        const first = recentHolidayGiftIds.values().next().value;
+        recentHolidayGiftIds.delete(first);
+      }
+      return p;
+    }
   }
   return null;
 }
@@ -332,24 +340,24 @@ async function getNextHolidayGiftDeal() {
 
   const shortUrl = await shortenUrl(p.directAffiliateUrl);
   const savings = Math.max(0, Number((p.origPrice - p.salePrice).toFixed(2)));
-  const ratingStr = p.rating ? `? *Avalia??o:* ${p.rating.toFixed(1)}/5.0 _(Excelente Recomenda??o)_\n` : '';
-  const shopSection = p.shopName ? `?? Loja: *${p.shopName} (Shopee)*\n` : `?? Loja: *Shopee Oficial*\n`;
+  const ratingStr = p.rating ? `⭐ *Avaliação:* ${p.rating.toFixed(1)}/5.0 _(Excelente Recomendação)_\n` : '';
+  const shopSection = p.shopName ? `🏪 Loja: *${p.shopName} (Shopee)*\n` : `🏪 Loja: *Shopee Oficial*\n`;
 
-  const text = `?? *ESPECIAL DE NATAL ? PRESENTE & AMIGO SECRETO AT? R$ 50* ???
-_(Op??o perfeita para presentear com estilo gastando pouco!)_
+  const text = `🎁 *ESPECIAL DE NATAL — PRESENTE & AMIGO SECRETO ATÉ R$ 50* 🎄✨
+_(Opção perfeita para presentear com estilo gastando pouco!)_
 
-?? *${p.title}*
+🛒 *${p.title}*
 ${shopSection}${ratingStr}
-?? De: ~${brl(p.origPrice)}~
-?? *POR APENAS: ${brl(p.salePrice)}* ?? (${p.discPct}% OFF)
-?? *Voc? economiza: ${brl(savings)} no presente!*
-?? _Dica de Natal: Aproveite os cupons de Frete Gr?tis no App da Shopee!_
+📉 De: ~${brl(p.origPrice)}~
+💥 *POR APENAS: ${brl(p.salePrice)}* 🎯 (${p.discPct}% OFF)
+💰 *Você economiza: ${brl(savings)} no presente!*
+📦 _Dica de Natal: Aproveite os cupons de Frete Grátis no App da Shopee!_
 
-?? *GARANTA O SEU PRESENTE AQUI:*
-?? ${shortUrl}
+👉 *GARANTA O SEU PRESENTE AQUI:*
+🔗 ${shortUrl}
 
-? _Estoque promocional limitado para as festas de fim de ano._
-??? _Compra 100% segura com Garantia Shopee._`;
+⚡ _Estoque promocional limitado para as festas de fim de ano._
+🛡️ _Compra 100% segura com Garantia Shopee._`;
 
   return {
     type: 'holiday_gift',

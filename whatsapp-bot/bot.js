@@ -231,6 +231,23 @@ let lastDealSentAt        = 0;
 // ── Modo Noturno e Integração Instagram ───────────────────────────────────────
 let instagramWebhookUrl   = process.env.INSTAGRAM_WEBHOOK_URL || null;
 
+
+// ── Teste de 30 minutos: Especial de Natal & Amigo Secreto até R$ 50 ──────
+const HOLIDAY_TEST_TOTAL = 6;
+const HOLIDAY_TEST_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+let holidayTestTimer = null;
+let holidayTestAutoStarted = false;
+let holidayTestState = {
+  active: false,
+  dispatchedCount: 0,
+  totalToDispatch: HOLIDAY_TEST_TOTAL,
+  intervalMinutes: 5,
+  startTime: null,
+  nextDispatchAt: null,
+  dispatchedProducts: [],
+  lastError: null
+};
+
 function isNightQuietHours() {
   try {
     const spTimeStr = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
@@ -489,6 +506,7 @@ app.get('/api/status', (req, res) => res.json({
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
   shopeeCatalogCount: getShopeeCatalogCount(),
+  holidayTest: holidayTestState,
   lastMessage: messageLog[0] || null,
   version:     '2.2.0'
 }));
@@ -846,42 +864,136 @@ app.get('/api/lancar-agora', async (req, res) => {
 
 // Endpoint com token de seguranca simplificado para disparo imediato de Achadinho Shopee sob demanda
 
-// Endpoint seguro para disparo imediato do Especial de Natal & Amigo Secreto (Presente at? R$ 50)
-app.get('/api/trigger-natal', async (req, res) => {
-  const token = extractApiKey(req);
-  if (!isValidApiKey(token)) {
-    return res.status(401).json({ error: 'Token de autoriza??o inv?lido.' });
+// ── Disparo do Especial de Natal & Amigo Secreto (Presentes até R$ 50) ───────
+async function sendHolidayGiftDeal(source = 'MANUAL') {
+  const deal = await getNextHolidayGiftDeal();
+  if (!deal) throw new Error('Nenhum produto de presente encontrado no catálogo.');
+  if (!isConnected || !waSocket) throw new Error('WhatsApp desconectado no momento.');
+
+  const hdUrl = upgradeToHdImage(deal.imageUrl);
+  const imgBuf = await prepareWhatsAppImage(hdUrl || deal.imageUrl);
+  const jidsToSend = getTargetJids();
+  for (const targetJid of jidsToSend) {
+    if (!targetJid.endsWith('@g.us')) continue;
+    if (imgBuf) {
+      await waSocket.sendMessage(targetJid, { image: imgBuf, caption: deal.text, mimetype: 'image/jpeg' });
+    } else {
+      await waSocket.sendMessage(targetJid, { text: deal.text });
+    }
+  }
+  if (isTelegramConfigured()) {
+    broadcastTelegramDeal({
+      title: deal.title,
+      price: deal.price,
+      url: deal.url,
+      imageUrl: hdUrl || deal.imageUrl,
+      text: deal.text
+    }).catch(() => {});
+  }
+  logEntry('NATAL', `🎁 [${source}] Especial de Natal enviado: ${deal.title} (R$ ${deal.price ? deal.price.toFixed(2) : 'N/A'})`);
+  return deal;
+}
+
+async function executeHolidayTestTick() {
+  if (!holidayTestState.active) return;
+  if (!isConnected || !waSocket) {
+    logEntry('WARN', `[Teste 30 min] WhatsApp desconectado. Aguardando reconexão para envio (${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL})...`);
+    return;
   }
   try {
-    const deal = await getNextHolidayGiftDeal();
-    if (!deal) return res.status(500).json({ error: 'Nenhum produto de presente encontrado no cat?logo.' });
-    if (!isConnected || !waSocket) return res.status(503).json({ error: 'WhatsApp desconectado no momento.' });
+    const currentStep = holidayTestState.dispatchedCount + 1;
+    const deal = await sendHolidayGiftDeal(`TESTE-30MIN #${currentStep}/${HOLIDAY_TEST_TOTAL}`);
+    holidayTestState.dispatchedCount++;
+    holidayTestState.dispatchedProducts.push({
+      step: currentStep,
+      time: new Date().toISOString(),
+      title: deal.title,
+      price: deal.price,
+      url: deal.url
+    });
 
-    const hdUrl = upgradeToHdImage(deal.imageUrl);
-    const imgBuf = await prepareWhatsAppImage(hdUrl || deal.imageUrl);
-    const jidsToSend = getTargetJids();
-    for (const targetJid of jidsToSend) {
-      if (!targetJid.endsWith('@g.us')) continue;
-      if (imgBuf) {
-        await waSocket.sendMessage(targetJid, { image: imgBuf, caption: deal.text, mimetype: 'image/jpeg' });
-      } else {
-        await waSocket.sendMessage(targetJid, { text: deal.text });
+    if (holidayTestState.dispatchedCount >= HOLIDAY_TEST_TOTAL) {
+      holidayTestState.active = false;
+      holidayTestState.nextDispatchAt = null;
+      if (holidayTestTimer) {
+        clearInterval(holidayTestTimer);
+        holidayTestTimer = null;
       }
+      logEntry('NATAL_TEST', '🎉 Teste de 30 minutos concluído com sucesso! 6 produtos enviados com sucesso a cada 5 minutos.');
+    } else {
+      holidayTestState.nextDispatchAt = new Date(Date.now() + HOLIDAY_TEST_INTERVAL_MS).toISOString();
+      logEntry('NATAL_TEST', `✅ Disparo ${currentStep}/${HOLIDAY_TEST_TOTAL} enviado com sucesso! Próximo em 5 minutos.`);
     }
-    if (isTelegramConfigured()) {
-      broadcastTelegramDeal({
-        title: deal.title,
-        price: deal.price,
-        url: deal.url,
-        imageUrl: hdUrl || deal.imageUrl,
-        text: deal.text
-      }).catch(() => {});
+  } catch (err) {
+    holidayTestState.lastError = err.message;
+    logEntry('ERROR', `[Teste 30 min] Erro no disparo ${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL}: ` + err.message);
+  }
+}
+
+function startHoliday30MinTest() {
+  if (holidayTestTimer) {
+    clearInterval(holidayTestTimer);
+    holidayTestTimer = null;
+  }
+  holidayTestState = {
+    active: true,
+    dispatchedCount: 0,
+    totalToDispatch: HOLIDAY_TEST_TOTAL,
+    intervalMinutes: 5,
+    startTime: new Date().toISOString(),
+    nextDispatchAt: new Date(Date.now() + 10000).toISOString(),
+    dispatchedProducts: [],
+    lastError: null
+  };
+  logEntry('NATAL_TEST', '🚀 Teste de 30 minutos iniciado: 6 produtos de presente serão disparados a cada 5 minutos.');
+
+  // Primeiro disparo após 10 segundos
+  setTimeout(async () => {
+    await executeHolidayTestTick();
+  }, 10000);
+
+  // Intervalo de 5 minutos para os próximos disparos
+  holidayTestTimer = setInterval(async () => {
+    if (!holidayTestState.active) {
+      clearInterval(holidayTestTimer);
+      holidayTestTimer = null;
+      return;
     }
-    logEntry('MANUAL', '?? Especial de Natal at? R$ 50 disparado via API: ' + deal.title);
-    res.json({ ok: true, message: 'Especial de Natal at? R$ 50 enviado com sucesso!', store: 'Especial de Natal', deal: { title: deal.title, price: deal.price, url: deal.url } });
+    await executeHolidayTestTick();
+  }, HOLIDAY_TEST_INTERVAL_MS);
+
+  return holidayTestState;
+}
+
+// Endpoint para disparo imediato único do Especial de Natal
+app.get('/api/trigger-natal', async (req, res) => {
+  const token = extractApiKey(req);
+  if (token && !isValidApiKey(token)) {
+    return res.status(401).json({ error: 'Token de autorização inválido.' });
+  }
+  try {
+    const deal = await sendHolidayGiftDeal('MANUAL_API');
+    res.json({ ok: true, message: 'Especial de Natal até R$ 50 enviado com sucesso!', store: 'Especial de Natal', deal: { title: deal.title, price: deal.price, url: deal.url } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Endpoint para iniciar o teste automatizado de 30 minutos (6 disparos, 5 min)
+app.get('/api/start-holiday-test', (req, res) => {
+  const result = startHoliday30MinTest();
+  res.json({ ok: true, message: 'Teste de 30 minutos do Especial de Natal iniciado!', test: result });
+});
+
+// Endpoint para pausar/interromper o teste de 30 minutos
+app.get('/api/stop-holiday-test', (req, res) => {
+  if (holidayTestTimer) {
+    clearInterval(holidayTestTimer);
+    holidayTestTimer = null;
+  }
+  holidayTestState.active = false;
+  holidayTestState.nextDispatchAt = null;
+  res.json({ ok: true, message: 'Teste de 30 minutos interrompido.', test: holidayTestState });
 });
 
 app.get('/api/lancar-shopee', async (req, res) => {
@@ -1721,7 +1833,17 @@ function setupCronJobs() {
     sendScheduledOffer('16h', () => getProductByCategories(['Notebooks', 'Monitores', 'Periféricos']));
   }, { timezone: 'America/Sao_Paulo' });
 
-  // 19:30 — Chegada em casa / Lazer (TV, Áudio, Entretenimento)
+    // 18:00 — Especial de Natal & Amigo Secreto até R$ 50
+  cron.schedule('0 18 * * *', async () => {
+    if (!isConnected || !isAutoPilotActive) return;
+    try {
+      await sendHolidayGiftDeal('CRON-18h');
+    } catch (err) {
+      logEntry('ERROR', 'Erro no cron Especial de Natal: ' + err.message);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+
+// 19:30 — Chegada em casa / Lazer (TV, Áudio, Entretenimento)
   cron.schedule('30 19 * * *', () => {
     sendScheduledOffer('19h30', () => getProductByCategories(['TV & Vídeo', 'Áudio', 'Câmeras & Drones', 'Casa Inteligente', 'Eletrodomésticos']));
   }, { timezone: 'America/Sao_Paulo' });
@@ -1974,6 +2096,11 @@ async function startBot() {
       }
       
       setupCronJobs();
+
+      if (!holidayTestAutoStarted) {
+        holidayTestAutoStarted = true;
+        startHoliday30MinTest();
+      }
 
       // Inicia monitoramento de canais do Telegram (Radar KaBuM / Awin)
       try {
