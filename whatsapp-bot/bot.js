@@ -875,10 +875,20 @@ async function sendHolidayGiftDeal(source = 'MANUAL') {
   const jidsToSend = getTargetJids();
   for (const targetJid of jidsToSend) {
     if (!targetJid.endsWith('@g.us')) continue;
-    if (imgBuf) {
-      await waSocket.sendMessage(targetJid, { image: imgBuf, caption: deal.text, mimetype: 'image/jpeg' });
-    } else {
-      await waSocket.sendMessage(targetJid, { text: deal.text });
+    try {
+      if (imgBuf) {
+        await waSocket.sendMessage(targetJid, { image: imgBuf, caption: deal.text, mimetype: 'image/jpeg' });
+      } else {
+        await waSocket.sendMessage(targetJid, { text: deal.text });
+      }
+    } catch (sendErr) {
+      logEntry('WARN', `Falha ao enviar imagem no grupo ${targetJid}, tentando apenas texto: ` + sendErr.message);
+      try {
+        await waSocket.sendMessage(targetJid, { text: deal.text });
+      } catch (textErr) {
+        logEntry('ERROR', `Falha ao enviar texto no grupo ${targetJid}: ` + textErr.message);
+        throw textErr;
+      }
     }
   }
   if (isTelegramConfigured()) {
@@ -1948,6 +1958,9 @@ const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   : [];
 let sourceGroupJids = [];
 let reconnectTimer = null;
+let groupsSynced = false;
+let tgListenerStarted = false;
+let initialDispatchDone = false;
 
 async function startBot() {
   let state, saveCreds;
@@ -2054,58 +2067,60 @@ async function startBot() {
       notifyAdmin('CONNECTED', 'Bot WhatsApp conectado! Grupo: ' + (groupJid || 'buscando...')).catch(() => {});
 
 
-      // 🚀 Disparo inicial de oferta no Grupo VIP 15 segundos após conectar
-      setTimeout(async () => {
-        if (isConnected && !isNightQuietHours()) {
-          logEntry('BOOT', '🚀 Disparo inicial de oferta oficial após conexão estabelecida...');
-          try {
-            await dispatchNextAwinRotation({ force: false });
-          } catch (initErr) {
-            logEntry('WARN', 'Erro no disparo inicial de oferta: ' + initErr.message);
+      // 🚀 Disparo inicial único de oferta no Grupo VIP 15 segundos após conectar
+      if (!initialDispatchDone) {
+        initialDispatchDone = true;
+        setTimeout(async () => {
+          if (isConnected && !isNightQuietHours()) {
+            logEntry('BOOT', '🚀 Disparo inicial de oferta oficial após conexão estabelecida...');
+            try {
+              await dispatchNextAwinRotation({ force: false });
+            } catch (initErr) {
+              logEntry('WARN', 'Erro no disparo inicial de oferta: ' + initErr.message);
+            }
           }
-        }
-      }, 15000);
+        }, 15000);
+      }
 
       // Respeita horário de silêncio (23:30 às 07:30 de Brasília) e evita disparos automáticos indevidos ao conectar
 
-      // Carrega canais de ofertas, filtrando apenas grupos de promoções
-      // GRUPOS PESSOAIS, FAMÍLIA, ENSAIO, IGREJA, TRABALHO ETC. SÃO TOTALMENTE IGNORADOS!
-      try {
-        const participating = await sock.groupFetchAllParticipating();
-        const promoKeywords = [
-          'oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 
-          'garimpo', 'barato', 'cupom', 'vip', 'radar', 'afiliado', 'afiliados', 'nike', 
-          'comunidade', 'parceiro', 'avisos'
-        ];
-        const explicitSources = (process.env.SOURCE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
-
-        sourceGroupJids = Object.values(participating)
-          .filter((g) => {
-            if (!g?.id || g.id === groupJid) return false;
-            if (explicitSources.includes(g.id)) return true;
-            const sub = (g.subject || '').toLowerCase();
-            return promoKeywords.some((kw) => sub.includes(kw));
-          })
-          .map((g) => g.id);
-
-        logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais com foco em promoções)`);
-      } catch (gErr) {
-        logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
-      }
-
-      // Entrar em novos grupos se fornecidos via variável de ambiente (oculto no GitHub)
-      for (const code of SOURCE_INVITE_CODES) {
+      // Carrega canais de ofertas apenas uma vez
+      if (!groupsSynced) {
+        groupsSynced = true;
         try {
-          const jid = await sock.groupAcceptInvite(code);
-          if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
-            sourceGroupJids.push(jid);
-            logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
-          }
-        } catch (err) {
-          // Silencioso
+          const participating = await sock.groupFetchAllParticipating();
+          const promoKeywords = [
+            'oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 
+            'garimpo', 'barato', 'cupom', 'vip', 'radar', 'afiliado', 'afiliados', 'nike', 
+            'comunidade', 'parceiro', 'avisos'
+          ];
+          const explicitSources = (process.env.SOURCE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+
+          sourceGroupJids = Object.values(participating)
+            .filter((g) => {
+              if (!g?.id || g.id === groupJid) return false;
+              if (explicitSources.includes(g.id)) return true;
+              const sub = (g.subject || '').toLowerCase();
+              return promoKeywords.some((kw) => sub.includes(kw));
+            })
+            .map((g) => g.id);
+
+          logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais com foco em promoções)`);
+        } catch (gErr) {
+          logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
+        }
+
+        for (const code of SOURCE_INVITE_CODES) {
+          try {
+            const jid = await sock.groupAcceptInvite(code);
+            if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
+              sourceGroupJids.push(jid);
+              logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
+            }
+          } catch (err) {}
         }
       }
-      
+
       setupCronJobs();
 
       if (!holidayTestAutoStarted) {
