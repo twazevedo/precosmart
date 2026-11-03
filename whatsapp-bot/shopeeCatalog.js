@@ -279,6 +279,90 @@ function searchShopeeCatalog(query, limit = 5) {
   return results;
 }
 
+
+// Categorias especificas para presentes de Natal e Amigo Secreto ate R$ 50
+const PURE_GIFT_CATEGORIES = new Set([
+  'Beauty',
+  'Fashion Accessories',
+  'Women Shoes',
+  'Men Shoes',
+  'Women Clothes',
+  'Men Clothes',
+  'Women Bags',
+  'Men Bags',
+  'Audio',
+  'Mobile & Gadgets',
+  'Watches',
+  'Gaming & Consoles'
+]);
+
+const HOME_GIFT_REGEX = /(caneca|copo|garrafa termica|luminaria|difusor|aromatizador|vela aromatica|decor|almofada|manta|quadro|abajur|porta joia|porta retrato|xicara|garrafa)/i;
+const NON_GIFT_REGEX = /\b(tintura|coloracao|tonalizante|descolorante|agua oxigenada|depilacao|cera|linha de pedreiro|pvc|torneira|reparo|parafuso|filtro|reforco)\b/i;
+
+function isHolidayGiftProduct(p) {
+  if (!p || !p.imageUrl || p.salePrice < 14.90 || p.salePrice > 50.00) return false;
+  if (!isCuratedDesireProduct(p)) return false;
+  const isPure = PURE_GIFT_CATEGORIES.has(p.category);
+  const isHomeGift = p.category === 'Home & Living' && HOME_GIFT_REGEX.test(p.title);
+  if (!isPure && !isHomeGift) return false;
+  const title = String(p.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (NON_GIFT_REGEX.test(title)) return false;
+  return true;
+}
+
+let holidayGiftCursor = -1;
+
+function getNextHolidayGiftProduct() {
+  const total = getShopeeCatalogCount();
+  if (total === 0) return null;
+  if (holidayGiftCursor < 0) {
+    holidayGiftCursor = Math.floor(Math.random() * total);
+  }
+  for (let tries = 0; tries < 250; tries++) {
+    holidayGiftCursor = (holidayGiftCursor + 4093) % total;
+    const p = getShopeeProductByIndex(holidayGiftCursor);
+    if (isHolidayGiftProduct(p)) return p;
+  }
+  return null;
+}
+
+async function getNextHolidayGiftDeal() {
+  const p = getNextHolidayGiftProduct();
+  if (!p || !p.imageUrl) return null;
+
+  const shortUrl = await shortenUrl(p.directAffiliateUrl);
+  const savings = Math.max(0, Number((p.origPrice - p.salePrice).toFixed(2)));
+  const ratingStr = p.rating ? `? *Avalia??o:* ${p.rating.toFixed(1)}/5.0 _(Excelente Recomenda??o)_\n` : '';
+  const shopSection = p.shopName ? `?? Loja: *${p.shopName} (Shopee)*\n` : `?? Loja: *Shopee Oficial*\n`;
+
+  const text = `?? *ESPECIAL DE NATAL ? PRESENTE & AMIGO SECRETO AT? R$ 50* ???
+_(Op??o perfeita para presentear com estilo gastando pouco!)_
+
+?? *${p.title}*
+${shopSection}${ratingStr}
+?? De: ~${brl(p.origPrice)}~
+?? *POR APENAS: ${brl(p.salePrice)}* ?? (${p.discPct}% OFF)
+?? *Voc? economiza: ${brl(savings)} no presente!*
+?? _Dica de Natal: Aproveite os cupons de Frete Gr?tis no App da Shopee!_
+
+?? *GARANTA O SEU PRESENTE AQUI:*
+?? ${shortUrl}
+
+? _Estoque promocional limitado para as festas de fim de ano._
+??? _Compra 100% segura com Garantia Shopee._`;
+
+  return {
+    type: 'holiday_gift',
+    store: 'Shopee Oficial',
+    title: p.title,
+    price: brl(p.salePrice),
+    url: shortUrl,
+    rawUrl: p.directUrl,
+    imageUrl: p.imageUrl,
+    text
+  };
+}
+
 module.exports = {
   getShopeeCatalogCount,
   getShopeeProductByIndex,
@@ -286,5 +370,7 @@ module.exports = {
   getSpecificShopeeDeal,
   searchShopeeCatalog,
   buildShopeeAffiliateUrl,
-  isCuratedDesireProduct
+  isCuratedDesireProduct,
+  getNextHolidayGiftDeal,
+  isHolidayGiftProduct
 };

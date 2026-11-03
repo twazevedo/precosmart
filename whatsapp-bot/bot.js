@@ -32,7 +32,7 @@ const {
 } = require('@whiskeysockets/baileys');
 
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
-const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal } = require('./shopeeCatalog');
+const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal, getNextHolidayGiftDeal } = require('./shopeeCatalog');
 const { shortenLinksInText } = require('./linkShortener');
 const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
@@ -845,6 +845,45 @@ app.get('/api/lancar-agora', async (req, res) => {
 });
 
 // Endpoint com token de seguranca simplificado para disparo imediato de Achadinho Shopee sob demanda
+
+// Endpoint seguro para disparo imediato do Especial de Natal & Amigo Secreto (Presente at? R$ 50)
+app.get('/api/trigger-natal', async (req, res) => {
+  const token = extractApiKey(req);
+  if (!isValidApiKey(token)) {
+    return res.status(401).json({ error: 'Token de autoriza??o inv?lido.' });
+  }
+  try {
+    const deal = await getNextHolidayGiftDeal();
+    if (!deal) return res.status(500).json({ error: 'Nenhum produto de presente encontrado no cat?logo.' });
+    if (!isConnected || !waSocket) return res.status(503).json({ error: 'WhatsApp desconectado no momento.' });
+
+    const hdUrl = upgradeToHdImage(deal.imageUrl);
+    const imgBuf = await prepareWhatsAppImage(hdUrl || deal.imageUrl);
+    const jidsToSend = getTargetJids();
+    for (const targetJid of jidsToSend) {
+      if (!targetJid.endsWith('@g.us')) continue;
+      if (imgBuf) {
+        await waSocket.sendMessage(targetJid, { image: imgBuf, caption: deal.text, mimetype: 'image/jpeg' });
+      } else {
+        await waSocket.sendMessage(targetJid, { text: deal.text });
+      }
+    }
+    if (isTelegramConfigured()) {
+      broadcastTelegramDeal({
+        title: deal.title,
+        price: deal.price,
+        url: deal.url,
+        imageUrl: hdUrl || deal.imageUrl,
+        text: deal.text
+      }).catch(() => {});
+    }
+    logEntry('MANUAL', '?? Especial de Natal at? R$ 50 disparado via API: ' + deal.title);
+    res.json({ ok: true, message: 'Especial de Natal at? R$ 50 enviado com sucesso!', store: 'Especial de Natal', deal: { title: deal.title, price: deal.price, url: deal.url } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/lancar-shopee', async (req, res) => {
   const token = extractApiKey(req);
   if (!isValidApiKey(token)) {
