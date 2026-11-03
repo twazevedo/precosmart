@@ -894,12 +894,21 @@ async function sendHolidayGiftDeal(source = 'MANUAL') {
   return deal;
 }
 
+let holidayTestInProgress = false;
+
 async function executeHolidayTestTick() {
   if (!holidayTestState.active) return;
+  if (holidayTestInProgress) return;
+
   if (!isConnected || !waSocket) {
-    logEntry('WARN', `[Teste 30 min] WhatsApp desconectado. Aguardando reconexão para envio (${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL})...`);
+    logEntry('WARN', `[Teste 30 min] WhatsApp em reconexão. Retentando em 15s (${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL})...`);
+    if (holidayTestState.active) {
+      setTimeout(executeHolidayTestTick, 15000);
+    }
     return;
   }
+
+  holidayTestInProgress = true;
   try {
     const currentStep = holidayTestState.dispatchedCount + 1;
     const deal = await sendHolidayGiftDeal(`TESTE-30MIN #${currentStep}/${HOLIDAY_TEST_TOTAL}`);
@@ -916,23 +925,33 @@ async function executeHolidayTestTick() {
       holidayTestState.active = false;
       holidayTestState.nextDispatchAt = null;
       if (holidayTestTimer) {
-        clearInterval(holidayTestTimer);
+        clearTimeout(holidayTestTimer);
         holidayTestTimer = null;
       }
       logEntry('NATAL_TEST', '🎉 Teste de 30 minutos concluído com sucesso! 6 produtos enviados com sucesso a cada 5 minutos.');
     } else {
       holidayTestState.nextDispatchAt = new Date(Date.now() + HOLIDAY_TEST_INTERVAL_MS).toISOString();
       logEntry('NATAL_TEST', `✅ Disparo ${currentStep}/${HOLIDAY_TEST_TOTAL} enviado com sucesso! Próximo em 5 minutos.`);
+
+      if (holidayTestTimer) clearTimeout(holidayTestTimer);
+      holidayTestTimer = setTimeout(async () => {
+        await executeHolidayTestTick();
+      }, HOLIDAY_TEST_INTERVAL_MS);
     }
   } catch (err) {
     holidayTestState.lastError = err.message;
-    logEntry('ERROR', `[Teste 30 min] Erro no disparo ${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL}: ` + err.message);
+    logEntry('ERROR', `[Teste 30 min] Erro no disparo ${holidayTestState.dispatchedCount + 1}/${HOLIDAY_TEST_TOTAL}: ${err.message}. Retentando em 20s...`);
+    if (holidayTestState.active && holidayTestState.dispatchedCount < HOLIDAY_TEST_TOTAL) {
+      setTimeout(executeHolidayTestTick, 20000);
+    }
+  } finally {
+    holidayTestInProgress = false;
   }
 }
 
 function startHoliday30MinTest() {
   if (holidayTestTimer) {
-    clearInterval(holidayTestTimer);
+    clearTimeout(holidayTestTimer);
     holidayTestTimer = null;
   }
   holidayTestState = {
@@ -941,26 +960,15 @@ function startHoliday30MinTest() {
     totalToDispatch: HOLIDAY_TEST_TOTAL,
     intervalMinutes: 5,
     startTime: new Date().toISOString(),
-    nextDispatchAt: new Date(Date.now() + 10000).toISOString(),
+    nextDispatchAt: new Date(Date.now() + 5000).toISOString(),
     dispatchedProducts: [],
     lastError: null
   };
   logEntry('NATAL_TEST', '🚀 Teste de 30 minutos iniciado: 6 produtos de presente serão disparados a cada 5 minutos.');
 
-  // Primeiro disparo após 10 segundos
   setTimeout(async () => {
     await executeHolidayTestTick();
-  }, 10000);
-
-  // Intervalo de 5 minutos para os próximos disparos
-  holidayTestTimer = setInterval(async () => {
-    if (!holidayTestState.active) {
-      clearInterval(holidayTestTimer);
-      holidayTestTimer = null;
-      return;
-    }
-    await executeHolidayTestTick();
-  }, HOLIDAY_TEST_INTERVAL_MS);
+  }, 5000);
 
   return holidayTestState;
 }
@@ -1988,6 +1996,9 @@ async function startBot() {
     logger:       pino({ level: 'warn' }),
     browser:      ['PreçoSmart Bot', 'Chrome', '120.0.0'],
     syncFullHistory: false,
+    connectTimeoutMs: 60000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 30000,
     getMessage: async (key) => {
       const stored = messageStore.get(key.id);
       return stored?.message || undefined;
