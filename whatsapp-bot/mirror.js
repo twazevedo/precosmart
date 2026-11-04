@@ -124,12 +124,18 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       return longUrl;
     }
     
-    // 1. Amazon
+    // 1. Amazon (Limpeza canônica absoluta: ASIN direto + tag oficial)
     if (urlObj.hostname.includes('amazon.')) {
+      const asinMatch = longUrl.match(/(?:dp|gp\/product|\/d)\/([A-Z0-9]{10})/i) || longUrl.match(/\/([A-Z0-9]{10})(?:[/?#]|$)/i);
+      if (asinMatch && asinMatch[1]) {
+        return 'https://www.amazon.com.br/dp/' + asinMatch[1] + '?tag=' + AFFILIATE.amazon;
+      }
       urlObj.searchParams.set('tag', AFFILIATE.amazon);
       urlObj.searchParams.delete('ascsubtag');
       urlObj.searchParams.delete('linkCode');
       urlObj.searchParams.delete('creative');
+      urlObj.searchParams.delete('camp');
+      urlObj.searchParams.delete('ref');
       return urlObj.toString();
     }
     
