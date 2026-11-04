@@ -74,7 +74,7 @@ async function shortenUrl(longUrl) {
   }
 
   // 1. Tentativa Oficial AWIN (tidd.ly) via Link Builder API quando token estiver configurado
-  const token = process.env.AWIN_API_TOKEN;
+  const token = process.env.AWIN_API_TOKEN || '36aa81e2-6fac-4e42-b827-a08a6eb535ef';
   const publisherId = process.env.AFFILIATE_AWIN || process.env.AWIN_PUBLISHER_ID || '3077915';
 
   if (token && token.trim() && cleanUrl.includes('awin1.com')) {

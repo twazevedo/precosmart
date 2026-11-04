@@ -92,7 +92,7 @@ async function checkProgramApprovals(token, publisherId) {
  * Sincroniza cupons e promoções ativas via API oficial da AWIN
  */
 async function syncAwinPromotions() {
-  const token = process.env.AWIN_API_TOKEN;
+  const token = process.env.AWIN_API_TOKEN || '36aa81e2-6fac-4e42-b827-a08a6eb535ef';
   const publisherId = process.env.AFFILIATE_AWIN || '3077915';
 
   if (!token || !token.trim()) {

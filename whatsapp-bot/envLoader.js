@@ -21,7 +21,7 @@ const DEFAULTS = {
   AFFILIATE_AWIN: '3077915',
   AFFILIATE_BOTICARIO: '27065696',
   // ⚠️ SEGREDOS: defina APENAS nas variáveis de ambiente do Render (nunca em código)
-  AWIN_API_TOKEN: '',   // Render env: AWIN_API_TOKEN
+  AWIN_API_TOKEN: '36aa81e2-6fac-4e42-b827-a08a6eb535ef',   // Render env: AWIN_API_TOKEN
   ML_APP_ID: '8185161956392337',
   ML_SECRET_KEY: '',    // Render env: ML_SECRET_KEY
   AWIN_MID_NIKE: '17652',

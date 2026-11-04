@@ -506,6 +506,8 @@ app.get('/api/status', (req, res) => res.json({
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
   shopeeCatalogCount: getShopeeCatalogCount(),
+  isAutoPilotActive,
+  recentLogs: messageLog.slice(0, 15),
   holidayTest: holidayTestState,
   lastMessage: messageLog[0] || null,
   version:     '2.2.0'
@@ -730,6 +732,9 @@ async function dispatchNextAwinRotation(options = {}) {
   if (!force && (!isAutoPilotActive || isNightQuietHours())) {
     return null;
   }
+  if (!isConnected || !waSocket || typeof waSocket.sendMessage !== 'function') {
+    return null;
+  }
   try {
     let deal = null;
     let imgBuf = null;
@@ -868,10 +873,11 @@ app.get('/api/lancar-agora', async (req, res) => {
 async function sendHolidayGiftDeal(source = 'MANUAL') {
   const deal = await getNextHolidayGiftDeal();
   if (!deal) throw new Error('Nenhum produto de presente encontrado no catálogo.');
-  if (!isConnected || !waSocket) throw new Error('WhatsApp desconectado no momento.');
+  if (!isConnected || !waSocket || typeof waSocket.sendMessage !== 'function') throw new Error('WhatsApp desconectado no momento.');
 
   const hdUrl = upgradeToHdImage(deal.imageUrl);
   const imgBuf = await prepareWhatsAppImage(hdUrl || deal.imageUrl);
+  if (!isConnected || !waSocket || typeof waSocket.sendMessage !== 'function') throw new Error('WhatsApp desconectou durante o carregamento da imagem.');
   const jidsToSend = getTargetJids();
   for (const targetJid of jidsToSend) {
     if (!targetJid.endsWith('@g.us')) continue;
@@ -2133,10 +2139,7 @@ async function startBot() {
 
       setupCronJobs();
 
-      if (!holidayTestAutoStarted) {
-        holidayTestAutoStarted = true;
-        startHoliday30MinTest();
-      }
+      // Teste de 30 minutos mantido sob demanda via /api/start-holiday-test
 
       // Inicia monitoramento de canais do Telegram (Radar KaBuM / Awin)
       try {
