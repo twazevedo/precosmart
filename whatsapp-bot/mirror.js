@@ -706,5 +706,7 @@ module.exports = {
   extractCanonicalId,
   fetchOgImage,
   upgradeToHdImage,
-  isSafePublicUrl
+  isSafePublicUrl,
+  replaceAffiliateTags,
+  expandUrl
 };

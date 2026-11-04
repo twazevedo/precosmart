@@ -81,6 +81,7 @@ const {
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
 const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
+const { fetchPechinchouDeals } = require('./pechinchouCrawler');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 let sharp = null;
@@ -575,6 +576,40 @@ app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
     }
     logEntry('GARIMPO', `Garimpeiros Crawler ativado: ${count} ofertas de todas as categorias enfileiradas.`);
     res.json({ ok: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get('/api/pechinchou/deals', requireApiAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 15;
+    const deals = await fetchPechinchouDeals(limit);
+    res.json({ ok: true, count: deals.length, deals });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/pechinchou/run', requireApiAuth, async (req, res) => {
+  try {
+    const limit = parseInt(req.body?.limit || req.query?.limit, 10) || 5;
+    const deals = await fetchPechinchouDeals(limit);
+    let count = 0;
+    for (const d of deals) {
+      dealQueue.push({
+        type: d.imageUrl ? 'image' : 'text',
+        imageUrl: d.imageUrl,
+        caption: d.formattedText,
+        canonicalIds: [d.canonicalId],
+        keyword: d.title,
+        textForDup: d.formattedText
+      });
+      count++;
+    }
+    logEntry('PECHINCHOU', `Radar Pechinchou ativado: ${count} ofertas enfileiradas para disparo.`);
+    res.json({ ok: true, count, deals });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
