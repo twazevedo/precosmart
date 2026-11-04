@@ -81,7 +81,7 @@ const {
 const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
 const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
-const { fetchPechinchouDeals } = require('./pechinchouCrawler');
+const { fetchPechinchouDeals, fetchAffiliatedStoresDeals } = require('./pechinchouCrawler');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 let sharp = null;
@@ -587,6 +587,30 @@ app.get('/api/pechinchou/deals', requireApiAuth, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 15;
     const deals = await fetchPechinchouDeals(limit);
     res.json({ ok: true, count: deals.length, deals });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get('/api/pechinchou/trigger', async (req, res) => {
+  try {
+    const limit = parseInt(req.query?.limit, 10) || 1;
+    const deals = await fetchAffiliatedStoresDeals(limit);
+    let count = 0;
+    for (const d of deals) {
+      dealQueue.push({
+        type: d.imageUrl ? 'image' : 'text',
+        imageUrl: d.imageUrl,
+        caption: d.formattedText,
+        canonicalIds: [d.canonicalId],
+        keyword: d.title,
+        textForDup: d.formattedText
+      });
+      count++;
+    }
+    logEntry('PECHINCHOU', `Disparo Multi-Lojas ativado: ${count} ofertas enfileiradas na fila anti-flood.`);
+    res.json({ ok: true, count, deals });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
