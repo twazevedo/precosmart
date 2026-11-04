@@ -14,6 +14,18 @@
  */
 'use strict';
 
+// ── Tratamento Global de Exceções e Rejeições (Impede que o Node.js caia) ───
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL uncaughtException]', err);
+  try { logEntry('FATAL', `uncaughtException: ${err.message}`); } catch (e) {}
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[WARN unhandledRejection]', reason);
+  try { logEntry('WARN', `unhandledRejection: ${reason?.message || reason}`); } catch (e) {}
+});
+
+
 require('./envLoader');
 const path             = require('path');
 const fs               = require('fs');

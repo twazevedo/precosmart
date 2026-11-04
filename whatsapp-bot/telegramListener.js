@@ -39,7 +39,9 @@ async function startTelegramChannelListener({ onDealReceived, logEntry = console
     await tgClient.connect();
 
     if (!await tgClient.isUserAuthorized()) {
-      logEntry('WARN', '⚠️ Sessão do Telegram expirada ou inválida. Gere uma nova com loginTelegram.js');
+      logEntry('WARN', '⚠️ Sessão do Telegram expirada ou inválida. Monitoramento Telegram pausado (WhatsApp 100% ativo).');
+      try { await tgClient.disconnect(); } catch (e) {}
+      tgClient = null;
       return { isRunning: false };
     }
 
@@ -116,6 +118,8 @@ async function startTelegramChannelListener({ onDealReceived, logEntry = console
     return { isRunning: true, client: tgClient };
   } catch (err) {
     logEntry('WARN', 'Erro ao inicializar Telegram Channel Listener: ' + err.message);
+    try { if (tgClient) await tgClient.disconnect(); } catch (e) {}
+    tgClient = null;
     return { isRunning: false, error: err.message };
   }
 }
