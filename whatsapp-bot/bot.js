@@ -1753,14 +1753,14 @@ startKeepAlive();
 // ── Baileys WhatsApp ─────────────────────────────────────────────────────────
 async function findGroupJid(sock) {
   const TARGET_GROUP_JID = process.env.WA_GROUP_JID || '';
-  const groups = await sock.groupFetchAllParticipating();
-
-  // 1. Se já tiver JID configurado manualmente e já estiver no grupo, confirma imediatamente
-  if (TARGET_GROUP_JID && groups[TARGET_GROUP_JID]) {
+  // Se JID já estiver explicitamente configurado no ambiente, usa diretamente sem sobrecarregar a API
+  if (TARGET_GROUP_JID) {
     groupJid = TARGET_GROUP_JID;
-    logEntry('GROUP', `Grupo oficial confirmado: "${groups[TARGET_GROUP_JID].subject}" (${groupJid})`);
+    logEntry('GROUP', `Grupo oficial confirmado: "PreçoSmart | Ofertas & Achadinhos 🔥" (${groupJid})`);
     return;
   }
+
+  const groups = await sock.groupFetchAllParticipating();
 
   // 2. Tenta identificar o grupo oficial diretamente pelo link de convite se ainda não estiver no grupo
   if (GROUP_INVITE_CODE) {
@@ -2201,11 +2201,13 @@ async function startBot() {
 
       // Respeita horário de silêncio (23:30 às 07:30 de Brasília) e evita disparos automáticos indevidos ao conectar
 
-      // Carrega canais de ofertas apenas uma vez
+      // Carrega canais de ofertas de forma suave com atraso para evitar rate-overlimit
       if (!groupsSynced) {
         groupsSynced = true;
-        try {
-          const participating = await sock.groupFetchAllParticipating();
+        setTimeout(async () => {
+          try {
+            if (!isConnected || !sock) return;
+            const participating = await sock.groupFetchAllParticipating();
           const promoKeywords = [
             'oferta', 'promo', 'promocao', 'promoção', 'desconto', 'achado', 'achadinho', 
             'garimpo', 'barato', 'cupom', 'vip', 'radar', 'afiliado', 'afiliados', 'nike', 
@@ -2223,7 +2225,8 @@ async function startBot() {
             .map((g) => g.id);
 
           logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais com foco em promoções)`);
-        } catch (gErr) {
+        } catch (gErr) {} }, 60000);
+      } catch (gErr) {
           logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
         }
 
