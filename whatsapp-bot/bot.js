@@ -264,6 +264,7 @@ let holidayTestState = {
 };
 
 function isNightQuietHours() {
+  if (process.env.DISABLE_NIGHT_MODE === 'true' || process.env.NIGHT_MODE === 'false') return false;
   try {
     const spTimeStr = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
     const [hour, minute] = spTimeStr.split(':').map(Number);
@@ -572,7 +573,8 @@ app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
         caption: d.formattedText,
         canonicalIds: ['garimpo_' + d.id],
         keyword: d.title,
-        textForDup: d.formattedText
+        textForDup: d.formattedText,
+        force: true
       });
       count++;
     }
@@ -2282,21 +2284,20 @@ async function startBot() {
             .map((g) => g.id);
 
           logEntry('GROUP', `Fontes de ofertas sincronizadas (${sourceGroupJids.length} canais com foco em promoções)`);
-        } catch (gErr) {} }, 60000);
-      } catch (gErr) {
+          for (const code of SOURCE_INVITE_CODES) {
+            try {
+              const jid = await sock.groupAcceptInvite(code);
+              if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
+                sourceGroupJids.push(jid);
+                logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
+              }
+            } catch (err) {}
+          }
+        } catch (gErr) {
           logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
         }
-
-        for (const code of SOURCE_INVITE_CODES) {
-          try {
-            const jid = await sock.groupAcceptInvite(code);
-            if (jid && !sourceGroupJids.includes(jid) && jid !== groupJid) {
-              sourceGroupJids.push(jid);
-              logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
-            }
-          } catch (err) {}
-        }
-      }
+      }, 60000);
+    }
 
       setupCronJobs();
 
@@ -2381,7 +2382,7 @@ async function startBot() {
 
     while (dealQueue.length > 0) {
       // Se estiver no Horário de Silêncio Noturno (23:30 às 07:30 de Brasília), não acorda ninguém
-      if (isNightQuietHours()) {
+      if (isNightQuietHours() && !dealQueue[0]?.force) {
         logEntry('NIGHT', `🌙 Modo Noturno Ativo (23:30 - 07:30): envios pausados para proteger os membros (Fila: ${dealQueue.length})`);
         await new Promise((r) => setTimeout(r, 10 * 60 * 1000)); // Dorme por 10 min e reavalia
         continue;
