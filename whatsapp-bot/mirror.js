@@ -119,8 +119,32 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
   try {
     const urlObj = new URL(longUrl);
     
-    // 0. AWIN e links já encurtados/afiliados da rede AWIN
-    if (urlObj.hostname.includes('awin1.com') || urlObj.hostname.includes('tidd.ly')) {
+    // 0. Desempacota links de redes intermediárias (Rakuten LinkShare / Linksynergy, Lomadee, Admitad, etc.)
+    if (
+      urlObj.hostname.includes('linksynergy.com') ||
+      urlObj.hostname.includes('lomadee.com') ||
+      urlObj.hostname.includes('actionpay.net') ||
+      urlObj.hostname.includes('admitad.com') ||
+      urlObj.hostname.includes('afilio.com.br') ||
+      urlObj.hostname.includes('socialsoul.com.br')
+    ) {
+      const unpacked = urlObj.searchParams.get('murl') || 
+                       urlObj.searchParams.get('url') || 
+                       urlObj.searchParams.get('ulp');
+      if (unpacked) {
+        return replaceAffiliateTags(decodeURIComponent(unpacked), productKeyword);
+      }
+    }
+
+    // 0.1 AWIN e links da rede AWIN (Garante SEMPRE o publisher ID oficial do usuário: 3077915)
+    if (urlObj.hostname.includes('awin1.com')) {
+      const awinAffid = AFFILIATE.awin || process.env.AFFILIATE_AWIN || '3077915';
+      if (urlObj.searchParams.has('id')) urlObj.searchParams.set('id', awinAffid);
+      if (urlObj.searchParams.has('awinaffid')) urlObj.searchParams.set('awinaffid', awinAffid);
+      urlObj.searchParams.set('clickref', 'precosmart');
+      return urlObj.toString();
+    }
+    if (urlObj.hostname.includes('tidd.ly')) {
       return longUrl;
     }
     
@@ -181,16 +205,16 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
     if (
       urlObj.hostname.includes('magazinevoce.') || 
       urlObj.hostname.includes('magazineluiza.') || 
+      urlObj.hostname.includes('influenciadormagalu.') || 
       urlObj.hostname.includes('maga.lu')
     ) {
       if (AFFILIATE.magalu) {
         const storeSlug = 'magazine' + AFFILIATE.magalu.toLowerCase().replace('magazine', '');
-        if (urlObj.hostname.includes('magazinevoce.')) {
+        if (urlObj.hostname.includes('magazinevoce.') || urlObj.hostname.includes('influenciadormagalu.')) {
           const pathParts = urlObj.pathname.split('/').filter(Boolean);
           if (pathParts.length > 0) {
             pathParts[0] = storeSlug;
-            urlObj.pathname = '/' + pathParts.join('/');
-            return urlObj.toString();
+            return `https://www.magazinevoce.com.br/${pathParts.join('/')}`;
           }
         }
         return `https://www.magazinevoce.com.br/${storeSlug}${urlObj.pathname}`;

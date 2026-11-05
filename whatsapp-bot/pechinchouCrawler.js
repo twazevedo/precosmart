@@ -8,6 +8,8 @@
 const axios = require('axios');
 const { AFFILIATE } = require('./catalog');
 const { replaceAffiliateTags, expandUrl } = require('./mirror');
+const { cleanText } = require('./textSanitizer');
+const { shortenUrl } = require('./linkShortener');
 
 const PECHINCHOU_URL = 'https://pechinchou.com.br/';
 
@@ -30,7 +32,15 @@ const AFFILIATED_STORE_SLUGS = [
   { name: 'Nike Brasil', slug: 'nike.com.br' },
   { name: 'Adidas Brasil', slug: 'adidas.com.br' },
   { name: 'AliExpress', slug: 'aliexpress' },
-  { name: 'O Boticário', slug: 'boticario.com.br' }
+  { name: 'O Boticário', slug: 'boticario.com.br' },
+  { name: 'Eudora', slug: 'eudora.com.br' },
+  { name: 'Quem Disse, Berenice?', slug: 'quem-disse-berenice' },
+  { name: 'C&A', slug: 'cea.com.br' },
+  { name: 'Puma', slug: 'puma' },
+  { name: 'Olympikus', slug: 'olympikus.com.br' },
+  { name: 'Stanley', slug: 'stanley1913.com.br' },
+  { name: 'Under Armour', slug: 'underarmour.com.br' },
+  { name: 'LG', slug: 'lg' }
 ];
 
 function convertAwinLink(rawUrl) {
@@ -60,12 +70,21 @@ function convertMagaluLink(rawUrl) {
   return rawUrl;
 }
 
+function formatPriceBRL(val) {
+  if (val === null || val === undefined || val === '') return null;
+  const s = String(val).trim();
+  if (/^\d{1,3}(?:\.\d{3})*,\d{2}$/.test(s)) return s;
+  const num = typeof val === 'number' ? val : parseFloat(s.replace(/[^0-9.,]/g, '').replace(',', '.'));
+  if (isNaN(num) || num <= 0) return null;
+  return num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 async function formatSinglePromo(p, storeOverride) {
   const rawTargetUrl = p.long_url || p.short_url;
   if (!rawTargetUrl) return null;
 
-  const storeName = storeOverride || p.store?.name || 'Loja Parceira';
-  const title = (p.title || 'Oferta').trim();
+  const storeName = cleanText(storeOverride || p.store?.name || 'Loja Parceira');
+  const title = cleanText((p.title || 'Oferta').trim());
 
   // Resolve redirects ou links encurtados
   let cleanUrl = rawTargetUrl;
@@ -89,17 +108,28 @@ async function formatSinglePromo(p, storeOverride) {
     affiliateUrl = cleanUrl;
   }
 
-  // Preços
-  const priceNum = parseFloat(p.price);
-  const oldPriceNum = parseFloat(p.old_price);
-  const priceCurrent = !isNaN(priceNum) ? priceNum.toFixed(2).replace('.', ',') : p.price;
-  const priceOld = !isNaN(oldPriceNum) && oldPriceNum > priceNum ? oldPriceNum.toFixed(2).replace('.', ',') : null;
+  // Encurta links longos (AWIN, Shopee, etc) para visual limpo de alta conversão
+  if (affiliateUrl && affiliateUrl.length > 80 && !affiliateUrl.includes('amazon.com.br/dp/')) {
+    try {
+      const short = await shortenUrl(affiliateUrl);
+      if (short) affiliateUrl = short;
+    } catch (e) {}
+  }
+
+  // Preços devidamente formatados em padrão BRL (R$ 1.299,00)
+  const priceNum = parseFloat(String(p.price).replace(',', '.'));
+  const oldPriceNum = parseFloat(String(p.old_price).replace(',', '.'));
+  const priceCurrent = formatPriceBRL(priceNum) || String(p.price || '').replace('.', ',');
+  const priceOld = (oldPriceNum && priceNum && oldPriceNum > priceNum) 
+    ? formatPriceBRL(oldPriceNum) 
+    : null;
   const discountPercent = oldPriceNum && priceNum && oldPriceNum > priceNum 
     ? Math.round(((oldPriceNum - priceNum) / oldPriceNum) * 100) 
     : null;
 
   // Cupons
-  const coupons = Array.isArray(p.coupons) ? p.coupons.filter(Boolean) : [];
+  const rawCoupons = Array.isArray(p.coupons) ? p.coupons.filter(Boolean) : [];
+  const coupons = rawCoupons.map(cp => cleanText(String(cp))).filter(Boolean);
   const couponCode = coupons.length > 0 ? coupons.join(' ou ') : null;
 
   // Imagem
@@ -122,8 +152,12 @@ async function formatSinglePromo(p, storeOverride) {
   if (couponCode) {
     copy += `\n🎟️ Cupom: *${couponCode}* (aplique no carrinho)\n`;
   }
-  if (p.author_commentary && p.author_commentary.trim().length > 10) {
-    copy += `\n💡 _Dica: ${p.author_commentary.trim()}_\n`;
+  if (p.author_commentary) {
+    let dica = cleanText(String(p.author_commentary).trim());
+    dica = dica.replace(/pechinchou(?:\.com(?:\.br)?)?/gi, 'PreçoSmart');
+    if (dica.length > 15) {
+      copy += `\n💡 _Dica: ${dica}_\n`;
+    }
   }
   copy += `\n🛒 *Compre aqui com desconto:* \n👉 ${affiliateUrl}\n\n`;
   copy += `⚡ _Garimpado via PreçoSmart Radar_`;
@@ -239,5 +273,6 @@ async function fetchAffiliatedStoresDeals(limitPerStore = 1) {
 module.exports = {
   fetchPechinchouDeals,
   fetchAffiliatedStoresDeals,
+  formatSinglePromo,
   AFFILIATED_STORE_SLUGS
 };
