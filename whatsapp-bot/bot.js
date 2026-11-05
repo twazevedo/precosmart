@@ -2253,7 +2253,8 @@ async function startBot() {
     browser:      ['Ubuntu', 'Chrome', '22.04.4'],
     syncFullHistory: false,
     connectTimeoutMs: 60000,
-    keepAliveIntervalMs: 60000,
+    defaultQueryTimeoutMs: 60000,
+    keepAliveIntervalMs: 25000,
     getMessage: async (key) => {
       const stored = messageStore.get(key.id);
       return stored?.message || undefined;
@@ -2453,6 +2454,7 @@ async function startBot() {
   async function runDealQueueWorker() {
     if (isWorkerActive) return;
     isWorkerActive = true;
+    try {
 
     while (dealQueue.length > 0) {
       // Se estiver no Horário de Silêncio Noturno (23:30 às 07:30 de Brasília), não acorda ninguém
@@ -2472,8 +2474,15 @@ async function startBot() {
         await new Promise((r) => setTimeout(r, waitMs));
       }
 
+      // Protege contra descarte: se desconectado, pausa e aguarda reconexão
+      if (!isConnected || !waSocket) {
+        logEntry('QUEUE', 'WhatsApp em reconexão. Aguardando 5s para postar oferta (Fila: ' + dealQueue.length + ')...');
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+
       const deal = dealQueue.shift();
-      if (!deal || !waSocket) continue;
+      if (!deal) continue;
 
       const jidsToSend = getTargetJids();
 
@@ -2565,7 +2574,9 @@ async function startBot() {
       }
     }
 
-    isWorkerActive = false;
+    } finally {
+      isWorkerActive = false;
+    }
   }
 
   sock.ev.on('group-participants.update', async (update) => {
