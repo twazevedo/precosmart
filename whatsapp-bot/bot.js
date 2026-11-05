@@ -82,6 +82,7 @@ const { syncAwinPromotions } = require('./awinApiSync');
 const { upgradeToHdImage, isSafePublicUrl } = require('./mirror');
 const { fetchAllGarimpeirosDeals } = require('./garimpeirosCrawler');
 const { fetchPechinchouDeals, fetchAffiliatedStoresDeals } = require('./pechinchouCrawler');
+const { createStore } = require('./db');
 const { startHourlyGitSync, runGitSync } = require('./autoGitSync');
 
 let sharp = null;
@@ -674,6 +675,16 @@ app.get('/api/post-now', async (req, res) => {
   }
 });
 
+app.get('/api/pechinchou/sync', async (req, res) => {
+  try {
+    const force = req.query?.force === 'true' || req.query?.force === '1';
+    const count = await autoUpdatePechinchouDeals({ force: true });
+    res.json({ ok: true, message: `Varredura executada. ${count} novas ofertas enfileiradas.`, newCount: count, totalSeen: seenPechinchouIds.size });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/pechinchou/trigger', async (req, res) => {
   try {
     const limit = parseInt(req.query?.limit, 10) || 1;
@@ -973,6 +984,62 @@ async function dispatchNextAwinRotation(options = {}) {
 const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '12', 10);
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
+
+// ── Motor Autônomo: Atualização Automática Pechinchou Multi-Lojas ────────────
+const PECHINCHOU_INTERVAL_MINUTES = parseInt(process.env.PECHINCHOU_INTERVAL_MINUTES || '20', 10);
+const PECHINCHOU_INTERVAL_MS = PECHINCHOU_INTERVAL_MINUTES * 60 * 1000;
+const pechinchouStateStore = createStore('pechinchouHistory');
+let seenPechinchouIds = new Set(pechinchouStateStore.getLocalSync()?.seenIds || []);
+
+async function autoUpdatePechinchouDeals(options = {}) {
+  const force = options.force || false;
+  if (!force && (!isAutoPilotActive || isNightQuietHours())) return 0;
+  if (!isConnected || !waSocket) return 0;
+
+  try {
+    logEntry('PECHINCHOU_AUTO', '🔍 Varredura automática Pechinchou: buscando novas ofertas nas lojas parceiras...');
+    const deals = await fetchAffiliatedStoresDeals(1);
+    let newCount = 0;
+
+    for (const d of deals) {
+      if (!d || !d.id) continue;
+      const idKey = String(d.id);
+      if (seenPechinchouIds.has(idKey)) continue;
+
+      seenPechinchouIds.add(idKey);
+      if (seenPechinchouIds.size > 500) {
+        const arr = Array.from(seenPechinchouIds);
+        seenPechinchouIds = new Set(arr.slice(arr.length - 300));
+      }
+
+      dealQueue.push({
+        type: d.imageUrl ? 'image' : 'text',
+        imageUrl: d.imageUrl,
+        caption: d.formattedText,
+        canonicalIds: [d.canonicalId],
+        keyword: d.title,
+        textForDup: d.formattedText,
+        source: 'pechinchou',
+        force: force
+      });
+      newCount++;
+    }
+
+    if (newCount > 0) {
+      pechinchouStateStore.set('seenIds', Array.from(seenPechinchouIds)).catch(() => {});
+      logEntry('PECHINCHOU_AUTO', `✅ ${newCount} novas ofertas do Pechinchou adicionadas à fila anti-flood.`);
+      triggerDealQueueWorker();
+    } else {
+      logEntry('PECHINCHOU_AUTO', 'Varredura concluída: todas as ofertas do Pechinchou já foram postadas.');
+    }
+    return newCount;
+  } catch (err) {
+    logEntry('WARN', 'Erro no auto-update Pechinchou: ' + err.message);
+    return 0;
+  }
+}
+
+setInterval(autoUpdatePechinchouDeals, PECHINCHOU_INTERVAL_MS);
 
 // Disparo inicial desativado: respeita horário de silêncio e evita flood ao iniciar o servidor
 
@@ -2244,6 +2311,13 @@ async function startBot() {
 
 
       // 🚀 Disparo inicial único de oferta no Grupo VIP 15 segundos após conectar
+      // Sincronização automática inicial do Pechinchou 45 segundos após conectar
+      setTimeout(() => {
+        if (isConnected && !isNightQuietHours()) {
+          autoUpdatePechinchouDeals({ force: false });
+        }
+      }, 45000);
+
       if (!initialDispatchDone) {
         initialDispatchDone = true;
         setTimeout(async () => {

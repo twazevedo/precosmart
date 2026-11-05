@@ -25,8 +25,11 @@ const AFFILIATED_STORE_SLUGS = [
   { name: 'Amazon', slug: 'amazon.com.br' },
   { name: 'Mercado Livre', slug: 'mercadolivre.com.br' },
   { name: 'Magazine Luiza', slug: 'magazineluiza.com.br' },
+  { name: 'Shopee', slug: 'shopee.com.br' },
   { name: 'KaBuM!', slug: 'kabum.com.br' },
   { name: 'Nike Brasil', slug: 'nike.com.br' },
+  { name: 'Adidas Brasil', slug: 'adidas.com.br' },
+  { name: 'AliExpress', slug: 'aliexpress' },
   { name: 'O Boticário', slug: 'boticario.com.br' }
 ];
 
