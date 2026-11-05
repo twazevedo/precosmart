@@ -599,16 +599,74 @@ app.get('/api/pechinchou/deals', requireApiAuth, async (req, res) => {
 // Endpoint público para disparo imediato e forçado de oferta no grupo VIP
 app.get('/api/post-now', async (req, res) => {
   try {
+    if (!isConnected || !waSocket || typeof waSocket.sendMessage !== 'function') {
+      return res.status(503).json({ error: 'WhatsApp conectando, aguarde 5 segundos e tente novamente...' });
+    }
+    const targetJids = getTargetJids();
+    if (targetJids.length === 0) {
+      return res.status(400).json({ error: 'Nenhum grupo VIP configurado.' });
+    }
+
+    // 1. Pega da fila de ofertas ou da rotação multi-lojas
+    let dealToSend = null;
     if (dealQueue.length > 0) {
-      triggerDealQueueWorker();
-      return res.json({ ok: true, message: `Fila anti-flood acionada! ${dealQueue.length} ofertas pendentes sendo postadas.`, queueLength: dealQueue.length });
+      dealToSend = dealQueue.shift();
+    } else {
+      dealToSend = await getNextBrandDeal() || await getNextHolidayGiftDeal();
     }
-    const deal = await dispatchNextAwinRotation({ force: true });
-    if (!deal) {
-      const holidayDeal = await sendHolidayGiftDeal('POST_NOW');
-      return res.json({ ok: true, message: 'Oferta enviada com sucesso ao grupo VIP!', deal: holidayDeal });
+
+    if (!dealToSend) {
+      return res.status(500).json({ error: 'Nenhuma oferta disponível para envio.' });
     }
-    return res.json({ ok: true, message: 'Oferta enviada com sucesso ao grupo VIP!', deal });
+
+    const caption = dealToSend.formattedText || dealToSend.text || dealToSend.caption || dealToSend.title;
+    const targetJid = targetJids[0];
+
+    let imgBuf = null;
+    if (dealToSend.buffer) {
+      imgBuf = dealToSend.buffer;
+    } else if (dealToSend.imageUrl) {
+      try {
+        imgBuf = await prepareWhatsAppImage(dealToSend.imageUrl);
+      } catch (e) {}
+    }
+
+    let sentMsg = null;
+    if (imgBuf && imgBuf.length > 3000) {
+      try {
+        sentMsg = await waSocket.sendMessage(targetJid, {
+          image: imgBuf,
+          mimetype: 'image/jpeg',
+          caption: caption
+        });
+      } catch (imgErr) {
+        logEntry('WARN', 'Falha ao enviar foto no post-now, enviando texto: ' + imgErr.message);
+        sentMsg = await waSocket.sendMessage(targetJid, { text: caption });
+      }
+    } else {
+      sentMsg = await waSocket.sendMessage(targetJid, { text: caption });
+    }
+
+    lastDealSentAt = Date.now();
+    logEntry('POST_NOW', `✅ Oferta disparada com sucesso no grupo ${targetJid}: ${dealToSend.title || 'Oferta'}`);
+
+    // Envia também ao Telegram
+    if (isTelegramConfigured()) {
+      broadcastTelegramDeal({
+        text: caption,
+        title: dealToSend.title || 'Oferta VIP',
+        url: dealToSend.affiliateUrl || dealToSend.url || '',
+        imageUrl: dealToSend.imageUrl || null
+      }).catch(() => {});
+    }
+
+    return res.json({
+      ok: true,
+      message: 'Oferta enviada com sucesso ao grupo VIP e Telegram!',
+      title: dealToSend.title,
+      store: dealToSend.store,
+      url: dealToSend.affiliateUrl || dealToSend.url
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
@@ -2123,11 +2181,10 @@ async function startBot() {
     version,
     auth:         state,
     logger:       pino({ level: 'warn' }),
-    browser:      ['PreçoSmart Bot', 'Chrome', '120.0.0'],
+    browser:      ['Ubuntu', 'Chrome', '22.04.4'],
     syncFullHistory: false,
     connectTimeoutMs: 60000,
-    defaultQueryTimeoutMs: 60000,
-    keepAliveIntervalMs: 30000,
+    keepAliveIntervalMs: 60000,
     getMessage: async (key) => {
       const stored = messageStore.get(key.id);
       return stored?.message || undefined;
