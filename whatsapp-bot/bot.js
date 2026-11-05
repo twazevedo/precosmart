@@ -239,6 +239,8 @@ let mongoClient = null;
 const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
 const dealQueue           = [];
 let isWorkerActive        = false;
+let globalQueueWorker     = null;
+function triggerDealQueueWorker() { if (globalQueueWorker) { globalQueueWorker().catch(() => {}); } }
 let lastDealSentAt        = 0;
 
 // ── Modo Noturno e Integração Instagram ───────────────────────────────────────
@@ -593,6 +595,25 @@ app.get('/api/pechinchou/deals', requireApiAuth, async (req, res) => {
 });
 
 
+
+// Endpoint público para disparo imediato e forçado de oferta no grupo VIP
+app.get('/api/post-now', async (req, res) => {
+  try {
+    if (dealQueue.length > 0) {
+      triggerDealQueueWorker();
+      return res.json({ ok: true, message: `Fila anti-flood acionada! ${dealQueue.length} ofertas pendentes sendo postadas.`, queueLength: dealQueue.length });
+    }
+    const deal = await dispatchNextAwinRotation({ force: true });
+    if (!deal) {
+      const holidayDeal = await sendHolidayGiftDeal('POST_NOW');
+      return res.json({ ok: true, message: 'Oferta enviada com sucesso ao grupo VIP!', deal: holidayDeal });
+    }
+    return res.json({ ok: true, message: 'Oferta enviada com sucesso ao grupo VIP!', deal });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/pechinchou/trigger', async (req, res) => {
   try {
     const limit = parseInt(req.query?.limit, 10) || 1;
@@ -609,6 +630,7 @@ app.get('/api/pechinchou/trigger', async (req, res) => {
       });
       count++;
     }
+    triggerDealQueueWorker();
     logEntry('PECHINCHOU', `Disparo Multi-Lojas ativado: ${count} ofertas enfileiradas na fila anti-flood.`);
     res.json({ ok: true, count, deals });
   } catch (err) {
@@ -855,7 +877,14 @@ async function dispatchNextAwinRotation(options = {}) {
           if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
           logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
         } catch (imgErr) {
-          logEntry('WARN', `Falha ao enviar foto HD AWIN (${jid}): ${imgErr.message}`);
+          logEntry('WARN', `Falha ao enviar foto HD AWIN (${jid}), tentando fallback em texto: ${imgErr.message}`);
+          try {
+            const textMsg = await waSocket.sendMessage(jid, { text: deal.text });
+            if (textMsg?.key?.id && textMsg?.message) messageStore.set(textMsg.key.id, textMsg);
+            logEntry('AWIN_WA', `Oferta enviada via fallback de texto para ${jid}`);
+          } catch (tErr) {
+            logEntry('ERROR', `Falha ao enviar fallback de texto AWIN (${jid}): ${tErr.message}`);
+          }
         }
       }
     }
@@ -2150,6 +2179,7 @@ async function startBot() {
       isConnected   = true;
       qrCodeDataUrl = null;
       logEntry('CONNECTED', 'WhatsApp conectado com sucesso!');
+      setTimeout(triggerDealQueueWorker, 3000); // flush pending queue
       await findGroupJid(sock);
       notifyAdmin('CONNECTED', 'Bot WhatsApp conectado! Grupo: ' + (groupJid || 'buscando...')).catch(() => {});
 
@@ -2284,6 +2314,7 @@ async function startBot() {
   });
 
   // ── Worker da Fila Anti-Flood ──────────────────────────────────────────────
+  globalQueueWorker = runDealQueueWorker;
   async function runDealQueueWorker() {
     if (isWorkerActive) return;
     isWorkerActive = true;
@@ -2348,13 +2379,14 @@ async function startBot() {
           }
         }
 
-        // Regra Absoluta: NENHUMA oferta pode ser postada sem foto oficial do produto
-        if (!deal.buffer && !imgPayload) {
-          logEntry('MIRROR', `⚠️ Oferta descartada: sem foto oficial do produto (${deal.keyword || 'oferta'}).`);
+        // Suporta tanto deal.text quanto deal.caption
+        const rawText = deal.text || deal.caption || '';
+        if (!rawText.trim()) {
+          logEntry('MIRROR', '⚠️ Oferta descartada: texto vazio.');
           continue;
         }
 
-        deal.text = await shortenLinksInText(deal.text);
+        deal.text = await shortenLinksInText(rawText);
         for (const targetJid of jidsToSend) {
           if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
           try {
@@ -2362,9 +2394,16 @@ async function startBot() {
               await waSocket.sendMessage(targetJid, { video: deal.buffer, caption: deal.text });
             } else if (imgPayload) {
               await waSocket.sendMessage(targetJid, { image: imgPayload, mimetype: 'image/jpeg', caption: deal.text });
+            } else {
+              await waSocket.sendMessage(targetJid, { text: deal.text });
             }
           } catch (sendErr) {
-             logEntry('WARN', `Erro ao postar via Anti-Flood no grupo ${targetJid}: ${sendErr.message}`);
+             logEntry('WARN', `Falha ao enviar imagem no grupo ${targetJid}, tentando apenas texto: ${sendErr.message}`);
+             try {
+               await waSocket.sendMessage(targetJid, { text: deal.text });
+             } catch (textErr) {
+               logEntry('ERROR', `Erro ao postar texto no grupo ${targetJid}: ${textErr.message}`);
+             }
           }
         }
         logEntry('MIRROR', `Oferta postada via Anti-Flood para ${jidsToSend.length} grupo(s)! Restam na fila: ${dealQueue.length}`);
