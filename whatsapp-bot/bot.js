@@ -237,7 +237,7 @@ const groupMetadataCache = new Map();
 let mongoClient = null;
 
 // ── Sistema Anti-Flood e Deduplicação ─────────────────────────────────────────
-const ANTI_FLOOD_DELAY_MS = 3 * 60 * 1000; // Intervalo de 3 minutos entre ofertas
+const ANTI_FLOOD_DELAY_MS = parseInt(process.env.ANTI_FLOOD_DELAY_SECONDS || '75', 10) * 1000; // Intervalo de 3 minutos entre ofertas
 const dealQueue           = [];
 let isWorkerActive        = false;
 let globalQueueWorker     = null;
@@ -981,12 +981,12 @@ async function dispatchNextAwinRotation(options = {}) {
 
 // ── Rotação Automática Contínua no Piloto Automático ─────────────────────────
 // Por padrão roda a cada 12 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
-const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '12', 10);
+const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '8', 10);
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
 // ── Motor Autônomo: Atualização Automática Pechinchou Multi-Lojas ────────────
-const PECHINCHOU_INTERVAL_MINUTES = parseInt(process.env.PECHINCHOU_INTERVAL_MINUTES || '20', 10);
+const PECHINCHOU_INTERVAL_MINUTES = parseInt(process.env.PECHINCHOU_INTERVAL_MINUTES || '8', 10);
 const PECHINCHOU_INTERVAL_MS = PECHINCHOU_INTERVAL_MINUTES * 60 * 1000;
 const pechinchouStateStore = createStore('pechinchouHistory');
 let seenPechinchouIds = new Set(pechinchouStateStore.getLocalSync()?.seenIds || []);
@@ -2290,15 +2290,15 @@ async function startBot() {
     if (qr) {
       qrCodeDataUrl = await QRCode.toDataURL(qr);
       isConnected   = false;
-      logEntry('QR', 'Novo QR Code gerado! Abra http://localhost:/qr no navegador para escanear.');
+      logEntry('QR', 'Novo QR Code gerado! Abra ' + 'http://localhost:' + PORT + '/qr' + ' no navegador para escanear.');
       notifyAdmin('QR_READY', 'Novo QR Code gerado! Acesse o painel para escanear.').catch(() => {});
       try {
         const terminalQr = await QRCode.toString(qr, { type: 'terminal', small: true });
         console.log('\n📲 ESCANEIE O QR CODE ABAIXO COM SEU WHATSAPP (Aparelhos Conectados):\n');
         console.log(terminalQr);
-        console.log('\nOu acesse no navegador: http://localhost:/qr\n');
+        console.log('\nOu acesse no navegador: ' + 'http://localhost:' + PORT + '/qr' + '\n');
       } catch (tQrErr) {
-        console.log('Acesse http://localhost:/qr no navegador para escanear.');
+        console.log('Acesse ' + 'http://localhost:' + PORT + '/qr' + ' no navegador para escanear.');
       }
     }
 
