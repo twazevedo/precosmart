@@ -38,17 +38,11 @@ services:
         value: "27065696"
       - key: NODE_ENV
         value: production
-      - key: TELEGRAM_BOT_TOKEN
-        sync: false
       - key: AWIN_API_TOKEN
         sync: false
-      - key: TELEGRAM_CHAT_ID
-        value: "@precosmart"
       - key: ENCRYPTION_KEY
         sync: false
       - key: MONGO_URI
-        sync: false
-      - key: TELEGRAM_ADMIN_CHAT_ID
         sync: false
       - key: GEMINI_API_KEY
         sync: false

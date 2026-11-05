@@ -25,8 +25,7 @@
     "mongodb": "^7.6.0",
     "node-cron": "^4.6.0",
     "pino": "^9.7.0",
-    "qrcode": "^1.5.4",
-    "telegram": "^2.26.22"
+    "qrcode": "^1.5.4"
   },
   "overrides": {
     "qs": ">=6.15.4",
