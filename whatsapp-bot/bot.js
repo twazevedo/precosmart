@@ -838,6 +838,14 @@ app.post('/api/send-now', requireApiAuth, async (req, res) => {
 
 app.post('/api/send-welcome', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
+  try {
+    await waSocket.sendMessage(groupJid, { text: buildWelcomeMessage() });
+    logEntry('MANUAL', 'Mensagem de boas-vindas enviada');
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.post('/api/send-tiktok', requireApiAuth, async (req, res) => {
   if (!isConnected || !waSocket) return res.status(503).json({ error: 'Bot não conectado' });
@@ -851,14 +859,6 @@ app.post('/api/send-tiktok', requireApiAuth, async (req, res) => {
     }
     logEntry('TIKTOK', '🎵 Vitrine oficial TikTok Shop divulgada no grupo VIP!');
     res.json({ ok: true, url: showcaseUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-  try {
-    await waSocket.sendMessage(groupJid, { text: buildWelcomeMessage() });
-    logEntry('MANUAL', 'Mensagem de boas-vindas enviada');
-    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
