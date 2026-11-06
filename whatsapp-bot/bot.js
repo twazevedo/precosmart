@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file bot.js — PreçoSmart WhatsApp Bot v2.0
  * @description Serviço web oficial com:
  *   • Baileys (WhatsApp via WebSocket puro — sem Chrome)
@@ -2184,7 +2184,7 @@ function setupCronJobs() {
 const { MongoClient } = require('mongodb');
 const { useMongoDBAuthState } = require('./mongoAuth');
 
-const { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage } = require('./mirror');
+const { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgImage, isCompetitorUrl } = require('./mirror');
 
 const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
@@ -2450,6 +2450,12 @@ async function startBot() {
 
       const deal = dealQueue.shift();
       if (!deal) continue;
+
+      // Salvaguarda Universal: Bloqueia disparo se contiver link concorrente residual
+      if (deal.text && isCompetitorUrl(deal.text)) {
+        logEntry('WARN', 'Bloqueado disparo de oferta com link de grupo/canal concorrente residual na fila!');
+        continue;
+      }
 
       const jidsToSend = getTargetJids();
 

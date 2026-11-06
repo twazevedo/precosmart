@@ -115,7 +115,189 @@ async function resolveMLSocialToDirect(socialUrl, keyword) {
   return null;
 }
 
+
+const COMPETITOR_URL_PATTERN = /(?:https?:\/\/)?(?:chat\.whatsapp\.com|whatsapp\.com\/(?:channel|invite)|wa\.me|wa\.link|api\.whatsapp\.com|(?:t|telegram)\.me|telegram\.dog|linktr\.ee|beacons\.ai|heylink\.me|instabio\.cc|linkbio\.co|campsite\.bio|bio\.site|allmylinks\.com|canaldewhatsapp\.com|gruposwhats\.app|zapgrupos\.com(?:\.br)?|meugrupo\.vip|grupos\.me|achadosgrupo[^\s]*)[^\s]*/gi;
+
+function isCompetitorUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const low = url.toLowerCase();
+  return (
+    low.includes('chat.whatsapp.com') ||
+    low.includes('whatsapp.com/channel') ||
+    low.includes('whatsapp.com/invite') ||
+    low.includes('wa.me') ||
+    low.includes('wa.link') ||
+    low.includes('api.whatsapp.com') ||
+    low.includes('t.me') ||
+    low.includes('telegram.me') ||
+    low.includes('telegram.dog') ||
+    low.includes('linktr.ee') ||
+    low.includes('beacons.ai') ||
+    low.includes('heylink.me') ||
+    low.includes('instabio.cc') ||
+    low.includes('linkbio.co') ||
+    low.includes('campsite.bio') ||
+    low.includes('bio.site') ||
+    low.includes('allmylinks.com') ||
+    low.includes('canaldewhatsapp.com') ||
+    low.includes('gruposwhats.app') ||
+    low.includes('zapgrupos.com') ||
+    low.includes('meugrupo.vip') ||
+    low.includes('grupos.me') ||
+    low.includes('achadosgrupo')
+  );
+}
+
+function isExternalNonStore(url) {
+  if (!url || typeof url !== 'string') return false;
+  const low = url.toLowerCase();
+  return (
+    isCompetitorUrl(low) ||
+    low.includes('instagram.com') ||
+    low.includes('threads.net') ||
+    low.includes('facebook.com') ||
+    low.includes('fb.me') ||
+    low.includes('twitter.com') ||
+    low.includes('x.com') ||
+    low.includes('tiktok.com') ||
+    low.includes('youtube.com') ||
+    low.includes('youtu.be') ||
+    low.includes('kwai.com') ||
+    low.includes('linkedin.com') ||
+    low.includes('globo.com') ||
+    low.includes('uol.com.br') ||
+    low.includes('r7.com')
+  );
+}
+
+function isSupportedStore(lowLong) {
+  return (
+    lowLong.includes('amazon.') || 
+    lowLong.includes('amzn.to') ||
+    lowLong.includes('mercadolivre.') || 
+    lowLong.includes('meli.la') ||
+    lowLong.includes('shopee.') || 
+    lowLong.includes('shope.ee') || 
+    lowLong.includes('shp.ee') ||
+    lowLong.includes('magazinevoce.') || 
+    lowLong.includes('magazineluiza.') || 
+    lowLong.includes('influenciadormagalu.') || 
+    lowLong.includes('maga.lu') ||
+    lowLong.includes('boticario.com') ||
+    lowLong.includes('eudora.com') ||
+    lowLong.includes('quemdisseberenice.com') ||
+    lowLong.includes('ouiparis.com') ||
+    lowLong.includes('kabum.') ||
+    lowLong.includes('clovis.') ||
+    lowLong.includes('olympikus.') ||
+    lowLong.includes('adidas.') ||
+    lowLong.includes('lacoste.') ||
+    lowLong.includes('nike.') ||
+    lowLong.includes('lego.') ||
+    lowLong.includes('lg.com') ||
+    lowLong.includes('sharkninja') ||
+    lowLong.includes('ninjabrasil') ||
+    lowLong.includes('hopeoficial') ||
+    lowLong.includes('hopelingerie') ||
+    lowLong.includes('underarmour') ||
+    lowLong.includes('aliexpress.') ||
+    lowLong.includes('cea.com') ||
+    lowLong.includes('stanley1913') ||
+    lowLong.includes('stanley-pmi') ||
+    lowLong.includes('decathlon.') ||
+    lowLong.includes('drogariavenancio.') ||
+    lowLong.includes('casasbahia.') ||
+    lowLong.includes('puma.com') ||
+    lowLong.includes('awin1.com') ||
+    lowLong.includes('tidd.ly')
+  );
+}
+
+function cleanCompetitorArtifacts(text) {
+  if (!text) return '';
+  let cleaned = text.replace(COMPETITOR_URL_PATTERN, '');
+
+  const lines = cleaned.split('\n');
+  const filteredLines = [];
+
+  for (const line of lines) {
+    let l = line.trim();
+    if (!l) continue;
+    const lower = l.toLowerCase();
+
+    const isCompetitorCall = (
+      lower.includes('entre no grupo') || lower.includes('entre em nosso grupo') ||
+      lower.includes('entre no canal') || lower.includes('entre em nosso canal') ||
+      lower.includes('participe do grupo') || lower.includes('participe do canal') ||
+      lower.includes('participe da comunidade') || lower.includes('entre na comunidade') ||
+      lower.includes('nosso grupo') || lower.includes('nosso canal') || lower.includes('nossa comunidade') ||
+      lower.includes('link do grupo') || lower.includes('link do canal') || lower.includes('link da comunidade') ||
+      lower.includes('grupo vip') || lower.includes('canal vip') || lower.includes('comunidade vip') ||
+      lower.includes('grupo no whatsapp') || lower.includes('canal no whatsapp') || lower.includes('canal whatsapp') ||
+      lower.includes('grupo whatsapp') || lower.includes('canal do telegram') || lower.includes('grupo do telegram') ||
+      lower.includes('receba ofertas') || lower.includes('receba no whatsapp') || lower.includes('mais ofertas no canal') ||
+      lower.includes('mais ofertas no grupo') || lower.includes('convide amigos') || lower.includes('familiares para o grupo') ||
+      lower.includes('siga no instagram') || lower.includes('siga nosso instagram') || lower.includes('siga nossa página') ||
+      lower.includes('pechinchou') || lower.includes('pelando') || lower.includes('promobit') || lower.includes('achadosgrupo')
+    );
+
+    if (isCompetitorCall) {
+      if (!l.includes('http://') && !l.includes('https://')) {
+        continue;
+      }
+      l = l
+        .replace(/(?:entre|acesse|participe|siga)(?:\s+em|\s+no|\s+na|\s+do|\s+da)?\s+(?:nosso|nossa|o|a)?\s*(?:grupo|canal|comunidade|chat|vip)[^|\n]*/gi, '')
+        .replace(/(?:grupo|canal|comunidade)\s+(?:vip|exclusivo|secreto|whatsapp|telegram)[^|\n]*/gi, '')
+        .trim();
+    }
+
+    if (!l.includes('http://') && !l.includes('https://')) {
+      if (
+        lower.includes('canal') || lower.includes('grupo') || lower.includes('comunidade') ||
+        lower.includes('telegram') || lower.includes('whatsapp') || lower.includes('participe') ||
+        lower.includes('convite') || lower.includes('entre no') || lower.includes('acesse o') ||
+        lower.includes('achados') || lower.includes('receba')
+      ) {
+        continue;
+      }
+    }
+
+    l = l.replace(/[|\s\-–:]*(?:grupo|canal|comunidade|vip|whatsapp|telegram)[|\s\-–:]*$/i, '').trim();
+    l = l.replace(/[|\-–:]+\s*$/, '').trim();
+
+    if (/^[👉🔗📲💬👥💡⚡💥*_\s]*(?:link|canal|grupo|comunidade|participe|acesse|whatsapp|telegram)?[:\-–\s]*$/i.test(l)) {
+      continue;
+    }
+
+    if (l) {
+      filteredLines.push(l);
+    }
+  }
+
+  return filteredLines.join('\n');
+}
+
+function cleanResidualArtifacts(text) {
+  if (!text) return '';
+  return text
+    .split('\n')
+    .map(line => {
+      let l = line.trim();
+      l = l.replace(/[|\-–:]+\s*$/, '').trim();
+      if (/^[👉🔗📲💬👥💡⚡💥*_\s]*(?:link|canal|grupo|comunidade|participe|acesse|whatsapp|telegram)?[:\-–\s]*$/i.test(l)) {
+        return '';
+      }
+      return l;
+    })
+    .filter(Boolean)
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n');
+}
+
 async function replaceAffiliateTags(longUrl, productKeyword) {
+  if (!longUrl || isCompetitorUrl(longUrl)) {
+    return '';
+  }
   try {
     const urlObj = new URL(longUrl);
     
@@ -411,99 +593,82 @@ function detectUrgencyBadge(text) {
 async function processMessageText(text) {
   if (!text) return null;
 
-  // 1. Uma oferta OBRIGATORIAMENTE precisa conter ao menos um link
-  const initialUrls = text.match(urlRegex) || [];
-  if (initialUrls.length === 0) {
-    return null; // Não é oferta (mensagem de conversa comum), descarta imediatamente!
-  }
+  // 1. Limpa URLs e menções explícitas a canais e grupos de terceiros
+  let sanitized = cleanCompetitorArtifacts(text);
+  if (!sanitized) return null;
 
-  // 2. Higieniza o texto removendo links de terceiros e convites externos
-  const lines = text.split('\n');
-  const cleanLines = lines.filter((line) => {
-    const l = line.toLowerCase();
-    if (l.includes('convide amigos') || l.includes('familiares para o grupo')) return false;
-    if (l.includes('entre no grupo') || l.includes('nosso grupo') || l.includes('link do grupo')) return false;
-    if (l.includes('entre no canal') || l.includes('nosso canal') || l.includes('link do canal')) return false;
-    if (l.includes('chat.whatsapp.com') || l.includes('wa.me') || l.includes('t.me') || l.includes('telegram.me')) return false;
-    if (l.includes('grupos.') || l.includes('achadosgrupo')) return false;
-    if (l.includes('linktr.ee') || l.includes('beacons.ai') || l.includes('heylink.me')) return false;
-    return true;
-  });
-  
-  let newText = cleanLines.join('\n');
-  const productKeyword = extractProductKeyword(newText);
-  const urls = newText.match(urlRegex) || [];
-
+  // 2. Extrai URLs restantes
+  const urls = sanitized.match(urlRegex) || [];
   if (urls.length === 0) {
-    return null;
+    return null; // Não é oferta (sem links de compra válidos)
   }
 
+  const productKeyword = extractProductKeyword(sanitized);
   let hasValidStoreUrl = false;
+  let finalCleanText = sanitized;
+
   for (const url of urls) {
+    // Se a URL original já for de concorrente/grupo
+    if (isCompetitorUrl(url)) {
+      finalCleanText = finalCleanText.replace(url, '');
+      continue;
+    }
+
     let longUrl = url;
-    
-    // Expande qualquer URL que não seja destino final direto
     const isDirectFinal = url.includes('amazon.com.br/dp/') || 
                           url.includes('produto.mercadolivre.com.br/MLB') || 
                           url.includes('mercadolivre.com.br/p/MLB') ||
                           url.includes('shopee.com.br/product/');
-                          
+
     if (!isDirectFinal) {
       longUrl = await expandUrl(url);
     }
-    
-    // Verifica se é de fato um domínio de e-commerce/loja
+
+    // Se a URL expandida revelou ser link de grupo/canal concorrente
+    if (isCompetitorUrl(longUrl)) {
+      finalCleanText = finalCleanText.replace(url, '');
+      continue;
+    }
+
     const lowLong = longUrl.toLowerCase();
-    const isStore = lowLong.includes('amazon.') || 
-                    lowLong.includes('amzn.to') ||
-                    lowLong.includes('mercadolivre.') || 
-                    lowLong.includes('shopee.') || 
-                    lowLong.includes('shope.ee') || 
-                    lowLong.includes('magazinevoce.') || 
-                    lowLong.includes('magazineluiza.') || 
-                    lowLong.includes('maga.lu') ||
-                    lowLong.includes('boticario.com') ||
-                    lowLong.includes('eudora.com') ||
-                    lowLong.includes('quemdisseberenice.com') ||
-                    lowLong.includes('ouiparis.com') ||
-                    lowLong.includes('kabum.') ||
-                    lowLong.includes('clovis.') ||
-                    lowLong.includes('olympikus.') ||
-                    lowLong.includes('adidas.') ||
-                    lowLong.includes('lacoste.') ||
-                    lowLong.includes('nike.') ||
-                    lowLong.includes('lego.') ||
-                    lowLong.includes('lg.com') ||
-                    lowLong.includes('sharkninja') ||
-                    lowLong.includes('ninjabrasil') ||
-                    lowLong.includes('hopeoficial') ||
-                    lowLong.includes('hopelingerie') ||
-                    lowLong.includes('underarmour') ||
-                    lowLong.includes('aliexpress.') ||
-                    lowLong.includes('cea.com') ||
-                    lowLong.includes('stanley1913') ||
-                    lowLong.includes('stanley-pmi') ||
-                    lowLong.includes('decathlon.') ||
-                    lowLong.includes('drogariavenancio.') ||
-                    lowLong.includes('casasbahia.');
+    const isStore = isSupportedStore(lowLong);
 
     if (isStore) {
       hasValidStoreUrl = true;
+      const afUrl = await replaceAffiliateTags(longUrl, productKeyword);
+      finalCleanText = finalCleanText.replace(url, afUrl);
+    } else {
+      // URL não pertence a nenhuma loja parceira
+      if (isExternalNonStore(lowLong)) {
+        finalCleanText = finalCleanText.replace(url, '');
+      } else {
+        // Se for outra loja não cadastrada e ainda não tivermos loja válida
+        const afUrl = await replaceAffiliateTags(longUrl, productKeyword);
+        if (afUrl) {
+          finalCleanText = finalCleanText.replace(url, afUrl);
+          hasValidStoreUrl = true;
+        } else {
+          finalCleanText = finalCleanText.replace(url, '');
+        }
+      }
     }
-
-    const afUrl = await replaceAffiliateTags(longUrl, productKeyword);
-    newText = newText.replace(url, afUrl);
   }
 
-  // Se não tem nenhum link de loja real, não é uma oferta válida
+  // Se não contém nenhuma loja real válida após processar todos os links, descarta
   if (!hasValidStoreUrl) {
     return null;
   }
 
-  const badge = detectUrgencyBadge(newText);
-  const isMagalu = newText.includes('magazinevoce.com.br') || newText.includes('magazineluiza.com.br');
-  const isBoticario = newText.includes('boticario.com') || newText.includes('eudora.com') || newText.includes('quemdisseberenice.com') || newText.includes('ouiparis.com');
-  const detectedPrice = extractPriceFromText(newText);
+  // Limpeza final de pontuação residual e linhas em branco
+  finalCleanText = cleanResidualArtifacts(finalCleanText);
+  if (!finalCleanText || !finalCleanText.includes('http')) {
+    return null;
+  }
+
+  const badge = detectUrgencyBadge(finalCleanText);
+  const isMagalu = finalCleanText.includes('magazinevoce.com.br') || finalCleanText.includes('magazineluiza.com.br');
+  const isBoticario = finalCleanText.includes('boticario.com') || finalCleanText.includes('eudora.com') || finalCleanText.includes('quemdisseberenice.com') || finalCleanText.includes('ouiparis.com');
+  const detectedPrice = extractPriceFromText(finalCleanText);
   let dealBadge = '';
   if (detectedPrice) {
     const evaluation = evaluateDeal(productKeyword, detectedPrice);
@@ -519,8 +684,7 @@ async function processMessageText(text) {
     footer = '\n\n🌸 *Consultor Autorizado Grupo Boticário* 🌸\n🔒 *Produtos 100% Originais Direto da Marca*\n✨ *Compre Online e Receba em Casa*';
   }
 
-  newText = badge + newText.trim() + dealBadge + footer;
-  return newText;
+  return badge + finalCleanText.trim() + dealBadge + footer;
 }
 
 function extractCanonicalId(url) {
@@ -738,5 +902,9 @@ module.exports = {
   upgradeToHdImage,
   isSafePublicUrl,
   replaceAffiliateTags,
-  expandUrl
+  expandUrl,
+  isCompetitorUrl,
+  cleanCompetitorArtifacts,
+  cleanResidualArtifacts,
+  isSupportedStore
 };

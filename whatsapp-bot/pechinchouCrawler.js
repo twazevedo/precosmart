@@ -7,7 +7,7 @@
 
 const axios = require('axios');
 const { AFFILIATE } = require('./catalog');
-const { replaceAffiliateTags, expandUrl } = require('./mirror');
+const { replaceAffiliateTags, expandUrl, cleanCompetitorArtifacts, isCompetitorUrl } = require('./mirror');
 const { cleanText } = require('./textSanitizer');
 const { shortenUrl } = require('./linkShortener');
 
@@ -155,7 +155,8 @@ async function formatSinglePromo(p, storeOverride) {
   if (p.author_commentary) {
     let dica = cleanText(String(p.author_commentary).trim());
     dica = dica.replace(/pechinchou(?:\.com(?:\.br)?)?/gi, 'PreçoSmart');
-    if (dica.length > 15) {
+    dica = cleanCompetitorArtifacts(dica);
+    if (dica && dica.length > 10 && !isCompetitorUrl(dica)) {
       copy += `\n💡 _Dica: ${dica}_\n`;
     }
   }

@@ -167,3 +167,47 @@ test('13. Injeção de Afiliados AWIN Aprovados: Stanley, Decathlon e Drogaria V
   assert.ok(resVenancio.includes('awinmid=47165'), 'Deve conter awinmid da Drogaria Venancio (47165)');
 });
 
+
+
+test('14. Sanitização Rigorosa Anti-Concorrente: Canais WhatsApp, Grupos, Telegram e Linktree', async () => {
+  const { isCompetitorUrl } = require('../mirror');
+
+  // Detecção direta de URLs concorrentes
+  assert.equal(isCompetitorUrl('https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7'), true);
+  assert.equal(isCompetitorUrl('https://whatsapp.com/channel/0029Va12345'), true);
+  assert.equal(isCompetitorUrl('https://t.me/precosmart'), true);
+  assert.equal(isCompetitorUrl('https://wa.me/5511999999999'), true);
+  assert.equal(isCompetitorUrl('https://linktr.ee/promos'), true);
+  assert.equal(isCompetitorUrl('https://www.amazon.com.br/dp/B08N5WRWNW'), false);
+
+  // Mensagem contendo oferta legítima + links de canais/grupos concorrentes
+  const msgMista = [
+    '🔥 Fone de Ouvido JBL Tune 520BT',
+    'Por apenas R$ 199,00 à vista!',
+    '🛒 Compre aqui: https://www.amazon.com.br/dp/B08N5WRWNW',
+    '👉 Siga nosso canal no WhatsApp: https://whatsapp.com/channel/0029Va12345',
+    '👥 Entre no nosso grupo VIP: https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7',
+    '📢 Telegram oficial: https://t.me/concorrente'
+  ].join('\n');
+
+  const resultado = await processMessageText(msgMista);
+  assert.ok(resultado, 'Oferta deve ser aceita e processada');
+  assert.ok(resultado.includes('amazon.com.br'), 'Deve preservar o link da loja oficial');
+  assert.ok(!resultado.includes('chat.whatsapp.com'), 'Não deve conter link de grupo');
+  assert.ok(!resultado.includes('whatsapp.com/channel'), 'Não deve conter link de canal WhatsApp');
+  assert.ok(!resultado.includes('t.me'), 'Não deve conter link de Telegram');
+  assert.ok(!resultado.includes('Siga nosso canal'), 'Não deve conter CTA de canal concorrente');
+  assert.ok(!resultado.includes('Entre no nosso grupo'), 'Não deve conter CTA de grupo concorrente');
+
+  // Mensagem com link de canal concorrente na MESMA LINHA do produto
+  const msgMesmaLinha = 'JBL Tune 520BT R$ 199: https://www.amazon.com.br/dp/B08N5WRWNW | Canal: https://whatsapp.com/channel/0029Va12345';
+  const resMesmaLinha = await processMessageText(msgMesmaLinha);
+  assert.ok(resMesmaLinha, 'Oferta na mesma linha deve ser aceita');
+  assert.ok(resMesmaLinha.includes('amazon.com.br'), 'Deve preservar link da Amazon');
+  assert.ok(!resMesmaLinha.includes('whatsapp.com/channel'), 'Deve expurgar o canal da mesma linha');
+
+  // Mensagem que contém apenas links de grupos concorrentes deve ser rejeitada
+  const msgSpam = 'Participe do nosso grupo de descontos: https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7';
+  const resSpam = await processMessageText(msgSpam);
+  assert.equal(resSpam, null, 'Mensagem com apenas link de grupo deve retornar null');
+});
