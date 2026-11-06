@@ -165,4 +165,39 @@ Selecionamos a dedo os produtos mais virais e úteis que estão bombando no TikT
 ⚡ _Corra para aproveitar antes que os cupons e estoques acabem!_`;
 }
 
-module.exports = { buildOfferCaption, buildFlashCaption, buildMorningMessage, buildWelcomeMessage, buildOfferMessage, buildFlashSaleMessage, buildTikTokShowcaseMessage };
+function buildTikTokProductMessage(product) {
+  if (!product || !product.title) return '';
+  const lines = [
+    `🎵 *ACHADINHO VIRAL DO TIKTOK SHOP!* 📱✨`,
+    ``,
+    `📦 *${product.title}*`,
+    ``,
+  ];
+
+  if (product.oldPrice) {
+    lines.push(`❌ De: ~R$ ${product.oldPrice}~`);
+  }
+  if (product.price) {
+    lines.push(`🔥 *Por apenas: R$ ${product.price}*`);
+  }
+  if (product.coupon) {
+    lines.push(`🏷️ Cupom: *${product.coupon}*`);
+  }
+  lines.push(``);
+  lines.push(`👉 *Garanta o seu com desconto aqui:*`);
+  lines.push(`🔗 ${product.affiliateUrl}`);
+  lines.push(``);
+  lines.push(`⚡ _Preço e cupons sujeitos a alteração no TikTok Shop!_`);
+  return lines.join('\n');
+}
+
+module.exports = {
+  buildOfferCaption,
+  buildFlashCaption,
+  buildMorningMessage,
+  buildWelcomeMessage,
+  buildOfferMessage,
+  buildFlashSaleMessage,
+  buildTikTokShowcaseMessage,
+  buildTikTokProductMessage
+};
