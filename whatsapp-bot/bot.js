@@ -46,7 +46,7 @@ const {
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
 const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal, getNextHolidayGiftDeal } = require('./shopeeCatalog');
 const { shortenLinksInText } = require('./linkShortener');
-const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage } = require('./formatter');
+const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage, buildTikTokShowcaseMessage } = require('./formatter');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal, notifyAdmin } = require('./telegram');
@@ -838,6 +838,23 @@ app.post('/api/send-now', requireApiAuth, async (req, res) => {
 
 app.post('/api/send-welcome', requireApiAuth, async (req, res) => {
   if (!isConnected || !groupJid) return res.status(503).json({ error: 'Bot não conectado' });
+
+app.post('/api/send-tiktok', requireApiAuth, async (req, res) => {
+  if (!isConnected || !waSocket) return res.status(503).json({ error: 'Bot não conectado' });
+  try {
+    const showcaseUrl = process.env.TIKTOK_SHOWCASE_URL || 'https://vt.tiktok.com/ZS9f1p5GPeP6Q-SyLby/';
+    const message = buildTikTokShowcaseMessage(showcaseUrl);
+    const targetJids = getTargetJids();
+    for (const jid of targetJids) {
+      if (!jid.endsWith('@g.us')) continue;
+      await waSocket.sendMessage(jid, { text: message });
+    }
+    logEntry('TIKTOK', '🎵 Vitrine oficial TikTok Shop divulgada no grupo VIP!');
+    res.json({ ok: true, url: showcaseUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
   try {
     await waSocket.sendMessage(groupJid, { text: buildWelcomeMessage() });
     logEntry('MANUAL', 'Mensagem de boas-vindas enviada');
@@ -2077,6 +2094,23 @@ function setupCronJobs() {
         logEntry('SENT', '[14:00] Achadinho Shopee automático enviado: ' + p.title);
       }
     } catch (err) { logEntry('ERROR', 'Erro no cron Shopee Produto: ' + err.message); }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  // 17:30 — Achadinhos da Vitrine TikTok Shop
+  cron.schedule('30 17 * * *', async () => {
+    if (!isConnected || !isAutoPilotActive) return;
+    try {
+      const showcaseUrl = process.env.TIKTOK_SHOWCASE_URL || 'https://vt.tiktok.com/ZS9f1p5GPeP6Q-SyLby/';
+      const message = buildTikTokShowcaseMessage(showcaseUrl);
+      const targetJids = getTargetJids();
+      for (const targetJid of targetJids) {
+        if (!targetJid.endsWith('@g.us')) continue;
+        await waSocket.sendMessage(targetJid, { text: message });
+      }
+      logEntry('TIKTOK', '[17:30] Vitrine oficial TikTok Shop divulgada no grupo VIP');
+    } catch (err) {
+      logEntry('ERROR', 'Erro no cron Vitrine TikTok: ' + err.message);
+    }
   }, { timezone: 'America/Sao_Paulo' });
 
   // 16:00 — Pausa da tarde no trabalho (Equipamentos e produtividade)

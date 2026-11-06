@@ -221,6 +221,7 @@
         <div class="schedule-list">
           <div class="schedule-item"><span class="schedule-time">09:55</span><span class="schedule-desc">☀️ Resumo Top 3 do Dia</span></div>
           <div class="schedule-item"><span class="schedule-time">10:00</span><span class="schedule-desc">🔔 Oferta #1 — Produto do Dia</span></div>
+          <div class="schedule-item"><span class="schedule-time">17:30</span><span class="schedule-desc">🎵 Vitrine TikTok Shop</span></div>
           <div class="schedule-item"><span class="schedule-time">18:00</span><span class="schedule-desc">🔔 Oferta #2 — Pico do Varejo</span></div>
           <div class="schedule-item"><span class="schedule-time">21:00</span><span class="schedule-desc">🌙 Oferta #3 / Flash Sale</span></div>
         </div>
@@ -315,7 +316,7 @@
       $('stat-clicks').textContent = d.analytics?.totalClicks ?? 0;
 
       // Buttons
-      const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome', 'btn-send-boticario'];
+      const btns = ['btn-send-now', 'btn-send-flash', 'btn-send-welcome', 'btn-send-boticario', 'btn-send-tiktok'];
       btns.forEach((id) => { const el = $(id); if (el) el.disabled = !d.connected; });
 
       // QR Section

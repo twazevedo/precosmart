@@ -147,4 +147,22 @@ ${product.emoji} ${sanitizeForWhatsApp(product.title)}
 const buildOfferMessage    = buildOfferCaption;
 const buildFlashSaleMessage = (p) => buildFlashCaption(p);
 
-module.exports = { buildOfferCaption, buildFlashCaption, buildMorningMessage, buildWelcomeMessage, buildOfferMessage, buildFlashSaleMessage };
+function buildTikTokShowcaseMessage(showcaseUrl) {
+  const url = showcaseUrl || process.env.TIKTOK_SHOWCASE_URL || 'https://vt.tiktok.com/ZS9f1p5GPeP6Q-SyLby/';
+  return `✨ *ACHADINHOS EXCLUSIVOS NA NOSSA VITRINE TIKTOK SHOP!* 📱🛍️
+
+Selecionamos a dedo os produtos mais virais e úteis que estão bombando no TikTok com cupons e descontos imperdíveis:
+
+🔥 *Por que conferir a Vitrine PreçoSmart:*
+✅ *Achadinhos virais* testados e de alta avaliação
+✅ *Cupons de desconto* liberados direto no app
+✅ *Frete grátis* em diversos produtos selecionados
+✅ *Compra rápida e 100% segura* pela TikTok Shop
+
+👉 *Toque no link abaixo para abrir a Vitrine e garantir os seus:*
+🔗 ${url}
+
+⚡ _Corra para aproveitar antes que os cupons e estoques acabem!_`;
+}
+
+module.exports = { buildOfferCaption, buildFlashCaption, buildMorningMessage, buildWelcomeMessage, buildOfferMessage, buildFlashSaleMessage, buildTikTokShowcaseMessage };
