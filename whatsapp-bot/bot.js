@@ -2298,7 +2298,7 @@ const { processMessageText, extractProductKeyword, extractCanonicalId, fetchOgIm
 const SOURCE_INVITE_CODES = process.env.SOURCE_INVITE_CODES
   ? process.env.SOURCE_INVITE_CODES.split(',').map((s) => s.trim()).filter(Boolean)
   : [];
-let sourceGroupJids = [];
+let sourceGroupJids = (process.env.SOURCE_GROUP_JIDS || '120363400174291332@g.us,120363401387826946@g.us').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
 let reconnectTimer = null;
 let groupsSynced = false;
 let tgListenerStarted = false;
@@ -2694,7 +2694,8 @@ async function startBot() {
 
     const remoteJid = msg.key.remoteJid || '';
     // Ignora canais de transmissão do WhatsApp (newsletters) e status para manter os logs limpos
-    if (remoteJid.endsWith('@newsletter') || remoteJid === 'status@broadcast') return;
+    const explicitSourceList = (process.env.SOURCE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+    if ((remoteJid.endsWith('@newsletter') && !explicitSourceList.includes(remoteJid)) || remoteJid === 'status@broadcast') return;
 
     const senderJid = msg.key.participant || remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
@@ -2801,19 +2802,33 @@ async function startBot() {
       return;
     }
 
-    // Ingestão: processa apenas canais sincronizados
-    if (!sourceGroupJids.includes(msg.key.remoteJid)) return;
+        // Ingestão: processa canais sincronizados e canal oficial da Nike
+    const nikeGroupJids = ['120363400174291332@g.us', '120363401387826946@g.us', ...(process.env.NIKE_GROUP_JIDS || '').split(/[,;\s]+/).map(s => s.trim()).filter(Boolean)];
+    const isFromNikeSource = nikeGroupJids.includes(msg.key.remoteJid);
+
+    if (!sourceGroupJids.includes(msg.key.remoteJid) && !isFromNikeSource) return;
     if (!isAutoPilotActive) return;
 
     // Processamento e normalização da oferta
     try {
       // Pega o texto da legenda ou texto normal
-      const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '').trim();
+      let text = (msg.message.conversation || msg.message.extendedTextMessage?.text || msg.message.imageMessage?.caption || msg.message.videoMessage?.caption || '').trim();
       
+      // Tratamento especial para Canal Oficial Afiliados Nike:
+      if (isFromNikeSource) {
+        logEntry('NIKE_MONITOR', '📢 Nova postagem capturada no canal Oficial Afiliados Nike!');
+        // Se for mensagem de cupom/promoção sem link HTTP, injeta o link oficial da Nike para conversão AWIN
+        if (text && !text.includes('http')) {
+          if (/cupom|desconto|off|promoc|promoção|snkrs|oferta|black friday|frete|curadoria|flash|liquida/i.test(text)) {
+            text += '\n\n👉 *Compre no site oficial Nike:* https://www.nike.com.br';
+          }
+        }
+      }
+
       // FILTRO ESSENCIAL: Se não contém link de internet, é mensagem de conversa normal, NÃO É OFERTA!
       if (!text || !text.includes('http')) return;
 
-      // Manda o texto para a nossa fábrica de links (vai abrir amzn.to e trocar pela sua tag)
+      // Manda o texto para a nossa fábrica de links (troca todos os links de lojas parceiras pelas suas tags)
       const newText = await processMessageText(text);
       
       // Se processMessageText retornou nulo (sem link de loja de e-commerce real), descarta
@@ -2852,7 +2867,12 @@ async function startBot() {
 
       // Limite de fila: 8 durante a noite (para não acumular) e 25 durante o dia
       const maxQueueLimit = isNightQuietHours() ? 8 : 25;
-      if (dealQueue.length < maxQueueLimit) {
+      if (isFromNikeSource) {
+        // Ofertas e cupons da Nike ganham prioridade máxima na fila (topo da fila)
+        dealQueue.unshift({ type: mediaType, buffer, text: newText });
+        logEntry('NIKE_MONITOR', `⚡ Anúncio oficial Nike adicionado com prioridade máxima ao topo da fila!`);
+        runDealQueueWorker();
+      } else if (dealQueue.length < maxQueueLimit) {
         dealQueue.push({ type: mediaType, buffer, text: newText });
         logEntry('QUEUE', `Oferta adicionada à fila Anti-Flood (Posição: ${dealQueue.length})`);
         runDealQueueWorker();
