@@ -46,7 +46,8 @@ const {
 const { PRODUCTS, getDailyProduct, getRandomProduct, getTopDeals, getProductByCategories, getNextMagaluProduct } = require('./catalog');
 const { getNextShopeeProduct, getShopeeCatalogCount, getSpecificShopeeDeal, getNextHolidayGiftDeal } = require('./shopeeCatalog');
 const { shortenLinksInText } = require('./linkShortener');
-const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage, buildTikTokShowcaseMessage } = require('./formatter');
+const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashSaleMessage, buildTikTokShowcaseMessage, buildTikTokProductMessage } = require('./formatter');
+const { getAllTikTokProducts, addTikTokProduct, removeTikTokProduct, getNextTikTokProduct } = require('./tiktokCatalog');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
 const { isTelegramConfigured, broadcastTelegramDeal, notifyAdmin } = require('./telegram');
@@ -265,11 +266,11 @@ let holidayTestState = {
 };
 
 function isNightQuietHours() {
-  if (process.env.DISABLE_NIGHT_MODE === 'true' || process.env.NIGHT_MODE === 'false') return false;
+  // Modo 24 Horas Contínuo: roda 24h sem pausas noturnas
+  if (process.env.ENABLE_NIGHT_MODE !== 'true') return false;
   try {
     const spTimeStr = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour12: false });
     const [hour, minute] = spTimeStr.split(':').map(Number);
-    // Modo Noturno: das 23:30 até as 07:30 da manhã (Horário de Brasília)
     if (hour === 23 && minute >= 30) return true;
     if (hour >= 0 && hour < 7) return true;
     if (hour === 7 && minute < 30) return true;
@@ -859,6 +860,80 @@ app.post('/api/send-tiktok', requireApiAuth, async (req, res) => {
     }
     logEntry('TIKTOK', '🎵 Vitrine oficial TikTok Shop divulgada no grupo VIP!');
     res.json({ ok: true, url: showcaseUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// TikTok Shop - Produtos Individuais
+app.get('/api/tiktok/products', requireApiAuth, (req, res) => {
+  try {
+    const products = getAllTikTokProducts();
+    res.json({ ok: true, products, count: products.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/tiktok/products', requireApiAuth, (req, res) => {
+  try {
+    const { title, price, oldPrice, coupon, affiliateUrl, imageUrl } = req.body;
+    if (!title || !affiliateUrl) {
+      return res.status(400).json({ error: 'Título e Link de Afiliado são obrigatórios' });
+    }
+    const added = addTikTokProduct({ title, price, oldPrice, coupon, affiliateUrl, imageUrl });
+    logEntry('TIKTOK', `📦 Novo produto TikTok cadastrado: ${added.title}`);
+    res.json({ ok: true, product: added });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/tiktok/products/:id', requireApiAuth, (req, res) => {
+  try {
+    const { id } = req.params;
+    const removed = removeTikTokProduct(id);
+    if (!removed) return res.status(404).json({ error: 'Produto não encontrado' });
+    logEntry('TIKTOK', `🗑️ Produto TikTok removido: ${id}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/send-tiktok-product', requireApiAuth, async (req, res) => {
+  if (!isConnected || !waSocket) return res.status(503).json({ error: 'Bot não conectado' });
+  try {
+    const { productId } = req.body || {};
+    let product;
+    if (productId) {
+      const all = getAllTikTokProducts();
+      product = all.find((p) => p.id === productId);
+    } else {
+      product = getNextTikTokProduct();
+    }
+    if (!product) return res.status(404).json({ error: 'Nenhum produto TikTok disponível para disparo' });
+
+    const message = buildTikTokProductMessage(product);
+    const targetJids = getTargetJids();
+    for (const jid of targetJids) {
+      if (!jid.endsWith('@g.us')) continue;
+      if (product.imageUrl) {
+        try {
+          await waSocket.sendMessage(jid, {
+            image: { url: product.imageUrl },
+            caption: message,
+            mimetype: 'image/jpeg'
+          });
+        } catch {
+          await waSocket.sendMessage(jid, { text: message });
+        }
+      } else {
+        await waSocket.sendMessage(jid, { text: message });
+      }
+    }
+    logEntry('TIKTOK', `🔥 Produto individual TikTok disparado no VIP: ${product.title}`);
+    res.json({ ok: true, product });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
