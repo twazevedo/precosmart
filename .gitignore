@@ -69,3 +69,4 @@ whatsapp-bot/*.csv
 .idea/
 .eslintcache
 coverage/
+whatsapp-bot/nikeRotationState.json

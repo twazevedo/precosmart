@@ -2015,6 +2015,8 @@ app.listen(PORT, '0.0.0.0', () => logEntry('SERVER', `Dashboard rodando na porta
 
 // ── 🌐 Keep-Alive para Render.com (Impede suspensão automática 24/7) ──────────
 function startKeepAlive() {
+  // So faz sentido quando hospedado no Render (RENDER=true / RENDER_EXTERNAL_URL). Localmente so gera "socket hang up".
+  if (!process.env.RENDER && !process.env.RENDER_EXTERNAL_URL) { logEntry('BOOT', 'Keep-alive desativado (execucao local, fora do Render).'); return; }
   const externalUrl = process.env.RENDER_EXTERNAL_URL || 'https://precosmart-b8pg.onrender.com';
   const pingUrl = `${externalUrl.replace(/\/+$/, '')}/api/status`;
   // Render Free Tier suspende após 15 minutos sem requisição HTTP. Pingamos a cada 4 min:
@@ -2046,7 +2048,7 @@ function startKeepAlive() {
     }
   }, PING_INTERVAL_MS);
 
-  logEntry('BOOT', `Keep-alive ativo: auto-ping a cada 9 min em ${pingUrl}`);
+  logEntry('BOOT', `Keep-alive ativo: auto-ping a cada 4 min em ${pingUrl}`);
 }
 startKeepAlive();
 

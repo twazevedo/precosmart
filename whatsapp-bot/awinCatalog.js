@@ -671,7 +671,22 @@ ${priceSection}${discountSection}${descSection}🛒 *Compre com desconto verific
 /**
  * Retorna uma oferta real e verificada da Nike Brasil com foto Full HD e link tidd.ly
  */
-async function getSpecificNikeDeal(index = 0) {
+// Índice persistente da rotação Nike (evita repetir sempre o mesmo produto, ex: Air Force 1)
+const NIKE_ROTATION_PATH = path.join(__dirname, 'nikeRotationState.json');
+function nextNikeRotationIndex() {
+  let idx = 0;
+  try {
+    idx = Number(JSON.parse(fs.readFileSync(NIKE_ROTATION_PATH, 'utf8')).index) || 0;
+  } catch (_) {
+    idx = Math.floor(Math.random() * 1000);
+  }
+  try {
+    fs.writeFileSync(NIKE_ROTATION_PATH, JSON.stringify({ index: idx + 1 }));
+  } catch (_) {}
+  return idx;
+}
+
+async function getSpecificNikeDeal(index = null) {
   const list = ((awinMasterData.nikeDeals && awinMasterData.nikeDeals.length > 0)
     ? awinMasterData.nikeDeals
     : (awinMasterData.products || [])).filter(p => 
@@ -679,7 +694,7 @@ async function getSpecificNikeDeal(index = 0) {
       p.imageUrl
     );
   
-  const p = getSafeItem(list, index);
+  const p = getSafeItem(list, index === null || index === undefined ? nextNikeRotationIndex() : index);
   if (!p) return null;
   const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   const imageUrl = upgradeToHdImage(p.imageUrl);
