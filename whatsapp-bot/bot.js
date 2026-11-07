@@ -982,7 +982,7 @@ app.post('/api/send-custom', requireApiAuth, async (req, res) => {
   }
 });
 
-// ── Rotação Automática de Ofertas AWIN (EXCLUSIVAMENTE Grupo WhatsApp e Telegram) ─────
+// ── Rotação Automática Contínua Multi-Catálogo (Todos os Produtos & Lojas a cada 3 min) ─────
 async function dispatchNextAwinRotation(options = {}) {
   const force = options.force || false;
   if (!force && (!isAutoPilotActive || isNightQuietHours())) {
@@ -996,89 +996,170 @@ async function dispatchNextAwinRotation(options = {}) {
     let imgBuf = null;
     let hdImageUrl = null;
 
+    // Rotação Global Unificada de Todos os Catálogos: TikTok, Nike, Shopee, Awin Marcas e Magalu
+    async function pickNextMultiCatalogCandidate() {
+      const turn = ((global.__masterRotTurn = (global.__masterRotTurn || 0) + 1) % 5);
+      
+      // Turno 0: TikTok Shop (Produtos Individuais Verificados)
+      if (turn === 0) {
+        try {
+          const tt = getNextTikTokProduct();
+          if (tt) {
+            return {
+              id: tt.id,
+              store: 'TikTok Shop Oficial',
+              title: tt.title,
+              text: buildTikTokProductMessage(tt),
+              imageUrl: tt.imageUrl,
+              url: tt.affiliateUrl
+            };
+          }
+        } catch (e) {}
+      }
+      
+      // Turno 1: Nike Brasil Oficial (Lançamentos, Tênis, Dri-FIT, Acessórios)
+      if (turn === 1) {
+        try {
+          const nike = await getSpecificNikeDeal();
+          if (nike) return nike;
+        } catch (e) {}
+      }
+      
+      // Turno 2: Shopee Oficial (Mega Catálogo de Eletrônicos, Casa e Moda)
+      if (turn === 2) {
+        try {
+          const shopee = await getSpecificShopeeDeal();
+          if (shopee) return shopee;
+        } catch (e) {}
+      }
+      
+      // Turno 3: Grandes Marcas Awin (Lego, Stanley, Decathlon, Lacoste, Venancio, Olympikus, KaBuM, etc.)
+      if (turn === 3) {
+        try {
+          const awin = await getNextAwinDeal();
+          if (awin) return awin;
+        } catch (e) {}
+      }
+      
+      // Turno 4: Magazine Luiza / Curadoria
+      if (turn === 4) {
+        try {
+          const mag = getNextMagaluProduct();
+          if (mag && mag.quotes && mag.quotes.length > 0) {
+            const quote = mag.quotes.find(q => q.store === 'Magazine Luiza') || mag.quotes[0];
+            return {
+              id: mag.id,
+              store: quote.store,
+              title: mag.title,
+              text: buildOfferMessage(mag, quote),
+              imageUrl: mag.imageUrl || null,
+              url: quote.link || null
+            };
+          }
+        } catch (e) {}
+      }
+
+      // Fallback garantido entre Awin, Shopee e Nike
+      return (await getNextAwinDeal()) || (await getSpecificShopeeDeal()) || (await getSpecificNikeDeal());
+    }
+
     // Tenta até 5 ofertas consecutivas até encontrar uma com foto HD 100% baixada com sucesso
     for (let attempt = 0; attempt < 5; attempt++) {
-      const useShopeeTurn = ((global.__shopeeRotTurn = (global.__shopeeRotTurn || 0) + 1) % 3 === 0);
-      const candidate = useShopeeTurn ? (await getSpecificShopeeDeal() || await getNextAwinDeal()) : await getNextAwinDeal();
-      if (!candidate || !candidate.imageUrl) continue;
+      const candidate = await pickNextMultiCatalogCandidate();
+      if (!candidate) continue;
 
-      const candidateHdUrl = upgradeToHdImage(candidate.imageUrl);
-      if (!candidateHdUrl) continue;
-
-      try {
-        const buf = await prepareWhatsAppImage(candidateHdUrl);
-        if (buf && buf.length >= 3000) {
-          deal = candidate;
-          imgBuf = buf;
-          hdImageUrl = candidateHdUrl;
-          break;
+      if (candidate.imageUrl) {
+        const candidateHdUrl = upgradeToHdImage(candidate.imageUrl);
+        if (candidateHdUrl) {
+          try {
+            const buf = await prepareWhatsAppImage(candidateHdUrl);
+            if (buf && buf.length >= 3000) {
+              deal = candidate;
+              imgBuf = buf;
+              hdImageUrl = candidateHdUrl;
+              break;
+            }
+          } catch (err) {
+            logEntry('WARN', `Falha ao preparar imagem para ${candidate.title}: ${err.message}`);
+          }
         }
-      } catch (err) {
-        logEntry('WARN', `Falha ao preparar imagem para ${candidate.title}: ${err.message}`);
+      }
+
+      // Se não tem imagem ou falhou após 3 tentativas, aceita o candidato para enviar com texto formatado
+      if (!deal && attempt >= 3 && candidate.text) {
+        deal = candidate;
+        imgBuf = null;
+        break;
       }
     }
 
-    if (!deal || !imgBuf) {
-      logEntry('WARN', '[Piloto Automático] Envio abortado: nenhuma oferta com foto oficial válida encontrada após 5 tentativas.');
+    if (!deal) {
+      logEntry('WARN', '[Piloto Automático] Envio abortado: nenhuma oferta válida encontrada após 5 tentativas.');
       return null;
     }
 
-    logEntry('AWIN', `[Piloto Automático] Disparando oferta oficial: ${deal.store} — ${deal.title}`);
+    logEntry('ROTATION', `[Piloto Automático 3min] Disparando oferta oficial: ${deal.store} — ${deal.title}`);
 
-    // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us COM FOTO OFICIAL OBRIGATÓRIA)
+    // 1. WhatsApp (EXCLUSIVAMENTE GRUPOS @g.us COM FOTO OFICIAL OU TEXTO PERSUASIVO)
     const jids = getTargetJids();
     if (isConnected && waSocket && jids.length > 0) {
       for (const jid of jids) {
         if (!jid.endsWith('@g.us')) continue; // NUNCA envia no privado
 
         try {
-          const resMsg = await waSocket.sendMessage(jid, {
-            image: imgBuf,
-            mimetype: 'image/jpeg',
-            caption: deal.text
-          });
-          if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
-          logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
+          if (imgBuf) {
+            const resMsg = await waSocket.sendMessage(jid, {
+              image: imgBuf,
+              mimetype: 'image/jpeg',
+              caption: deal.text
+            });
+            if (resMsg?.key?.id && resMsg?.message) messageStore.set(resMsg.key.id, resMsg);
+            logEntry('AWIN_WA', `Foto HD oficial enviada para ${jid}, id: ${resMsg?.key?.id || 'ok'}`);
+          } else {
+            const textMsg = await waSocket.sendMessage(jid, { text: deal.text });
+            if (textMsg?.key?.id && textMsg?.message) messageStore.set(textMsg.key.id, textMsg);
+            logEntry('AWIN_WA', `Oferta oficial enviada via texto para ${jid}`);
+          }
         } catch (imgErr) {
-          logEntry('WARN', `Falha ao enviar foto HD AWIN (${jid}), tentando fallback em texto: ${imgErr.message}`);
+          logEntry('WARN', `Falha ao enviar mensagem no grupo (${jid}), tentando texto: ${imgErr.message}`);
           try {
             const textMsg = await waSocket.sendMessage(jid, { text: deal.text });
             if (textMsg?.key?.id && textMsg?.message) messageStore.set(textMsg.key.id, textMsg);
             logEntry('AWIN_WA', `Oferta enviada via fallback de texto para ${jid}`);
           } catch (tErr) {
-            logEntry('ERROR', `Falha ao enviar fallback de texto AWIN (${jid}): ${tErr.message}`);
+            logEntry('ERROR', `Falha ao enviar fallback de texto (${jid}): ${tErr.message}`);
           }
         }
       }
     }
 
-    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM COM FOTO OFICIAL)
-    if (isTelegramConfigured() && hdImageUrl) {
+    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM)
+    if (isTelegramConfigured()) {
       await broadcastTelegramDeal({
         title: deal.title,
         price: deal.price || 'Oferta Especial',
         url: deal.url,
-        imageUrl: hdImageUrl,
+        imageUrl: hdImageUrl || null,
         text: deal.text
       });
     }
 
-    logEntry('AWIN', `✅ Oferta/Cupom AWIN enviado com sucesso (${deal.store})`);
+    logEntry('ROTATION', `✅ Oferta Multi-Catálogo enviada com sucesso (${deal.store})`);
     return deal;
   } catch (err) {
-    logEntry('ERROR', `Erro na rotação AWIN: ${err.message}`);
+    logEntry('ERROR', `Erro na rotação Multi-Catálogo: ${err.message}`);
     return null;
   }
 }
 
 // ── Rotação Automática Contínua no Piloto Automático ─────────────────────────
 // Por padrão roda a cada 12 minutos durante o dia (configurável via AWIN_INTERVAL_MINUTES)
-const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '8', 10);
+const AWIN_INTERVAL_MINUTES = parseInt(process.env.AWIN_INTERVAL_MINUTES || '3', 10);
 const AWIN_INTERVAL_MS = AWIN_INTERVAL_MINUTES * 60 * 1000;
 setInterval(dispatchNextAwinRotation, AWIN_INTERVAL_MS);
 
 // ── Motor Autônomo: Atualização Automática Pechinchou Multi-Lojas ────────────
-const PECHINCHOU_INTERVAL_MINUTES = parseInt(process.env.PECHINCHOU_INTERVAL_MINUTES || '8', 10);
+const PECHINCHOU_INTERVAL_MINUTES = parseInt(process.env.PECHINCHOU_INTERVAL_MINUTES || '3', 10);
 const PECHINCHOU_INTERVAL_MS = PECHINCHOU_INTERVAL_MINUTES * 60 * 1000;
 const pechinchouStateStore = createStore('pechinchouHistory');
 let seenPechinchouIds = new Set(pechinchouStateStore.getLocalSync()?.seenIds || []);
