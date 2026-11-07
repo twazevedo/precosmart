@@ -208,6 +208,10 @@ function isSupportedStore(lowLong) {
     lowLong.includes('drogariavenancio.') ||
     lowLong.includes('casasbahia.') ||
     lowLong.includes('puma.com') ||
+    lowLong.includes('mizuno.com') ||
+    lowLong.includes('giulianaflores.com') ||
+    lowLong.includes('havaianas.com') ||
+    lowLong.includes('lauriesporte.com') ||
     lowLong.includes('awin1.com') ||
     lowLong.includes('tidd.ly')
   );
@@ -557,6 +561,34 @@ async function replaceAffiliateTags(longUrl, productKeyword) {
       const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
       const cleanPuma = `${urlObj.origin}${urlObj.pathname}`;
       return `https://www.awin1.com/cread.php?awinmid=32675&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanPuma)}`;
+    }
+
+    // 23. Mizuno BR (AWIN - MID 51271 - Oficial Aprovado)
+    if (urlObj.hostname.includes('mizuno.com.br') || urlObj.hostname.includes('mizuno.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanMizuno = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=51271&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanMizuno)}`;
+    }
+
+    // 24. Giuliana Flores BR (AWIN - MID 109198 - Oficial Aprovado)
+    if (urlObj.hostname.includes('giulianaflores.com.br')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanGiuliana = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=109198&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanGiuliana)}`;
+    }
+
+    // 25. Havaianas BR (AWIN - MID 119883 - Oficial Aprovado)
+    if (urlObj.hostname.includes('havaianas.com.br') || urlObj.hostname.includes('havaianas.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanHavaianas = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=119883&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanHavaianas)}`;
+    }
+
+    // 26. Lauri Esporte BR (AWIN - MID 118977 - Oficial Aprovado)
+    if (urlObj.hostname.includes('lauriesporte.com.br') || urlObj.hostname.includes('lauriesporte.com')) {
+      const awinAffid = process.env.AFFILIATE_AWIN || '3077915';
+      const cleanLauri = `${urlObj.origin}${urlObj.pathname}`;
+      return `https://www.awin1.com/cread.php?awinmid=118977&awinaffid=${awinAffid}&clickref=BOT&ued=${encodeURIComponent(cleanLauri)}`;
     }
 
     // 12. Domínios externos e intermediários:
