@@ -81,6 +81,8 @@ async function runGitSync() {
  * Inicia o agendador para rodar a cada 1 hora (60 minutos).
  */
 function startHourlyGitSync() {
+  // No tablet (servidor dedicado) o repo so recebe atualizacoes via git pull; commits locais causariam conflito.
+  if (process.env.DISABLE_GIT_SYNC === 'true') { console.log('[GitSync] Desativado (DISABLE_GIT_SYNC=true).'); return; }
   const ONE_HOUR_MS = 60 * 60 * 1000;
 
   console.log('🕒 [GitSync] Agendador automático ativado: verificando e subindo atualizações a cada 1 hora.');
