@@ -66,11 +66,13 @@ echo "[4/7] Instalando pacotes do Node.js (pode demorar alguns minutos)..."
 npm install --omit=dev --no-audit --no-fund
 npm install sharp --no-audit --no-fund >/dev/null 2>&1 || echo "  (sharp indisponivel no Android - imagens serao enviadas sem otimizacao)"
 
-# 5. PM2 (reinicia o bot sozinho se travar)
-echo "[5/7] Configurando PM2..."
+# 5. PM2 (reinicia o bot sozinho e atualiza automaticamente do GitHub)
+echo "[5/7] Configurando PM2 e Auto-Atualizador continuo..."
 command -v pm2 >/dev/null 2>&1 || npm install -g pm2
 pm2 delete precosmart >/dev/null 2>&1 || true
+pm2 delete precosmart-updater >/dev/null 2>&1 || true
 pm2 start guardian.js --name precosmart --restart-delay 5000 --exp-backoff-restart-delay 2000
+pm2 start autoUpdater.js --name precosmart-updater --restart-delay 10000
 pm2 save
 
 # 6. Inicio automatico quando o tablet ligar (requer o app Termux:Boot)
@@ -80,7 +82,7 @@ cat > "$HOME/.termux/boot/start-precosmart.sh" << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 termux-wake-lock
 sleep 15
-cd "$HOME/precosmart/whatsapp-bot" && pm2 resurrect || pm2 start guardian.js --name precosmart
+cd "$HOME/precosmart/whatsapp-bot" && pm2 resurrect || (pm2 start guardian.js --name precosmart && pm2 start autoUpdater.js --name precosmart-updater)
 EOF
 chmod +x "$HOME/.termux/boot/start-precosmart.sh"
 
