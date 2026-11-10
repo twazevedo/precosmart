@@ -291,6 +291,13 @@ function logEntry(type, text) {
   messageLog.unshift(entry);
   if (messageLog.length > MAX_LOG_ENTRIES) messageLog.pop();
   console.log(`[${entry.type}] ${entry.text}`);
+  // Marcadores de saude lidos pelo guardian.js (/api/health): ultimo envio real e inicio da conexao atual
+  try {
+    const t = String(type), s = String(text);
+    if (t === 'AWIN_WA' || t === 'SENT' || (t === 'MIRROR' && s.startsWith('Oferta postada'))) globalThis.__lastDispatchAt = Date.now();
+    else if (t === 'CONNECTED') globalThis.__connectedAt = Date.now();
+    else if (t === 'DISCONNECTED') globalThis.__connectedAt = 0;
+  } catch (e) {}
 }
 
 // ── Dashboard HTML ───────────────────────────────────────────────────────────
@@ -506,6 +513,26 @@ app.get('/dashboard', (req, res) => {
   </html>
   `;
   res.send(html);
+});
+
+// Health-check leve para o guardian.js (supervisor). Não expõe dados sensíveis.
+app.get('/api/health', (req, res) => {
+  const now = Date.now();
+  const lastDispatchAt = globalThis.__lastDispatchAt || 0;
+  const connectedAt = globalThis.__connectedAt || 0;
+  res.json({
+    ok: true,
+    pid: process.pid,
+    connected: !!isConnected,
+    qrReady: !!qrCodeDataUrl && !isConnected,
+    uptimeSec: Math.floor(process.uptime()),
+    connectedForSec: isConnected && connectedAt ? Math.floor((now - connectedAt) / 1000) : 0,
+    lastDispatchAgoSec: lastDispatchAt ? Math.floor((now - lastDispatchAt) / 1000) : null,
+    autopilot: !!isAutoPilotActive,
+    nightMode: !!isNightQuietHours(),
+    queueLength: dealQueue.length,
+    rssMb: Math.round(process.memoryUsage().rss / 1048576)
+  });
 });
 
 app.get('/api/status', (req, res) => res.json({

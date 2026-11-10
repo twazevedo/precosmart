@@ -70,3 +70,4 @@ whatsapp-bot/*.csv
 .eslintcache
 coverage/
 whatsapp-bot/nikeRotationState.json
+whatsapp-bot/logs/

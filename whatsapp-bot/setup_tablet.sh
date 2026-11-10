@@ -57,6 +57,7 @@ SOURCE_GROUP_JIDS=120363400174291332@g.us,120363401387826946@g.us
 NIKE_GROUP_JIDS=120363400174291332@g.us,120363401387826946@g.us
 # Servidor dedicado: sem commits automaticos e sem keep-alive do Render
 DISABLE_GIT_SYNC=true
+GUARDIAN_MAX_RSS_MB=500
 EOF
 
 # 4. Dependencias do Node (sharp e opcional; o bot funciona sem ele)
@@ -68,7 +69,7 @@ npm install sharp --no-audit --no-fund >/dev/null 2>&1 || echo "  (sharp indispo
 echo "[5/7] Configurando PM2..."
 command -v pm2 >/dev/null 2>&1 || npm install -g pm2
 pm2 delete precosmart >/dev/null 2>&1 || true
-pm2 start bot.js --name precosmart --max-memory-restart 600M --restart-delay 5000 --exp-backoff-restart-delay 2000
+pm2 start guardian.js --name precosmart --restart-delay 5000 --exp-backoff-restart-delay 2000
 pm2 save
 
 # 6. Inicio automatico quando o tablet ligar (requer o app Termux:Boot)
@@ -78,7 +79,7 @@ cat > "$HOME/.termux/boot/start-precosmart.sh" << 'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
 termux-wake-lock
 sleep 15
-cd "$HOME/precosmart/whatsapp-bot" && pm2 resurrect || pm2 start bot.js --name precosmart
+cd "$HOME/precosmart/whatsapp-bot" && pm2 resurrect || pm2 start guardian.js --name precosmart
 EOF
 chmod +x "$HOME/.termux/boot/start-precosmart.sh"
 
