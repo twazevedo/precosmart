@@ -117,16 +117,22 @@ function isValidApiKey(candidate) {
   });
 }
 
+function isLocalRequest(req) {
+  const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1' || ip.endsWith('127.0.0.1') || ip === 'localhost';
+}
+
 /**
  * Middleware de Autenticação para Endpoints Administrativos do Express
  * Exige cabeçalho X-API-KEY ou Authorization: Bearer <token>.
  * Não aceita credenciais via query string (OWASP ASVS compliant).
+ * Conexões locais da própria máquina (localhost / 127.0.0.1) são autorizadas para visualização do painel e QR code.
  */
 function requireApiAuth(req, res, next) {
-  const ip = req.ip || req.connection?.remoteAddress || '';
-  const isLocalDev = (process.env.NODE_ENV !== 'production') && (ip.includes('127.0.0.1') || ip.includes('::1') || ip.includes('localhost'));
+  const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || '';
+  const isLoopback = isLocalRequest(req);
 
-  if (isLocalDev) {
+  if (isLoopback) {
     return next();
   }
 

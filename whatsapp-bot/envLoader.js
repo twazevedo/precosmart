@@ -13,17 +13,17 @@ const DEFAULTS = {
   WA_GROUP_NAME: 'PreçoSmart | Ofertas & Achadinhos 🔥',
   WA_GROUP_INVITE_CODE: 'Lo3ONNfAXVh5cEe2Pg6gM7',
   WA_GROUP_JID: '120363428098199018@g.us',
-  OWNER_NUMBER: '5511945868954,5511913157990',
+  OWNER_NUMBER: '',
   AFFILIATE_AMAZON: 'precosmartapp-20',
   AFFILIATE_ML: 'azs5603820',
   AFFILIATE_SHOPEE: '18361251220',
   AFFILIATE_MAGALU: 'precosmartvip',
   AFFILIATE_AWIN: '3077915',
   AFFILIATE_BOTICARIO: '27065696',
-  // ⚠️ SEGREDOS: defina APENAS nas variáveis de ambiente do Render (nunca em código)
-  AWIN_API_TOKEN: '36aa81e2-6fac-4e42-b827-a08a6eb535ef',   // Render env: AWIN_API_TOKEN
+  // ⚠️ SEGREDOS: defina APENAS nas variáveis de ambiente (.env ou painel de hospedagem)
+  AWIN_API_TOKEN: '',   // env: AWIN_API_TOKEN
   ML_APP_ID: '8185161956392337',
-  ML_SECRET_KEY: '',    // Render env: ML_SECRET_KEY
+  ML_SECRET_KEY: '',    // env: ML_SECRET_KEY
   AWIN_MID_NIKE: '17652',
   AWIN_MID_OLYMPIKUS: '17698',
   AWIN_MID_KABUM: '17729',
@@ -43,8 +43,7 @@ const DEFAULTS = {
   SHARKNINJA_APPROVED: 'true',
   HOPE_APPROVED: 'true',
   ALIEXPRESS_APPROVED: 'true',
-  CEA_APPROVED: 'true',
-  TELEGRAM_CHAT_ID: '@precosmart'
+  CEA_APPROVED: 'true'
 };
 
 const envPath = path.join(__dirname, '.env');

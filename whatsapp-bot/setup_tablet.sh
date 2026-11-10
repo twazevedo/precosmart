@@ -31,7 +31,8 @@ cd "$BOT_DIR"
 # 3. Configuracao (.env) - sempre alinhada com a configuracao oficial atual
 echo "[3/7] Gerando .env oficial..."
 [ -f .env ] && cp .env ".env.bak.$(date +%s)"
-cat > .env << 'EOF'
+RANDOM_KEY=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))" 2>/dev/null || date +%s%N | sha256sum | head -c 48)
+cat > .env << EOF
 PORT=10000
 NODE_ENV=production
 WA_GROUP_NAME=PrecoSmart | Ofertas & Achadinhos
@@ -43,8 +44,8 @@ AFFILIATE_SHOPEE=18361251220
 AFFILIATE_MAGALU=precosmartvip
 AFFILIATE_AWIN=3077915
 AFFILIATE_BOTICARIO=27065696
-API_SECRET_KEY=precosmart_persistent_auth_key_2026_sec
-APP_MASTER_KEY=precosmart_persistent_auth_key_2026_sec
+API_SECRET_KEY=${RANDOM_KEY}
+APP_MASTER_KEY=${RANDOM_KEY}
 AUTO_PILOT_ENABLED=true
 NIGHT_MODE=false
 DISABLE_NIGHT_MODE=true

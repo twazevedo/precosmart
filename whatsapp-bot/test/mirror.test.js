@@ -99,15 +99,11 @@ test('9. Encurtador de Links & Rastreamento de Cliques', () => {
   assert.ok(summary.totalClicks >= 1, 'Contador de cliques global deve ser incrementado');
 });
 
-test('10. Expansão Multicanal Telegram (Modo Seguro / Fallback)', async () => {
-  const { isTelegramConfigured, broadcastTelegramDeal } = require('../telegram');
-  // Sem variáveis de ambiente no ambiente de teste, deve retornar simulated sem quebrar
-  const res = await broadcastTelegramDeal({
-    title: 'Echo Pop',
-    price: 'R$ 219,00',
-    url: 'https://amzn.to/echo'
-  });
-  assert.equal(res.ok, true, 'Deve responder ok em modo simulado');
+test('10. Operacao Exclusiva no WhatsApp (Telegram Desativado e Removido)', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const telegramFile = path.join(__dirname, '../telegram.js');
+  assert.equal(fs.existsSync(telegramFile), false, 'telegram.js deve permanecer excluido do projeto');
 });
 
 test('11. Parser de Feeds RSS do Crawler Autônomo', () => {

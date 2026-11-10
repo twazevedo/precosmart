@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 
 // ⚠️ Nunca coloque tokens aqui — use variáveis de ambiente do Render
-const AWIN_API_TOKEN = process.env.AWIN_API_TOKEN || '36aa81e2-6fac-4e42-b827-a08a6eb535ef';
+const AWIN_API_TOKEN = process.env.AWIN_API_TOKEN || '';
 const PUBLISHER_ID = process.env.AFFILIATE_AWIN || '3077915';
 
 if (!AWIN_API_TOKEN) {
@@ -399,7 +399,6 @@ async function main() {
     `> 📅 Gerado em: ${new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`,
     `> 🤖 Bot: WhatsApp **PreçoSmart | Ofertas & Achadinhos 🔥**`,
     `> 📱 Entre no grupo: https://chat.whatsapp.com/Lo3ONNfAXVh5cEe2Pg6gM7`,
-    `> ✈️ Telegram: https://t.me/precosmart`,
     '',
     '---',
     ''

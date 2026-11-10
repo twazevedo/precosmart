@@ -97,7 +97,7 @@ async function generateSalesCopy(rawText) {
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
     
     const prompt = `Você é um copywriter de e-commerce brasileiro especialista em ofertas, gatilhos mentais (urgência e prova social) e aumento de cliques (CTR).
-Reescreva a seguinte oferta em um formato altamente engajador para WhatsApp e Telegram.
+Reescreva a seguinte oferta em um formato altamente engajador para WhatsApp.
 
 Regras INEGOCIÁVEIS:
 1. Mantenha os preços e nomes exatos. NUNCA altere os valores numéricos.

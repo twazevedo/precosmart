@@ -50,7 +50,7 @@ const { buildOfferMessage, buildMorningMessage, buildWelcomeMessage, buildFlashS
 const { getAllTikTokProducts, addTikTokProduct, removeTikTokProduct, getNextTikTokProduct } = require('./tiktokCatalog');
 const { addAlert, removeAlert, getUserAlerts, getAllAlerts, checkMatchingAlerts, countTotalAlerts } = require('./alerts');
 const { extractOfferFromImage } = require('./geminiVision');
-const { isTelegramConfigured, broadcastTelegramDeal, notifyAdmin } = require('./telegram');
+function notifyAdmin(type, msg) { logEntry('ADMIN_NOTIFY', `[${type}] ${msg}`); return Promise.resolve(); }
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
 const { requireApiAuth, isValidApiKey, extractApiKey, securityHeaders, maskSensitiveData } = require('./security');
@@ -282,7 +282,7 @@ function isNightQuietHours() {
 const mediaCache = new Map();
 
 async function dispatchToInstagram(deal) {
-  // Desativado: Canal desabilitado. O sistema posta EXCLUSIVAMENTE no Grupo VIP WhatsApp e no Telegram.
+  // Desativado: Canal desabilitado. O sistema posta EXCLUSIVAMENTE no Grupo VIP WhatsApp.
   return;
 }
 
@@ -546,7 +546,7 @@ app.get('/api/status', (req, res) => res.json({
   logCount:    messageLog.length,
   queueLength: dealQueue.length,
   activeAlerts: countTotalAlerts(),
-  hasTelegram: isTelegramConfigured(),
+  hasTelegram: false,
   analytics:   getAnalyticsSummary(),
   nightMode:   isNightQuietHours(),
   hasInstagramWebhook: !!instagramWebhookUrl,
@@ -628,7 +628,7 @@ app.get('/api/pechinchou/deals', requireApiAuth, async (req, res) => {
 
 
 // Endpoint público para disparo imediato e forçado de oferta no grupo VIP
-app.get('/api/post-now', async (req, res) => {
+app.get('/api/post-now', requireApiAuth, async (req, res) => {
   try {
     if (!isConnected || !waSocket || typeof waSocket.sendMessage !== 'function') {
       return res.status(503).json({ error: 'WhatsApp conectando, aguarde 5 segundos e tente novamente...' });
@@ -681,19 +681,10 @@ app.get('/api/post-now', async (req, res) => {
     lastDealSentAt = Date.now();
     logEntry('POST_NOW', `✅ Oferta disparada com sucesso no grupo ${targetJid}: ${dealToSend.title || 'Oferta'}`);
 
-    // Envia também ao Telegram
-    if (isTelegramConfigured()) {
-      broadcastTelegramDeal({
-        text: caption,
-        title: dealToSend.title || 'Oferta VIP',
-        url: dealToSend.affiliateUrl || dealToSend.url || '',
-        imageUrl: dealToSend.imageUrl || null
-      }).catch(() => {});
-    }
 
     return res.json({
       ok: true,
-      message: 'Oferta enviada com sucesso ao grupo VIP e Telegram!',
+      message: 'Oferta enviada com sucesso ao grupo VIP!',
       title: dealToSend.title,
       store: dealToSend.store,
       url: dealToSend.affiliateUrl || dealToSend.url
@@ -703,7 +694,7 @@ app.get('/api/post-now', async (req, res) => {
   }
 });
 
-app.get('/api/pechinchou/sync', async (req, res) => {
+app.get('/api/pechinchou/sync', requireApiAuth, async (req, res) => {
   try {
     const force = req.query?.force === 'true' || req.query?.force === '1';
     const count = await autoUpdatePechinchouDeals({ force: true });
@@ -713,7 +704,7 @@ app.get('/api/pechinchou/sync', async (req, res) => {
   }
 });
 
-app.get('/api/pechinchou/trigger', async (req, res) => {
+app.get('/api/pechinchou/trigger', requireApiAuth, async (req, res) => {
   try {
     const limit = parseInt(req.query?.limit, 10) || 1;
     const deals = await fetchAffiliatedStoresDeals(limit);
@@ -776,7 +767,10 @@ app.get('/qr', requireApiAuth, (req, res) => {
     });
     return res.end(img);
   }
-  res.status(503).send('QR Code ainda não disponível ou já conectado. Recarregue em instantes.');
+  if (isConnected) {
+    return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>PreçoSmart</title><style>body{font-family:sans-serif;background:#0f172a;color:#f8fafc;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;text-align:center}.card{background:#1e293b;padding:2rem;border-radius:1rem;border:1px solid #334155;max-width:400px}h2{color:#22c55e;margin-top:0}a{display:inline-block;margin-top:1rem;color:#38bdf8;text-decoration:none;border:1px solid #38bdf8;padding:.5rem 1rem;border-radius:.5rem}</style></head><body><div class="card"><h2>✅ WhatsApp Conectado!</h2><p>O robô já está autenticado e ativo enviando ofertas.</p><a href="/">Acessar Painel</a></div></body></html>`);
+  }
+  res.status(503).send('QR Code ainda não disponível. Recarregue em instantes.');
 });
 
 app.get('/api/logs', requireApiAuth, (req, res) => {
@@ -1160,16 +1154,6 @@ async function dispatchNextAwinRotation(options = {}) {
       }
     }
 
-    // 2. Telegram (EXCLUSIVAMENTE CANAL TELEGRAM)
-    if (isTelegramConfigured()) {
-      await broadcastTelegramDeal({
-        title: deal.title,
-        price: deal.price || 'Oferta Especial',
-        url: deal.url,
-        imageUrl: hdImageUrl || null,
-        text: deal.text
-      });
-    }
 
     logEntry('ROTATION', `✅ Oferta Multi-Catálogo enviada com sucesso (${deal.store})`);
     return deal;
@@ -1254,7 +1238,7 @@ app.post('/api/send-awin', requireApiAuth, async (req, res) => {
 });
 
 async function dispatchAwinBatch(count = 10, delayMs = 5000, options = {}) {
-  logEntry('AWIN', `[Blast] Iniciando disparo em lote de ${count} ofertas AWIN (SOMENTE WhatsApp e Telegram)...`);
+  logEntry('AWIN', `[Blast] Iniciando disparo em lote de ${count} ofertas AWIN (SOMENTE WhatsApp)...`);
   const results = [];
   for (let i = 0; i < count; i++) {
     try {
@@ -1277,14 +1261,14 @@ app.post('/api/blast-awin', requireApiAuth, async (req, res) => {
   dispatchAwinBatch(count, 5000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
-// Endpoint direto para disparo imediato de 10 ofertas no WhatsApp e Telegram (sem travas)
+// Endpoint direto para disparo imediato de 10 ofertas no WhatsApp (sem travas)
 app.get('/api/trigger-lancar', requireApiAuth, async (req, res) => {
-  res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP e Telegram!' });
+  res.json({ ok: true, message: 'Disparo de 10 ofertas AWIN iniciado com sucesso no Grupo VIP!' });
   dispatchAwinBatch(10, 4000, { force: true }).catch((e) => logEntry('ERROR', 'Erro no blast AWIN: ' + e.message));
 });
 
 // Endpoint com token de segurança simplificado para disparo imediato sob demanda
-app.get('/api/lancar-agora', async (req, res) => {
+app.get('/api/lancar-agora', requireApiAuth, async (req, res) => {
   const token = extractApiKey(req);
   if (!isValidApiKey(token)) {
     return res.status(401).json({ error: 'Token de autorização inválido.' });
@@ -1323,15 +1307,6 @@ async function sendHolidayGiftDeal(source = 'MANUAL') {
         throw textErr;
       }
     }
-  }
-  if (isTelegramConfigured()) {
-    broadcastTelegramDeal({
-      title: deal.title,
-      price: deal.price,
-      url: deal.url,
-      imageUrl: hdUrl || deal.imageUrl,
-      text: deal.text
-    }).catch(() => {});
   }
   logEntry('NATAL', `🎁 [${source}] Especial de Natal enviado: ${deal.title} (R$ ${deal.price ? deal.price : 'N/A'})`);
   return deal;
@@ -1417,7 +1392,7 @@ function startHoliday30MinTest() {
 }
 
 // Endpoint para disparo imediato único do Especial de Natal
-app.get('/api/trigger-natal', async (req, res) => {
+app.get('/api/trigger-natal', requireApiAuth, async (req, res) => {
   const token = extractApiKey(req);
   if (token && !isValidApiKey(token)) {
     return res.status(401).json({ error: 'Token de autorização inválido.' });
@@ -1431,13 +1406,13 @@ app.get('/api/trigger-natal', async (req, res) => {
 });
 
 // Endpoint para iniciar o teste automatizado de 30 minutos (6 disparos, 5 min)
-app.get('/api/start-holiday-test', (req, res) => {
+app.get('/api/start-holiday-test', requireApiAuth, (req, res) => {
   const result = startHoliday30MinTest();
   res.json({ ok: true, message: 'Teste de 30 minutos do Especial de Natal iniciado!', test: result });
 });
 
 // Endpoint para pausar/interromper o teste de 30 minutos
-app.get('/api/stop-holiday-test', (req, res) => {
+app.get('/api/stop-holiday-test', requireApiAuth, (req, res) => {
   if (holidayTestTimer) {
     clearInterval(holidayTestTimer);
     holidayTestTimer = null;
@@ -1447,7 +1422,7 @@ app.get('/api/stop-holiday-test', (req, res) => {
   res.json({ ok: true, message: 'Teste de 30 minutos interrompido.', test: holidayTestState });
 });
 
-app.get('/api/lancar-shopee', async (req, res) => {
+app.get('/api/lancar-shopee', requireApiAuth, async (req, res) => {
   const token = extractApiKey(req);
   if (!isValidApiKey(token)) {
     return res.status(401).json({ error: 'Token de autorizacao invalido.' });
@@ -1581,15 +1556,6 @@ async function dispatchBrandBatch(brandName, getterFn, count = 1, delayMs = 4000
         }
       }
 
-      if (isTelegramConfigured() && hdImageUrl) {
-        await broadcastTelegramDeal({
-          title: deal.title,
-          price: deal.priceCurrent || 'Super Desconto',
-          url: deal.url,
-          imageUrl: hdImageUrl,
-          text: deal.text || deal.formattedText
-        });
-      }
 
       results.push(deal);
       logEntry(brandName.toUpperCase(), `✅ Oferta ${brandName} enviada: ${deal.title}`);
@@ -1810,15 +1776,6 @@ app.get('/api/test-kabum', requireApiAuth, async (req, res) => {
       }
     }
 
-    if (isTelegramConfigured()) {
-      await broadcastTelegramDeal({
-        title: deal.title,
-        price: 'Oferta Especial',
-        url: deal.url,
-        imageUrl: hdImageUrl,
-        text: deal.text
-      });
-    }
 
     logEntry('AWIN', `[Teste KaBuM] Oferta postada: ${deal.title}`);
     res.json({ ok: true, store: deal.store, title: deal.title, imageUrl: hdImageUrl, sent });
@@ -2197,16 +2154,6 @@ async function sendProductMessage(product, caption) {
     } catch (txtErr) {}
   }
   
-  // Transmissão simultânea garantida no Telegram
-  if (isTelegramConfigured()) {
-    broadcastTelegramDeal({
-      title: product.title,
-      price: product.quotes?.[0]?.pix ? `R$ ${product.quotes[0].pix.toFixed(2).replace('.', ',')}` : '',
-      url: product.finalUrl || product.url,
-      imageUrl: product.imageUrl,
-      text: caption
-    }).catch(() => {});
-  }
 }
 
 async function sendScheduledOffer(label, productFn) {
@@ -2744,13 +2691,6 @@ async function startBot() {
         }
         logEntry('MIRROR', `Oferta postada via Anti-Flood para ${jidsToSend.length} grupo(s)! Restam na fila: ${dealQueue.length}`);
         lastDealSentAt = Date.now();
-        // Dispara simultaneamente para o Canal do Telegram (exclusivo WPP + Telegram)
-        broadcastTelegramDeal({
-          text: deal.text,
-          title: deal.keyword || 'Oferta PreçoSmart',
-          imageUrl: deal.imageUrl || (imgPayload && imgPayload.url ? imgPayload.url : null),
-          url: deal.finalUrl || deal.url
-        }).catch(() => {});
 
         // 🔔 Log de alertas monitorados (envio privado suspenso para respeitar privacidade total)
         try {
