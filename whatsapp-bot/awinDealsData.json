@@ -1,6 +1,21 @@
 {
   "vouchers": [
     {
+      "id": "4182236",
+      "advertiser": "Hope Lingerie BR",
+      "advertiserId": "107039",
+      "type": "voucher",
+      "code": "FERIADO10",
+      "description": "10% OFF adicional em compras no site com o cupom FERIADO10 durante a Black Friday Hope",
+      "starts": "2026-11-20T23:00:00+00:00",
+      "ends": "2026-11-21T09:00:00+00:00",
+      "categories": "",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=107039&awinaffid=3077915&ued=https%3A%2F%2Fwww.hopeoficial.com.br%2Fblack-friday",
+      "deeplink": "https://www.hopeoficial.com.br/black-friday",
+      "title": "10% OFF adicional em compras no site com o cupom FERIADO10 durante a Black Friday Hope",
+      "imageUrl": null
+    },
+    {
       "id": "4164661",
       "advertiser": "Lauri Esporte",
       "advertiserId": "118977",
