@@ -1,6 +1,51 @@
 {
   "vouchers": [
     {
+      "id": "4184957",
+      "advertiser": "Lauri Esporte",
+      "advertiserId": "118977",
+      "type": "promotion",
+      "code": "",
+      "description": "Tênis On Running Cloud 6 Versa masculino verde com 20% OFF na Lauri Esporte, revenda oficial On: R$ 959 no cartão em até 12x sem juros ou R$ 863,10 no Pix. Últimos pares. Acumula com cupom de 10%. Frete grátis e 15% de cashback.",
+      "starts": "2026-11-23T12:10:00+00:00",
+      "ends": "2027-01-01T02:59:00+00:00",
+      "categories": "",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=118977&awinaffid=3077915&ued=https%3A%2F%2Fwww.lauriesporte.com.br%2Ftenis-on-running-cloud-6-versa-masculino-verde%2Fp",
+      "deeplink": "https://www.lauriesporte.com.br/tenis-on-running-cloud-6-versa-masculino-verde/p",
+      "title": "On Cloud 6 Versa por R$ 863,10 no Pix (de R$ 1.199)",
+      "imageUrl": null
+    },
+    {
+      "id": "4184960",
+      "advertiser": "Lauri Esporte",
+      "advertiserId": "118977",
+      "type": "promotion",
+      "code": "",
+      "description": "Tênis On Running Cloudpulse Next masculino branco com 20% OFF na Lauri Esporte, revenda oficial On: R$ 799 no cartão em até 12x sem juros ou R$ 719,10 no Pix. Últimos pares. Acumula com cupom de 10%. Frete grátis e 15% de cashback.",
+      "starts": "2026-11-23T12:11:00+00:00",
+      "ends": "2027-01-01T02:59:00+00:00",
+      "categories": "",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=118977&awinaffid=3077915&ued=https%3A%2F%2Fwww.lauriesporte.com.br%2Ftenis-on-running-cloudpulse-next-masculino-branco%2Fp",
+      "deeplink": "https://www.lauriesporte.com.br/tenis-on-running-cloudpulse-next-masculino-branco/p",
+      "title": "On Cloudpulse Next por R$ 719,10 no Pix (de R$ 999)",
+      "imageUrl": null
+    },
+    {
+      "id": "4184961",
+      "advertiser": "Lauri Esporte",
+      "advertiserId": "118977",
+      "type": "promotion",
+      "code": "",
+      "description": "Tênis On Running Cloudvista 2 Waterproof masculino preto com 25% OFF na Lauri Esporte, revenda oficial On: R$ 974 no cartão em até 12x sem juros ou R$ 876,60 no Pix. Últimos pares. Acumula com cupom de 10%. Frete grátis e 15% de cashback.",
+      "starts": "2026-11-23T12:12:00+00:00",
+      "ends": "2027-01-01T02:59:00+00:00",
+      "categories": "",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=118977&awinaffid=3077915&ued=https%3A%2F%2Fwww.lauriesporte.com.br%2Ftenis-on-running-cloudvista-2-waterproof-masculino-preto%2Fp",
+      "deeplink": "https://www.lauriesporte.com.br/tenis-on-running-cloudvista-2-waterproof-masculino-preto/p",
+      "title": "On Cloudvista 2 Waterproof por R$ 876,60 no Pix (de R$ 1.299)",
+      "imageUrl": null
+    },
+    {
       "id": "4182236",
       "advertiser": "Hope Lingerie BR",
       "advertiserId": "107039",
