@@ -1,6 +1,21 @@
 {
   "vouchers": [
     {
+      "id": "4187083",
+      "advertiser": "Nike BR",
+      "advertiserId": "17652",
+      "type": "voucher",
+      "code": "BASQUETE20",
+      "description": "20% OFF em produtos selecionados",
+      "starts": "2026-11-24T03:00:00+00:00",
+      "ends": "2026-11-26T02:59:59+00:00",
+      "categories": "",
+      "deeplinkTracking": "https://www.awin1.com/cread.php?awinmid=17652&awinaffid=3077915&ued=https%3A%2F%2Fwww.nike.com.br%2Fhotsite%2Fbasquete20",
+      "deeplink": "https://www.nike.com.br/hotsite/basquete20",
+      "title": "20% OFF em produtos selecionados",
+      "imageUrl": null
+    },
+    {
       "id": "4185454",
       "advertiser": "Lacoste BR",
       "advertiserId": "112756",
