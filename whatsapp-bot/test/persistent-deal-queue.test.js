@@ -6,13 +6,7 @@ const { PersistentDealQueue, backoffDelayMs } = require('../persistentDealQueue'
 
 function makeQueue(overrides = {}) {
   const calls = [];
-  const dealDoc = {
-    _id: 'deal-1',
-    status: 'processing',
-    leaseOwner: 'worker-a',
-    attempts: 1,
-    payload: { text: 'Oferta de teste' }
-  };
+  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', attempts: 1, payload: { text: 'Oferta de teste' } };
   const deals = {
     createIndex: async (...args) => calls.push(['dealIndex', ...args]),
     updateOne: async (...args) => { calls.push(['dealUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 }; },
@@ -22,6 +16,7 @@ function makeQueue(overrides = {}) {
   };
   const locks = {
     createIndex: async (...args) => calls.push(['lockIndex', ...args]),
+    findOne: async (...args) => { calls.push(['lockFindOne', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
     findOneAndUpdate: async (...args) => { calls.push(['lockFindOneAndUpdate', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
     updateOne: async (...args) => { calls.push(['lockUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1 }; }
   };
@@ -34,24 +29,24 @@ function makeQueue(overrides = {}) {
   return { queue, calls, dealDoc };
 }
 
-test('enqueue uses a deterministic id and insert-only fields for deduplication', async () => {
+test('enqueue uses deterministic identity and insert-only fields for deduplication', async () => {
   const { queue, calls } = makeQueue();
   const result = await queue.enqueue({ dedupeKey: 'awin:product-123', payload: { text: 'Oferta' }, source: 'awin' });
   assert.equal(result._id, 'deal-1');
   const update = calls.find(c => c[0] === 'dealUpdate');
-  assert.equal(update[1]._id, 'deal-1');
+  assert.match(update[1]._id, /^[a-f0-9]{64}$/);
   assert.ok(update[2].$setOnInsert);
   assert.equal(update[3].upsert, true);
 });
 
-test('claim only atomically selects due pending items and records a lease', async () => {
+test('claim checks the current publisher lease before atomically claiming a due item', async () => {
   const { queue, calls } = makeQueue();
   await queue.claimNext();
+  const leaseCheck = calls.find(c => c[0] === 'lockFindOne');
+  assert.equal(leaseCheck[1]._id, 'whatsapp-publisher');
+  assert.equal(leaseCheck[1].owner, 'worker-a');
   const call = calls.find(c => c[0] === 'dealFindOneAndUpdate');
-  assert.deepEqual(call[1], {
-    status: 'pending',
-    nextAttemptAt: { $lte: new Date('2026-11-24T12:00:00.000Z') }
-  });
+  assert.deepEqual(call[1], { status: 'pending', nextAttemptAt: { $lte: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'processing');
   assert.equal(call[2].$set.leaseOwner, 'worker-a');
   assert.equal(call[2].$inc.attempts, 1);
