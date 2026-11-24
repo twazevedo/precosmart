@@ -208,7 +208,7 @@ function registerSentDeal(canonicalIds, keyword, rawText) {
 /**
  * Código de convite do grupo WhatsApp oficial PreçoSmart.
  */
-const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || 'Lo3ONNfAXVh5cEe2Pg6gM7';
+const GROUP_INVITE_CODE = process.env.WA_GROUP_INVITE_CODE || '';
 
 // ── Estado Global ────────────────────────────────────────────────────────────
 function getTargetJids() {
