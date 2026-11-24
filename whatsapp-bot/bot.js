@@ -584,6 +584,7 @@ app.post('/api/crawler/run', requireApiAuth, async (req, res) => {
       });
       count++;
     }
+    triggerDealQueueWorker();
     logEntry('CRAWLER', `Crawler autônomo ativado: ${count} ofertas enfileiradas.`);
     res.json({ ok: true, count });
   } catch (err) {
@@ -607,6 +608,7 @@ app.post('/api/garimpeiros/run', requireApiAuth, async (req, res) => {
       });
       count++;
     }
+    triggerDealQueueWorker();
     logEntry('GARIMPO', `Garimpeiros Crawler ativado: ${count} ofertas de todas as categorias enfileiradas.`);
     res.json({ ok: true, count });
   } catch (err) {
@@ -744,6 +746,7 @@ app.post('/api/pechinchou/run', requireApiAuth, async (req, res) => {
       });
       count++;
     }
+    triggerDealQueueWorker();
     logEntry('PECHINCHOU', `Radar Pechinchou ativado: ${count} ofertas enfileiradas para disparo.`);
     res.json({ ok: true, count, deals });
   } catch (err) {
@@ -820,14 +823,13 @@ app.post('/api/send-boticario', requireApiAuth, async (req, res) => {
 
 app.all(['/api/pause'], requireApiAuth, async (req, res) => {
   isAutoPilotActive = false;
-  dealQueue.length = 0;
   try {
     const st = await rotationState.load();
     st.isAutoPilotActive = false;
     await rotationState.save();
   } catch (e) {}
   logEntry('API', 'Piloto automático PAUSADO via API / App');
-  res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado e fila limpa.' });
+  res.json({ ok: true, isAutoPilotActive: false, queueLength: dealQueue.length, message: 'Envio automático pausado. Ofertas pendentes foram preservadas.' });
 });
 
 app.all(['/api/resume'], requireApiAuth, async (req, res) => {
@@ -838,6 +840,7 @@ app.all(['/api/resume'], requireApiAuth, async (req, res) => {
     await rotationState.save();
   } catch (e) {}
   logEntry('API', 'Piloto automático RETOMADO via API / App');
+  triggerDealQueueWorker();
   res.json({ ok: true, isAutoPilotActive: true, message: 'Envio automático retomado com sucesso.' });
 });
 
@@ -2589,7 +2592,7 @@ async function startBot() {
     isWorkerActive = true;
     try {
 
-    while (dealQueue.length > 0) {
+    while (dealQueue.length > 0 && isAutoPilotActive) {
       // Se estiver no Horário de Silêncio Noturno (23:30 às 07:30 de Brasília), não acorda ninguém
       if (isNightQuietHours() && !dealQueue[0]?.force) {
         logEntry('NIGHT', `🌙 Modo Noturno Ativo (23:30 - 07:30): envios pausados para proteger os membros (Fila: ${dealQueue.length})`);
@@ -2606,6 +2609,7 @@ async function startBot() {
         logEntry('QUEUE', `Anti-Flood: aguardando ${Math.ceil(waitMs / 1000)}s antes de postar a próxima oferta (Fila: ${dealQueue.length})`);
         await new Promise((r) => setTimeout(r, waitMs));
       }
+      if (!isAutoPilotActive) break;
 
       // Protege contra descarte: se desconectado, pausa e aguarda reconexão
       if (!isConnected || !waSocket) {
@@ -2670,6 +2674,7 @@ async function startBot() {
         }
 
         deal.text = await shortenLinksInText(rawText);
+        let successfulTargets = 0;
         for (const targetJid of jidsToSend) {
           if (!targetJid.endsWith('@g.us')) continue; // NUNCA envia no privado
           try {
@@ -2680,16 +2685,24 @@ async function startBot() {
             } else {
               await waSocket.sendMessage(targetJid, { text: deal.text });
             }
+            successfulTargets++;
           } catch (sendErr) {
-             logEntry('WARN', `Falha ao enviar imagem no grupo ${targetJid}, tentando apenas texto: ${sendErr.message}`);
-             try {
-               await waSocket.sendMessage(targetJid, { text: deal.text });
-             } catch (textErr) {
-               logEntry('ERROR', `Erro ao postar texto no grupo ${targetJid}: ${textErr.message}`);
-             }
+            logEntry('WARN', `Falha no envio principal para ${targetJid}; tentando texto: ${sendErr.message}`);
+            try {
+              await waSocket.sendMessage(targetJid, { text: deal.text });
+              successfulTargets++;
+            } catch (textErr) {
+              logEntry('ERROR', `Erro ao postar texto no grupo ${targetJid}: ${textErr.message}`);
+            }
           }
         }
-        logEntry('MIRROR', `Oferta postada via Anti-Flood para ${jidsToSend.length} grupo(s)! Restam na fila: ${dealQueue.length}`);
+
+        if (successfulTargets === 0) {
+          logEntry('ERROR', 'Oferta não enviada: nenhuma confirmação de envio foi retornada pelos grupos de destino.');
+          continue;
+        }
+
+        logEntry('MIRROR', `Oferta enviada para ${successfulTargets} de ${jidsToSend.length} grupo(s). Restam na fila: ${dealQueue.length}`);
         lastDealSentAt = Date.now();
 
         // 🔔 Log de alertas monitorados (envio privado suspenso para respeitar privacidade total)
