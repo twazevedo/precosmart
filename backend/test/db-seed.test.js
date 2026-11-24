@@ -40,7 +40,7 @@ test('initDB never deletes existing products, stores or quotes when a seed store
     });
 
     assert.equal(result.status, 0, result.stderr || result.stdout);
-    const outputLine = result.stdout.trim().split('\\n').at(-1);
+    const outputLine = result.stdout.trim().split('\n').at(-1);
     const { before, after } = JSON.parse(outputLine);
     assert.deepEqual(after, before, 'second initialization must preserve every existing row');
     assert.equal(after.stores, 4);
