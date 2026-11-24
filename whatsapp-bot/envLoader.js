@@ -11,7 +11,7 @@ const path = require('path');
 const DEFAULTS = {
   PORT: '3002',
   WA_GROUP_NAME: 'PreçoSmart | Ofertas & Achadinhos 🔥',
-  WA_GROUP_INVITE_CODE: 'Lo3ONNfAXVh5cEe2Pg6gM7',
+  WA_GROUP_INVITE_CODE: '',
   WA_GROUP_JID: '120363428098199018@g.us',
   OWNER_NUMBER: '',
   AFFILIATE_AMAZON: 'precosmartapp-20',
