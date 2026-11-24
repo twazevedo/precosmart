@@ -2698,8 +2698,9 @@ async function startBot() {
         }
 
         if (successfulTargets === 0) {
-          logEntry('ERROR', 'Oferta não enviada: nenhuma confirmação de envio foi retornada pelos grupos de destino.');
-          continue;
+          logEntry('ERROR', 'Oferta não enviada: nenhuma confirmação de envio foi retornada pelos grupos de destino. A oferta foi devolvida à fila.');
+          dealQueue.unshift(deal);
+          break;
         }
 
         logEntry('MIRROR', `Oferta enviada para ${successfulTargets} de ${jidsToSend.length} grupo(s). Restam na fila: ${dealQueue.length}`);
