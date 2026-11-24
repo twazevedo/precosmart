@@ -23,6 +23,21 @@ jobs:
         npm test
         node --test test/security.test.js
 
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Setup Node.js 22.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+    - name: Install and Test Backend
+      run: |
+        cd backend
+        npm install
+        npm test
+
   backend-lint:
     runs-on: ubuntu-latest
     steps:
