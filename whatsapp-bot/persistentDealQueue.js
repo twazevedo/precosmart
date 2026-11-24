@@ -152,7 +152,7 @@ class PersistentDealQueue {
   async markUncertain(id, reason = 'Resultado do envio não confirmado') {
     const now = this.clock();
     const result = await this.deals.updateOne(
-      { _id: id, status: 'processing', leaseOwner: this.owner },
+      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
       { $set: { status: 'uncertain', lastError: String(reason).slice(0, 500), updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
