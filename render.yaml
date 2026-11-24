@@ -21,7 +21,7 @@ services:
       - key: WA_GROUP_NAME
         value: "PreçoSmart | Ofertas & Achadinhos 🔥"
       - key: WA_GROUP_INVITE_CODE
-        value: "Lo3ONNfAXVh5cEe2Pg6gM7"
+        sync: false
       - key: WA_GROUP_JID
         value: "120363428098199018@g.us"
       - key: AFFILIATE_AMAZON
