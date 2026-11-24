@@ -6,7 +6,7 @@ const { PersistentDealQueue, backoffDelayMs } = require('../persistentDealQueue'
 
 function makeQueue(overrides = {}) {
   const calls = [];
-  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', attempts: 1, payload: { text: 'Oferta de teste' } };
+  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: new Date('2026-11-24T12:01:00.000Z'), attempts: 1, payload: { text: 'Oferta de teste' } };
   const deals = {
     createIndex: async (...args) => calls.push(['dealIndex', ...args]),
     updateOne: async (...args) => { calls.push(['dealUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 }; },
@@ -75,7 +75,7 @@ test('markSent requires ownership of the processing lease', async () => {
   const { queue, calls } = makeQueue();
   assert.equal(await queue.markSent('deal-1', { messageId: 'wa-msg-1' }), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
-  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a' });
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'sent');
   assert.equal(call[2].$set.messageId, 'wa-msg-1');
 });
@@ -93,4 +93,19 @@ test('retry stops after configured maximum attempts', async () => {
   const call = calls.find(c => c[0] === 'dealUpdate');
   assert.equal(call[2].$set.status, 'failed');
   assert.equal(call[2].$set.lastError, 'offline');
+});
+
+test('deal lease renewal requires an unexpired lease owned by this worker', async () => {
+  const { queue, calls } = makeQueue();
+  assert.equal(await queue.renewDealLease('deal-1'), true);
+  const call = calls.find(c => c[0] === 'dealUpdate');
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
+  assert.ok(call[2].$set.leaseUntil > new Date('2026-11-24T12:00:00.000Z'));
+});
+
+test('enqueue rejects oversized dedupe keys and unserializable payloads', async () => {
+  const { queue } = makeQueue();
+  await assert.rejects(queue.enqueue({ dedupeKey: 'x'.repeat(513), payload: { ok: true } }), /dedupeKey/);
+  const circular = {}; circular.self = circular;
+  await assert.rejects(queue.enqueue({ dedupeKey: 'valid-key', payload: circular }), /serializável/);
 });
