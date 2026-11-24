@@ -27,6 +27,8 @@ class PersistentDealQueue {
     this.maxAttempts = maxAttempts;
     this.clock = clock;
     this.random = random;
+    if (!Number.isFinite(leaseMs) || leaseMs < 5000) throw new RangeError('leaseMs deve ser de pelo menos 5000 ms.');
+    if (!Number.isInteger(maxAttempts) || maxAttempts < 1) throw new RangeError('maxAttempts deve ser um inteiro positivo.');
   }
 
   async ensureIndexes() {
@@ -39,8 +41,12 @@ class PersistentDealQueue {
   }
 
   async enqueue({ dedupeKey, payload, source = 'unknown' }) {
-    if (!dedupeKey || typeof dedupeKey !== 'string') throw new TypeError('dedupeKey é obrigatório.');
-    if (!payload || typeof payload !== 'object') throw new TypeError('payload deve ser um objeto.');
+    if (typeof dedupeKey !== 'string' || !dedupeKey.trim() || dedupeKey.length > 512) throw new TypeError('dedupeKey deve conter de 1 a 512 caracteres.');
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new TypeError('payload deve ser um objeto.');
+    let serialized;
+    try { serialized = JSON.stringify(payload); } catch { throw new TypeError('payload precisa ser serializável em JSON.'); }
+    if (!serialized || Buffer.byteLength(serialized, 'utf8') > 256 * 1024) throw new RangeError('payload excede o limite de 256 KiB.');
+    dedupeKey = dedupeKey.trim();
     const now = this.clock();
     const _id = crypto.createHash('sha256').update(dedupeKey).digest('hex');
     await this.deals.updateOne(
@@ -105,30 +111,39 @@ class PersistentDealQueue {
     return unwrapFindOneAndUpdate(result);
   }
 
+  async renewDealLease(id) {
+    const now = this.clock();
+    const result = await this.deals.updateOne(
+      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
+      { $set: { leaseUntil: new Date(now.getTime() + this.leaseMs), updatedAt: now } }
+    );
+    return result.matchedCount === 1;
+  }
+
   async markSent(id, { messageId = null } = {}) {
     const now = this.clock();
     const result = await this.deals.updateOne(
-      { _id: id, status: 'processing', leaseOwner: this.owner },
+      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
       { $set: { status: 'sent', sentAt: now, messageId, updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
   }
 
   async retry(id, error, { baseMs, maxMs } = {}) {
-    const current = await this.deals.findOne({ _id: id, status: 'processing', leaseOwner: this.owner });
+    const current = await this.deals.findOne({ _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: this.clock() } });
     if (!current) return false;
     const now = this.clock();
     const message = String(error && error.message ? error.message : error || 'Falha desconhecida').slice(0, 500);
     if (current.attempts >= this.maxAttempts) {
       const result = await this.deals.updateOne(
-        { _id: id, status: 'processing', leaseOwner: this.owner },
+        { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
         { $set: { status: 'failed', lastError: message, updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
       );
       return result.modifiedCount === 1;
     }
     const delay = backoffDelayMs(current.attempts, { baseMs, maxMs, random: this.random });
     const result = await this.deals.updateOne(
-      { _id: id, status: 'processing', leaseOwner: this.owner },
+      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
       { $set: { status: 'pending', lastError: message, nextAttemptAt: new Date(now.getTime() + delay), updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
