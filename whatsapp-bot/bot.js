@@ -2716,6 +2716,8 @@ async function startBot() {
         }
       } catch (err) {
         logEntry('ERROR', 'Falha ao enviar oferta da fila: ' + err.message);
+        dealQueue.unshift(deal);
+        break;
       }
     }
 
