@@ -158,7 +158,7 @@ class PersistentDealQueue {
     const message = String(error && error.message ? error.message : error || 'Falha desconhecida').slice(0, 500);
     if (current.attempts >= this.maxAttempts) {
       const result = await this.deals.updateOne(
-        { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
+        { _id: id, status: 'processing', leaseOwner: this.owner, publisherToken: this.fencingToken, leaseUntil: { $gt: now } },
         { $set: { status: 'failed', lastError: message, updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
       );
       return result.modifiedCount === 1;
