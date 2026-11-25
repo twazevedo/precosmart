@@ -184,7 +184,7 @@ function writeStatus() {
 
 function httpGetJson(port, urlPath, timeoutMs = 8000) {
   return new Promise((resolve) => {
-    const req = http.get({ host: '127.0.0.1', port, path: urlPath, timeout: timeoutMs }, (res) => {
+    const req = http.get({ host: '127.0.0.1', port, path: urlPath, timeout: timeoutMs, headers: { 'x-api-key': process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY || process.env.ENCRYPTION_KEY || '' } }, (res) => {
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => {
@@ -340,7 +340,7 @@ async function supervise() {
   if (Date.now() < state.nextSpawnAt) return;
   superviseBusy = true;
   try {
-    const running = await httpGetJson(state.cfg.port, '/api/health', 3000);
+    const running = await httpGetJson(state.cfg.port, '/api/internal/health', 3000);
     if (running) {
       // Já existe um bot na porta (ex.: o guardião anterior morreu e deixou o bot órfão).
       // Adota o processo se o PID informado é confiável; nunca sobe um segundo bot (sessão duplicada).
@@ -368,7 +368,7 @@ async function healthTick() {
   healthBusy = true;
   try {
     const now = Date.now();
-    const health = await httpGetJson(state.cfg.port, '/api/health');
+    const health = await httpGetJson(state.cfg.port, '/api/internal/health');
     state.httpFails = health ? 0 : state.httpFails + 1;
     state.lastHealth = health;
     if (health) {
