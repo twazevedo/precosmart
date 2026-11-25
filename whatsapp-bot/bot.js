@@ -295,8 +295,8 @@ function logEntry(type, text) {
   try {
     const t = String(type), s = String(text);
     if (t === 'AWIN_WA' || t === 'SENT' || (t === 'MIRROR' && s.startsWith('Oferta postada'))) globalThis.__lastDispatchAt = Date.now();
-    else if (t === 'CONNECTED') globalThis.__connectedAt = Date.now();
-    else if (t === 'DISCONNECTED') globalThis.__connectedAt = 0;
+    else if (t === 'CONNECTED') { globalThis.__connectedAt = Date.now(); globalThis.__disconnectedAt = 0; }
+    else if (t === 'DISCONNECTED') { globalThis.__connectedAt = 0; globalThis.__disconnectedAt = Date.now(); }
   } catch (e) {}
 }
 
@@ -515,27 +515,32 @@ app.get('/dashboard', (req, res) => {
   res.send(html);
 });
 
-// Health-check leve para o guardian.js (supervisor). Não expõe dados sensíveis.
-app.get('/api/health', (req, res) => {
+// Endpoint público mínimo: não revela estado operacional nem dados do processo.
+app.get('/api/health', (req, res) => res.json({ ok: true }));
+
+// Endpoint operacional exclusivo para os supervisores, protegido pela chave de API.
+app.get('/api/internal/health', requireApiAuth, (req, res) => {
   const now = Date.now();
-  const lastDispatchAt = globalThis.__lastDispatchAt || 0;
-  const connectedAt = globalThis.__connectedAt || 0;
+  const connectedAt = Number(globalThis.__connectedAt) || 0;
+  const disconnectedAt = Number(globalThis.__disconnectedAt) || 0;
+  const lastDispatchAt = Number(globalThis.__lastDispatchAt) || 0;
   res.json({
     ok: true,
     pid: process.pid,
-    connected: !!isConnected,
-    qrReady: !!qrCodeDataUrl && !isConnected,
     uptimeSec: Math.floor(process.uptime()),
+    connected: isConnected,
+    qrReady: !!qrCodeDataUrl && !isConnected,
     connectedForSec: isConnected && connectedAt ? Math.floor((now - connectedAt) / 1000) : 0,
+    disconnectedForSec: !isConnected && disconnectedAt ? Math.floor((now - disconnectedAt) / 1000) : 0,
     lastDispatchAgoSec: lastDispatchAt ? Math.floor((now - lastDispatchAt) / 1000) : null,
-    autopilot: !!isAutoPilotActive,
-    nightMode: !!isNightQuietHours(),
+    autopilot: isAutoPilotActive,
+    nightMode: isNightQuietHours(),
     queueLength: dealQueue.length,
     rssMb: Math.round(process.memoryUsage().rss / 1048576)
   });
 });
 
-app.get('/api/status', (req, res) => res.json({
+app.get('/api/status', requireApiAuth, (req, res) => res.json({
   connected:   isConnected,
   botUser:     waSocket?.user || null,
   groupName:   TARGET_GROUP,
@@ -568,7 +573,7 @@ app.get('/r/:code', (req, res) => {
   res.status(404).send('Link de oferta não encontrado ou expirado.');
 });
 
-app.get('/api/analytics', (req, res) => res.json(getAnalyticsSummary()));
+app.get('/api/analytics', requireApiAuth, (req, res) => res.json(getAnalyticsSummary()));
 
 app.post('/api/crawler/run', requireApiAuth, async (req, res) => {
   try {

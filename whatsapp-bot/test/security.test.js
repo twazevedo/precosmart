@@ -171,3 +171,25 @@ test('9. extractApiKey: aceita header X-API-Key e Bearer; ignora query string', 
   assert.equal(extractApiKey({ headers: {}, query: { token: 'naoDeveValer', key: 'naoDeveValer' } }), null);
   assert.equal(extractApiKey({}), null);
 });
+
+test('10. Production never bypasses API authentication for loopback requests', () => {
+  const previous = process.env.NODE_ENV;
+  const previousKey = process.env.API_SECRET_KEY;
+  process.env.NODE_ENV = 'production';
+  delete process.env.API_SECRET_KEY;
+
+  const req = { ip: '127.0.0.1', headers: {}, connection: { remoteAddress: '127.0.0.1' } };
+  let status = null;
+  let passed = false;
+  const res = { status(code) { status = code; return this; }, json() {} };
+  try {
+    requireApiAuth(req, res, () => { passed = true; });
+    assert.equal(passed, false);
+    assert.equal(status, 401);
+  } finally {
+    if (previous === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previous;
+    if (previousKey === undefined) delete process.env.API_SECRET_KEY;
+    else process.env.API_SECRET_KEY = previousKey;
+  }
+});

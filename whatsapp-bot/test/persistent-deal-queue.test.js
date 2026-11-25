@@ -6,7 +6,7 @@ const { PersistentDealQueue, backoffDelayMs } = require('../persistentDealQueue'
 
 function makeQueue(overrides = {}) {
   const calls = [];
-  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: new Date('2026-11-24T12:01:00.000Z'), attempts: 1, payload: { text: 'Oferta de teste' } };
+  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: new Date('2026-11-24T12:01:00.000Z'), attempts: 1, payload: { text: 'Oferta de teste' } };
   const deals = {
     createIndex: async (...args) => calls.push(['dealIndex', ...args]),
     updateOne: async (...args) => { calls.push(['dealUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 }; },
@@ -16,8 +16,8 @@ function makeQueue(overrides = {}) {
   };
   const locks = {
     createIndex: async (...args) => calls.push(['lockIndex', ...args]),
-    findOne: async (...args) => { calls.push(['lockFindOne', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
-    findOneAndUpdate: async (...args) => { calls.push(['lockFindOneAndUpdate', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
+    findOne: async (...args) => { calls.push(['lockFindOne', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a', fencingToken: 1, leaseUntil: new Date('2026-11-24T12:01:00.000Z') }; },
+    findOneAndUpdate: async (...args) => { calls.push(['lockFindOneAndUpdate', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a', fencingToken: 1 }; },
     updateOne: async (...args) => { calls.push(['lockUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1 }; }
   };
   const queue = new PersistentDealQueue({
@@ -41,6 +41,7 @@ test('enqueue uses deterministic identity and insert-only fields for deduplicati
 
 test('claim checks the current publisher lease before atomically claiming a due item', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   await queue.claimNext();
   const leaseCheck = calls.find(c => c[0] === 'lockFindOne');
   assert.equal(leaseCheck[1]._id, 'whatsapp-publisher');
@@ -49,6 +50,7 @@ test('claim checks the current publisher lease before atomically claiming a due 
   assert.deepEqual(call[1], { status: 'pending', nextAttemptAt: { $lte: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'processing');
   assert.equal(call[2].$set.leaseOwner, 'worker-a');
+  assert.equal(call[2].$set.publisherToken, 1);
   assert.equal(call[2].$inc.attempts, 1);
 });
 
@@ -73,9 +75,10 @@ test('expired processing records are quarantined as uncertain, not requeued', as
 
 test('markSent requires ownership of the processing lease', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   assert.equal(await queue.markSent('deal-1', { messageId: 'wa-msg-1' }), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
-  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'sent');
   assert.equal(call[2].$set.messageId, 'wa-msg-1');
 });
@@ -88,6 +91,7 @@ test('retry backoff grows exponentially and is capped with jitter', () => {
 
 test('retry stops after configured maximum attempts', async () => {
   const { queue, calls, dealDoc } = makeQueue({ maxAttempts: 1 });
+  await queue.acquireLeadership();
   dealDoc.attempts = 1;
   assert.equal(await queue.retry('deal-1', new Error('offline')), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
@@ -97,9 +101,10 @@ test('retry stops after configured maximum attempts', async () => {
 
 test('deal lease renewal requires an unexpired lease owned by this worker', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   assert.equal(await queue.renewDealLease('deal-1'), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
-  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
   assert.ok(call[2].$set.leaseUntil > new Date('2026-11-24T12:00:00.000Z'));
 });
 
@@ -108,4 +113,15 @@ test('enqueue rejects oversized dedupe keys and unserializable payloads', async 
   await assert.rejects(queue.enqueue({ dedupeKey: 'x'.repeat(513), payload: { ok: true } }), /dedupeKey/);
   const circular = {}; circular.self = circular;
   await assert.rejects(queue.enqueue({ dedupeKey: 'valid-key', payload: circular }), /serializável/);
+});
+
+test('backoff rejects invalid retry parameters', () => {
+  assert.throws(() => backoffDelayMs(0), /attempt/);
+  assert.throws(() => backoffDelayMs(1, { baseMs: -1 }), /baseMs/);
+  assert.throws(() => backoffDelayMs(1, { baseMs: 500, maxMs: 100 }), /maxMs/);
+});
+
+test('constructor rejects an empty publisher identity', () => {
+  const { queue } = makeQueue();
+  assert.throws(() => new PersistentDealQueue({ deals: queue.deals, locks: queue.locks, owner: '' }), /owner/);
 });

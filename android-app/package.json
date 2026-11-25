@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "echo 'Static assets ready in dist'"
+    "test": "node --test",
+    "build": "node scripts/verify-pwa-assets.js"
   },
   "keywords": [],
   "author": "",

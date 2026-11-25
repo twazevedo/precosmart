@@ -132,7 +132,9 @@ function requireApiAuth(req, res, next) {
   const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || '';
   const isLoopback = isLocalRequest(req);
 
-  if (isLoopback) {
+  // Loopback is convenient only for local development. In production, even
+  // requests originating from localhost must present an explicit credential.
+  if (isLoopback && process.env.NODE_ENV !== 'production') {
     return next();
   }
 

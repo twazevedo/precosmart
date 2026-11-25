@@ -20,6 +20,8 @@
  */
 'use strict';
 
+require('./envLoader');
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -145,8 +147,9 @@ function checkPrimaryHealth(cfg) {
       {
         host: '127.0.0.1',
         port: cfg.primaryPort,
-        path: '/api/health',
+        path: '/api/internal/health',
         timeout: cfg.heartbeatTimeoutMs,
+        headers: { 'x-api-key': process.env.API_SECRET_KEY || process.env.APP_MASTER_KEY || process.env.ENCRYPTION_KEY || '' },
       },
       (res) => {
         let body = '';

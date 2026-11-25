@@ -4,6 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>PreçoSmart Admin</title>
+  <meta name="theme-color" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
@@ -189,7 +194,9 @@
       localStorage.setItem('ps_api_url', DEFAULT_URL);
     }
     let apiUrl = storedUrl;
-    let apiKey = localStorage.getItem('ps_api_key') || '';
+    // Credencial administrativa permanece apenas em memória; não persista em Web Storage.
+    localStorage.removeItem('ps_api_key');
+    let apiKey = '';
 
     document.getElementById('serverUrl').value = apiUrl;
     document.getElementById('serverKey').value = apiKey;
@@ -211,7 +218,7 @@
       apiUrl = document.getElementById('serverUrl').value.trim() || DEFAULT_URL;
       apiKey = document.getElementById('serverKey').value.trim() || '';
       localStorage.setItem('ps_api_url', apiUrl);
-      localStorage.setItem('ps_api_key', apiKey);
+      // A chave é descartada ao fechar/recarregar o painel.
       toggleConfigModal();
       showToast('Configurações salvas!');
       checkStatus();
@@ -220,7 +227,7 @@
     async function checkStatus() {
       try {
         // 1. Consulta o status geral do bot e do WhatsApp
-        const statusRes = await fetch(`${apiUrl}/api/status`);
+        const statusRes = await fetch(`${apiUrl}/api/status`, { headers: { 'x-api-key': apiKey } });
         let isConnected = false;
         if (statusRes.ok) {
           const statusData = await statusRes.json();
@@ -348,6 +355,15 @@
 
     checkStatus();
     setInterval(checkStatus, 15000);
+  </script>
+  <script>
+    if ('serviceWorker' in navigator && location.protocol === 'https:') {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').catch((error) => {
+          console.warn('[PWA] Não foi possível registrar o service worker:', error.message);
+        });
+      });
+    }
   </script>
 </body>
 </html>
