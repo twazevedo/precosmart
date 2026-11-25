@@ -76,7 +76,7 @@ test('markSent requires ownership of the processing lease', async () => {
   const { queue, calls } = makeQueue();
   assert.equal(await queue.markSent('deal-1', { messageId: 'wa-msg-1' }), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
-  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'sent');
   assert.equal(call[2].$set.messageId, 'wa-msg-1');
 });
