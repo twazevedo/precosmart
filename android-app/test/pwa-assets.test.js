@@ -30,6 +30,13 @@ test('service worker does not intercept API or cross-origin requests', () => {
   assert.doesNotMatch(worker, /caches\.open\([^)]*api/i);
 });
 
+test('admin API key is not persisted in browser storage', () => {
+  const html = read('index.html');
+  assert.match(html, /localStorage\.removeItem\('ps_api_key'\)/);
+  assert.doesNotMatch(html, /localStorage\.setItem\('ps_api_key'/);
+  assert.match(html, /let apiKey = ''/);
+});
+
 test('offline fallback does not claim that administrative actions succeeded', () => {
   const offline = read('offline.html');
   assert.match(offline, /sem conexão/i);
