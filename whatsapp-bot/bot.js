@@ -516,26 +516,10 @@ app.get('/dashboard', (req, res) => {
 });
 
 // Health-check leve para o guardian.js (supervisor). Não expõe dados sensíveis.
-app.get('/api/health', (req, res) => {
-  const now = Date.now();
-  const lastDispatchAt = globalThis.__lastDispatchAt || 0;
-  const connectedAt = globalThis.__connectedAt || 0;
-  res.json({
-    ok: true,
-    pid: process.pid,
-    connected: !!isConnected,
-    qrReady: !!qrCodeDataUrl && !isConnected,
-    uptimeSec: Math.floor(process.uptime()),
-    connectedForSec: isConnected && connectedAt ? Math.floor((now - connectedAt) / 1000) : 0,
-    lastDispatchAgoSec: lastDispatchAt ? Math.floor((now - lastDispatchAt) / 1000) : null,
-    autopilot: !!isAutoPilotActive,
-    nightMode: !!isNightQuietHours(),
-    queueLength: dealQueue.length,
-    rssMb: Math.round(process.memoryUsage().rss / 1048576)
-  });
-});
+// Health check público mínimo: não revela estado operacional ou dados do processo.
+app.get('/api/health', (req, res) => res.json({ ok: true }));
 
-app.get('/api/status', (req, res) => res.json({
+app.get('/api/status', requireApiAuth, (req, res) => res.json({
   connected:   isConnected,
   botUser:     waSocket?.user || null,
   groupName:   TARGET_GROUP,
@@ -568,7 +552,7 @@ app.get('/r/:code', (req, res) => {
   res.status(404).send('Link de oferta não encontrado ou expirado.');
 });
 
-app.get('/api/analytics', (req, res) => res.json(getAnalyticsSummary()));
+app.get('/api/analytics', requireApiAuth, (req, res) => res.json(getAnalyticsSummary()));
 
 app.post('/api/crawler/run', requireApiAuth, async (req, res) => {
   try {
