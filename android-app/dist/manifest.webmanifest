@@ -1,0 +1,20 @@
+{
+  "name": "PreçoSmart Admin",
+  "short_name": "PreçoSmart",
+  "description": "Painel administrativo do PreçoSmart",
+  "lang": "pt-BR",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
