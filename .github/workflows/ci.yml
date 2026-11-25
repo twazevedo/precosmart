@@ -2,9 +2,9 @@ name: 'PreçoSmart CI'
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, 'phase-2/**', 'phase-3/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, 'phase-2/**', 'phase-3/**' ]
 
 jobs:
   bot-tests:
@@ -66,4 +66,19 @@ jobs:
       run: |
         cd frontend
         npm install
+        npm run build
+
+  android-pwa-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Setup Node.js 22.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+    - name: Test Android PWA assets
+      run: |
+        cd android-app
+        npm test
         npm run build
