@@ -12,6 +12,10 @@ function unwrapFindOneAndUpdate(result) {
 }
 
 function backoffDelayMs(attempt, { baseMs = 5000, maxMs = 15 * 60 * 1000, random = Math.random } = {}) {
+  if (!Number.isInteger(attempt) || attempt < 1) throw new RangeError('attempt deve ser um inteiro positivo.');
+  if (!Number.isFinite(baseMs) || baseMs < 0) throw new RangeError('baseMs deve ser um número finito não negativo.');
+  if (!Number.isFinite(maxMs) || maxMs < baseMs) throw new RangeError('maxMs deve ser finito e maior ou igual a baseMs.');
+  if (typeof random !== 'function') throw new TypeError('random deve ser uma função.');
   const exponent = Math.max(0, Math.min(20, Number(attempt || 1) - 1));
   const ceiling = Math.min(maxMs, baseMs * (2 ** exponent));
   return Math.floor(ceiling * (0.8 + (random() * 0.4)));
@@ -22,7 +26,9 @@ class PersistentDealQueue {
     if (!deals || !locks) throw new TypeError('Coleções MongoDB deals e locks são obrigatórias.');
     this.deals = deals;
     this.locks = locks;
+    if (typeof owner !== 'string' || !owner.trim()) throw new TypeError('owner deve ser uma identidade não vazia.');
     this.owner = owner;
+    this.fencingToken = null;
     this.leaseMs = leaseMs;
     this.maxAttempts = maxAttempts;
     this.clock = clock;
@@ -63,11 +69,13 @@ class PersistentDealQueue {
     try {
       const result = await this.locks.findOneAndUpdate(
         { _id: 'whatsapp-publisher', $or: [{ owner: this.owner }, { leaseUntil: { $lte: now } }, { leaseUntil: { $exists: false } }] },
-        { $set: { owner: this.owner, leaseUntil, updatedAt: now } },
+        { $set: { owner: this.owner, leaseUntil, updatedAt: now }, $inc: { fencingToken: 1 } },
         { upsert: true, returnDocument: 'after' }
       );
       const lock = unwrapFindOneAndUpdate(result);
-      return !!(lock && lock.owner === this.owner);
+      if (!lock || lock.owner !== this.owner || !Number.isInteger(lock.fencingToken)) return false;
+      this.fencingToken = lock.fencingToken;
+      return true;
     } catch (error) {
       // Concurrent upserts can race on the fixed _id. A duplicate means another
       // publisher owns the lease; it is not a reason to crash the bot process.
@@ -78,14 +86,14 @@ class PersistentDealQueue {
 
   async hasLeadership() {
     const now = this.clock();
-    const lock = await this.locks.findOne({ _id: 'whatsapp-publisher', owner: this.owner, leaseUntil: { $gt: now } });
+    const lock = await this.locks.findOne({ _id: 'whatsapp-publisher', owner: this.owner, fencingToken: this.fencingToken, leaseUntil: { $gt: now } });
     return !!lock;
   }
 
   async renewLeadership() {
     const now = this.clock();
     const result = await this.locks.updateOne(
-      { _id: 'whatsapp-publisher', owner: this.owner, leaseUntil: { $gt: now } },
+      { _id: 'whatsapp-publisher', owner: this.owner, fencingToken: this.fencingToken, leaseUntil: { $gt: now } },
       { $set: { leaseUntil: new Date(now.getTime() + this.leaseMs), updatedAt: now } }
     );
     return result.modifiedCount === 1 || result.matchedCount === 1;
@@ -93,28 +101,42 @@ class PersistentDealQueue {
 
   async releaseLeadership() {
     const result = await this.locks.updateOne(
-      { _id: 'whatsapp-publisher', owner: this.owner },
+      { _id: 'whatsapp-publisher', owner: this.owner, fencingToken: this.fencingToken },
       { $set: { leaseUntil: new Date(0), updatedAt: this.clock() }, $unset: { owner: '' } }
     );
-    return result.modifiedCount === 1 || result.matchedCount === 1;
+    const released = result.modifiedCount === 1 || result.matchedCount === 1;
+    if (released) this.fencingToken = null;
+    return released;
   }
 
   async claimNext() {
     // The distributed lease is checked before each claim, not just at startup.
     if (!(await this.hasLeadership())) return null;
     const now = this.clock();
+    const fencingToken = this.fencingToken;
     const result = await this.deals.findOneAndUpdate(
       { status: 'pending', nextAttemptAt: { $lte: now } },
-      { $set: { status: 'processing', leaseOwner: this.owner, leaseUntil: new Date(now.getTime() + this.leaseMs), updatedAt: now }, $inc: { attempts: 1 } },
+      { $set: { status: 'processing', leaseOwner: this.owner, publisherToken: fencingToken, leaseUntil: new Date(now.getTime() + this.leaseMs), updatedAt: now }, $inc: { attempts: 1 } },
       { sort: { nextAttemptAt: 1, createdAt: 1 }, returnDocument: 'after' }
     );
-    return unwrapFindOneAndUpdate(result);
+    const claimed = unwrapFindOneAndUpdate(result);
+    if (!claimed) return null;
+    // Recheck after claim: if leadership changed during the cross-collection
+    // window, release only this worker's claim and do not hand it to a sender.
+    if (!(await this.hasLeadership())) {
+      await this.deals.updateOne(
+        { _id: claimed._id, status: 'processing', leaseOwner: this.owner, publisherToken: fencingToken, leaseUntil: { $gt: this.clock() } },
+        { $set: { status: 'pending', nextAttemptAt: this.clock(), updatedAt: this.clock() }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
+      );
+      return null;
+    }
+    return claimed;
   }
 
   async renewDealLease(id) {
     const now = this.clock();
     const result = await this.deals.updateOne(
-      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
+      { _id: id, status: 'processing', leaseOwner: this.owner, publisherToken: this.fencingToken, leaseUntil: { $gt: now } },
       { $set: { leaseUntil: new Date(now.getTime() + this.leaseMs), updatedAt: now } }
     );
     return result.matchedCount === 1;
@@ -124,13 +146,13 @@ class PersistentDealQueue {
     const now = this.clock();
     const result = await this.deals.updateOne(
       { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
-      { $set: { status: 'sent', sentAt: now, messageId, updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
+      { $set: { status: 'sent', sentAt: now, messageId, updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
   }
 
   async retry(id, error, { baseMs, maxMs } = {}) {
-    const current = await this.deals.findOne({ _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: this.clock() } });
+    const current = await this.deals.findOne({ _id: id, status: 'processing', leaseOwner: this.owner, publisherToken: this.fencingToken, leaseUntil: { $gt: this.clock() } });
     if (!current) return false;
     const now = this.clock();
     const message = String(error && error.message ? error.message : error || 'Falha desconhecida').slice(0, 500);
