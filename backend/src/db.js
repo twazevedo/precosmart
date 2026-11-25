@@ -12,7 +12,8 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, 'database.sqlite');
+const dbPath = process.env.PRECOSMART_DB_PATH || path.join(dataDir, 'database.sqlite');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 export const db = new DatabaseSync(dbPath);
 
 export function initDB() {
@@ -58,19 +59,17 @@ export function initDB() {
 
 function seedInitialData() {
   const storesCount = db.prepare('SELECT COUNT(*) as count FROM stores').get().count;
-  const hasShopee = db.prepare("SELECT COUNT(*) as count FROM stores WHERE name = 'Shopee'").get().count;
-  
-  if (storesCount > 0 && hasShopee > 0) return;
+  const productsCount = db.prepare('SELECT COUNT(*) as count FROM products').get().count;
+  const quotesCount = db.prepare('SELECT COUNT(*) as count FROM price_quotes').get().count;
 
-  console.log('Populando banco com as 5 lojas de Eletrônicos...');
-  
-  // Limpar dados anteriores
-  db.exec('DELETE FROM price_quotes; DELETE FROM products; DELETE FROM stores;');
-  try {
-    db.exec("DELETE FROM sqlite_sequence WHERE name IN ('products', 'stores', 'price_quotes');");
-  } catch (e) {
-    // sqlite_sequence may not exist yet
+  // Dados existentes nunca devem ser apagados ou substituídos durante a inicialização.
+  // O catálogo demonstrativo só é criado quando as três tabelas estão vazias.
+  if (storesCount > 0 || productsCount > 0 || quotesCount > 0) {
+    console.log('[DB] Dados existentes detectados. Seed demonstrativo ignorado para preservar o banco.');
+    return;
   }
+
+  console.log('[DB] Banco vazio. Criando dados demonstrativos iniciais...');
 
   // 1. Inserir as 5 Lojas
   const insertStore = db.prepare(`
