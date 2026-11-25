@@ -104,7 +104,7 @@ test('deal lease renewal requires an unexpired lease owned by this worker', asyn
   await queue.acquireLeadership();
   assert.equal(await queue.renewDealLease('deal-1'), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
-  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
+  assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
   assert.ok(call[2].$set.leaseUntil > new Date('2026-11-24T12:00:00.000Z'));
 });
 
