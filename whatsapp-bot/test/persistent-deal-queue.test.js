@@ -41,6 +41,7 @@ test('enqueue uses deterministic identity and insert-only fields for deduplicati
 
 test('claim checks the current publisher lease before atomically claiming a due item', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   await queue.claimNext();
   const leaseCheck = calls.find(c => c[0] === 'lockFindOne');
   assert.equal(leaseCheck[1]._id, 'whatsapp-publisher');
@@ -74,6 +75,7 @@ test('expired processing records are quarantined as uncertain, not requeued', as
 
 test('markSent requires ownership of the processing lease', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   assert.equal(await queue.markSent('deal-1', { messageId: 'wa-msg-1' }), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
   assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
@@ -89,6 +91,7 @@ test('retry backoff grows exponentially and is capped with jitter', () => {
 
 test('retry stops after configured maximum attempts', async () => {
   const { queue, calls, dealDoc } = makeQueue({ maxAttempts: 1 });
+  await queue.acquireLeadership();
   dealDoc.attempts = 1;
   assert.equal(await queue.retry('deal-1', new Error('offline')), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
@@ -98,6 +101,7 @@ test('retry stops after configured maximum attempts', async () => {
 
 test('deal lease renewal requires an unexpired lease owned by this worker', async () => {
   const { queue, calls } = makeQueue();
+  await queue.acquireLeadership();
   assert.equal(await queue.renewDealLease('deal-1'), true);
   const call = calls.find(c => c[0] === 'dealUpdate');
   assert.deepEqual(call[1], { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: { $gt: new Date('2026-11-24T12:00:00.000Z') } });
