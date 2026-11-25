@@ -27,8 +27,8 @@ test('existing admin panel sends its in-memory key when reading status', () => {
 
 
 test('internal supervisor health endpoint is authenticated and includes operational telemetry', () => {
-  assert.match(bot, /app\\.get\\('\\/api\\/internal\\/health', requireApiAuth,/);
-  const internalHealth = bot.match(/app\\.get\\('\\/api\\/internal\\/health'[\\s\\S]*?\\n\\}\\);/)?.[0] || '';
+  assert.match(bot, /app\.get\('\/api\/internal\/health', requireApiAuth,/);
+  const internalHealth = bot.match(/app\.get\('\/api\/internal\/health'[\s\S]*?\n\}\);/)?.[0] || '';
   for (const field of ['pid:', 'uptimeSec:', 'connected:', 'qrReady:', 'lastDispatchAgoSec:', 'autopilot:', 'queueLength:', 'rssMb:']) {
     assert.ok(internalHealth.includes(field), `missing internal health field: ${field}`);
   }
