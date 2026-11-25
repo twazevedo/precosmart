@@ -145,7 +145,7 @@ class PersistentDealQueue {
   async markSent(id, { messageId = null } = {}) {
     const now = this.clock();
     const result = await this.deals.updateOne(
-      { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
+      { _id: id, status: 'processing', leaseOwner: this.owner, publisherToken: this.fencingToken, leaseUntil: { $gt: now } },
       { $set: { status: 'sent', sentAt: now, messageId, updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
@@ -159,14 +159,14 @@ class PersistentDealQueue {
     if (current.attempts >= this.maxAttempts) {
       const result = await this.deals.updateOne(
         { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
-        { $set: { status: 'failed', lastError: message, updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
+        { $set: { status: 'failed', lastError: message, updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
       );
       return result.modifiedCount === 1;
     }
     const delay = backoffDelayMs(current.attempts, { baseMs, maxMs, random: this.random });
     const result = await this.deals.updateOne(
       { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
-      { $set: { status: 'pending', lastError: message, nextAttemptAt: new Date(now.getTime() + delay), updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
+      { $set: { status: 'pending', lastError: message, nextAttemptAt: new Date(now.getTime() + delay), updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
   }
@@ -175,7 +175,7 @@ class PersistentDealQueue {
     const now = this.clock();
     const result = await this.deals.updateOne(
       { _id: id, status: 'processing', leaseOwner: this.owner, leaseUntil: { $gt: now } },
-      { $set: { status: 'uncertain', lastError: String(reason).slice(0, 500), updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
+      { $set: { status: 'uncertain', lastError: String(reason).slice(0, 500), updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
     );
     return result.modifiedCount === 1;
   }
@@ -186,7 +186,7 @@ class PersistentDealQueue {
     const now = this.clock();
     const result = await this.deals.updateMany(
       { status: 'processing', leaseUntil: { $lte: now } },
-      { $set: { status: 'uncertain', lastError: 'Lease expirado; verificar possível envio antes de reenviar', updatedAt: now }, $unset: { leaseOwner: '', leaseUntil: '' } }
+      { $set: { status: 'uncertain', lastError: 'Lease expirado; verificar possível envio antes de reenviar', updatedAt: now }, $unset: { leaseOwner: '', publisherToken: '', leaseUntil: '' } }
     );
     return result.modifiedCount || 0;
   }
