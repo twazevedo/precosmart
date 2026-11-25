@@ -6,7 +6,7 @@ const { PersistentDealQueue, backoffDelayMs } = require('../persistentDealQueue'
 
 function makeQueue(overrides = {}) {
   const calls = [];
-  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', leaseUntil: new Date('2026-11-24T12:01:00.000Z'), attempts: 1, payload: { text: 'Oferta de teste' } };
+  const dealDoc = { _id: 'deal-1', status: 'processing', leaseOwner: 'worker-a', publisherToken: 1, leaseUntil: new Date('2026-11-24T12:01:00.000Z'), attempts: 1, payload: { text: 'Oferta de teste' } };
   const deals = {
     createIndex: async (...args) => calls.push(['dealIndex', ...args]),
     updateOne: async (...args) => { calls.push(['dealUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 }; },
@@ -16,8 +16,8 @@ function makeQueue(overrides = {}) {
   };
   const locks = {
     createIndex: async (...args) => calls.push(['lockIndex', ...args]),
-    findOne: async (...args) => { calls.push(['lockFindOne', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
-    findOneAndUpdate: async (...args) => { calls.push(['lockFindOneAndUpdate', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a' }; },
+    findOne: async (...args) => { calls.push(['lockFindOne', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a', fencingToken: 1, leaseUntil: new Date('2026-11-24T12:01:00.000Z') }; },
+    findOneAndUpdate: async (...args) => { calls.push(['lockFindOneAndUpdate', ...args]); return { _id: 'whatsapp-publisher', owner: 'worker-a', fencingToken: 1 }; },
     updateOne: async (...args) => { calls.push(['lockUpdate', ...args]); return { matchedCount: 1, modifiedCount: 1 }; }
   };
   const queue = new PersistentDealQueue({
@@ -49,6 +49,7 @@ test('claim checks the current publisher lease before atomically claiming a due 
   assert.deepEqual(call[1], { status: 'pending', nextAttemptAt: { $lte: new Date('2026-11-24T12:00:00.000Z') } });
   assert.equal(call[2].$set.status, 'processing');
   assert.equal(call[2].$set.leaseOwner, 'worker-a');
+  assert.equal(call[2].$set.publisherToken, 1);
   assert.equal(call[2].$inc.attempts, 1);
 });
 
@@ -108,4 +109,15 @@ test('enqueue rejects oversized dedupe keys and unserializable payloads', async 
   await assert.rejects(queue.enqueue({ dedupeKey: 'x'.repeat(513), payload: { ok: true } }), /dedupeKey/);
   const circular = {}; circular.self = circular;
   await assert.rejects(queue.enqueue({ dedupeKey: 'valid-key', payload: circular }), /serializável/);
+});
+
+test('backoff rejects invalid retry parameters', () => {
+  assert.throws(() => backoffDelayMs(0), /attempt/);
+  assert.throws(() => backoffDelayMs(1, { baseMs: -1 }), /baseMs/);
+  assert.throws(() => backoffDelayMs(1, { baseMs: 500, maxMs: 100 }), /maxMs/);
+});
+
+test('constructor rejects an empty publisher identity', () => {
+  const { queue } = makeQueue();
+  assert.throws(() => new PersistentDealQueue({ deals: queue.deals, locks: queue.locks, owner: '' }), /owner/);
 });
