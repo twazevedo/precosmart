@@ -194,7 +194,9 @@
       localStorage.setItem('ps_api_url', DEFAULT_URL);
     }
     let apiUrl = storedUrl;
-    let apiKey = localStorage.getItem('ps_api_key') || '';
+    // Credencial administrativa permanece apenas em memória; não persista em Web Storage.
+    localStorage.removeItem('ps_api_key');
+    let apiKey = '';
 
     document.getElementById('serverUrl').value = apiUrl;
     document.getElementById('serverKey').value = apiKey;
@@ -216,7 +218,7 @@
       apiUrl = document.getElementById('serverUrl').value.trim() || DEFAULT_URL;
       apiKey = document.getElementById('serverKey').value.trim() || '';
       localStorage.setItem('ps_api_url', apiUrl);
-      localStorage.setItem('ps_api_key', apiKey);
+      // A chave é descartada ao fechar/recarregar o painel.
       toggleConfigModal();
       showToast('Configurações salvas!');
       checkStatus();
