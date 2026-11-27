@@ -35,7 +35,7 @@ function cleanText(str) {
     try {
       const fixed = Buffer.from(s, 'latin1').toString('utf8');
       if (!fixed.includes('\ufffd')) s = fixed;
-    } catch (_) {}
+    } catch (_) { require('./silentError').ignorar('textSanitizer.js:38', _); }
   }
 
   // Remove tags HTML residuais

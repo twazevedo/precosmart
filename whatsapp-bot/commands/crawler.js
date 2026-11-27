@@ -20,7 +20,7 @@ module.exports = {
       try {
         const aiCopy = await generateSalesCopy(d.title, d.rawText);
         if (aiCopy) copyText = aiCopy;
-      } catch (e) {}
+      } catch (e) { require('../silentError').ignorar('commands/crawler.js:23', e); }
       dealQueue.push({ type: 'text', buffer: null, text: copyText });
       count++;
     }

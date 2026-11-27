@@ -17,12 +17,12 @@
 // ── Tratamento Global de Exceções e Rejeições (Impede que o Node.js caia) ───
 process.on('uncaughtException', (err) => {
   console.error('[FATAL uncaughtException]', err);
-  try { logEntry('FATAL', `uncaughtException: ${err.message}`); } catch (e) {}
+  try { logEntry('FATAL', `uncaughtException: ${err.message}`); } catch (e) { require('./silentError').ignorar('bot.js:20', e); }
 });
 
 process.on('unhandledRejection', (reason) => {
   console.error('[WARN unhandledRejection]', reason);
-  try { logEntry('WARN', `unhandledRejection: ${reason?.message || reason}`); } catch (e) {}
+  try { logEntry('WARN', `unhandledRejection: ${reason?.message || reason}`); } catch (e) { require('./silentError').ignorar('bot.js:25', e); }
 });
 
 
@@ -232,7 +232,7 @@ const messageStore = new Map();
       isAutoPilotActive = st.isAutoPilotActive;
       logEntry('BOOT', `Estado do piloto automático restaurado: ${isAutoPilotActive ? 'ATIVO' : 'PAUSADO'}`);
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:235', e); }
 })();
 const groupMetadataCache = new Map();
 let mongoClient = null;
@@ -274,7 +274,7 @@ function isNightQuietHours() {
     if (hour === 23 && minute >= 30) return true;
     if (hour >= 0 && hour < 7) return true;
     if (hour === 7 && minute < 30) return true;
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:277', e); }
   return false;
 }
 
@@ -297,7 +297,7 @@ function logEntry(type, text) {
     if (t === 'AWIN_WA' || t === 'SENT' || (t === 'MIRROR' && s.startsWith('Oferta postada'))) globalThis.__lastDispatchAt = Date.now();
     else if (t === 'CONNECTED') globalThis.__connectedAt = Date.now();
     else if (t === 'DISCONNECTED') globalThis.__connectedAt = 0;
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:300', e); }
 }
 
 // ── Dashboard HTML ───────────────────────────────────────────────────────────
@@ -503,7 +503,7 @@ app.get('/dashboard', (req, res) => {
           } else {
             document.getElementById('table-container').innerHTML = '<p style="color:#94a3b8; padding: 12px 0;">Nenhum clique registrado ainda. As métricas atualizarão assim que os membros clicarem nas ofertas!</p>';
           }
-        } catch(e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:506', e); }
       }
 
       loadDashboard();
@@ -659,7 +659,7 @@ app.get('/api/post-now', requireApiAuth, async (req, res) => {
     } else if (dealToSend.imageUrl) {
       try {
         imgBuf = await prepareWhatsAppImage(dealToSend.imageUrl);
-      } catch (e) {}
+      } catch (e) { require('./silentError').ignorar('bot.js:662', e); }
     }
 
     let sentMsg = null;
@@ -825,7 +825,7 @@ app.all(['/api/pause'], requireApiAuth, async (req, res) => {
     const st = await rotationState.load();
     st.isAutoPilotActive = false;
     await rotationState.save();
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:828', e); }
   logEntry('API', 'Piloto automático PAUSADO via API / App');
   res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado e fila limpa.' });
 });
@@ -836,7 +836,7 @@ app.all(['/api/resume'], requireApiAuth, async (req, res) => {
     const st = await rotationState.load();
     st.isAutoPilotActive = true;
     await rotationState.save();
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:839', e); }
   logEntry('API', 'Piloto automático RETOMADO via API / App');
   res.json({ ok: true, isAutoPilotActive: true, message: 'Envio automático retomado com sucesso.' });
 });
@@ -1035,7 +1035,7 @@ async function dispatchNextAwinRotation(options = {}) {
               url: tt.affiliateUrl
             };
           }
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:1038', e); }
       }
       
       // Turno 1: Nike Brasil Oficial (Lançamentos, Tênis, Dri-FIT, Acessórios)
@@ -1043,7 +1043,7 @@ async function dispatchNextAwinRotation(options = {}) {
         try {
           const nike = await getSpecificNikeDeal();
           if (nike) return nike;
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:1046', e); }
       }
       
       // Turno 2: Shopee Oficial (Mega Catálogo de Eletrônicos, Casa e Moda)
@@ -1051,7 +1051,7 @@ async function dispatchNextAwinRotation(options = {}) {
         try {
           const shopee = await getSpecificShopeeDeal();
           if (shopee) return shopee;
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:1054', e); }
       }
       
       // Turno 3: Grandes Marcas Awin (Lego, Stanley, Decathlon, Lacoste, Venancio, Olympikus, KaBuM, etc.)
@@ -1059,7 +1059,7 @@ async function dispatchNextAwinRotation(options = {}) {
         try {
           const awin = await getNextAwinDeal();
           if (awin) return awin;
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:1062', e); }
       }
       
       // Turno 4: Magazine Luiza / Curadoria
@@ -1077,7 +1077,7 @@ async function dispatchNextAwinRotation(options = {}) {
               url: quote.link || null
             };
           }
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('bot.js:1080', e); }
       }
 
       // Fallback garantido entre Awin, Shopee e Nike
@@ -1891,10 +1891,10 @@ app.get('/api/server-health', requireApiAuth, async (req, res) => {
       const files = fs.readdirSync(SESSION_DIR);
       sessionFilesCount = files.length;
       for (const f of files) {
-        try { sessionSizeBytes += fs.statSync(path.join(SESSION_DIR, f)).size; } catch (e) {}
+        try { sessionSizeBytes += fs.statSync(path.join(SESSION_DIR, f)).size; } catch (e) { require('./silentError').ignorar('bot.js:1894', e); }
       }
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('bot.js:1897', e); }
 
   res.json({
     timestamp: new Date().toISOString(),
@@ -1981,7 +1981,7 @@ app.post('/api/reset-session', requireApiAuth, async (req, res) => {
     isConnected = false;
     qrCodeDataUrl = null;
     if (waSocket) {
-      try { waSocket.end(); } catch(e) {}
+      try { waSocket.end(); } catch (e) { require('./silentError').ignorar('bot.js:1984', e); }
     }
     setTimeout(() => {
       startBot().catch(e => logEntry('FATAL', e.message));
@@ -2151,7 +2151,7 @@ async function sendProductMessage(product, caption) {
     
     try {
       await waSocket.sendMessage(targetJid, { text: caption, mentions: mentions });
-    } catch (txtErr) {}
+    } catch (txtErr) { require('./silentError').ignorar('bot.js:2154', txtErr); }
   }
   
 }
@@ -2189,7 +2189,7 @@ function setupCronJobs() {
     for (const targetJid of jidsToSend) {
       try {
         await waSocket.sendMessage(targetJid, { text: buildMorningMessage() });
-      } catch (err) {}
+      } catch (err) { require('./silentError').ignorar('bot.js:2192', err); }
     }
     logEntry('SENT', '[09:00] Resumo matinal enviado');
   }, { timezone: 'America/Sao_Paulo' });
@@ -2285,7 +2285,7 @@ function setupCronJobs() {
     for (const targetJid of jidsToSend) {
       try {
         await waSocket.sendMessage(targetJid, { text: msgText });
-      } catch (err) {}
+      } catch (err) { require('./silentError').ignorar('bot.js:2288', err); }
     }
     logEntry('SENT', '[20:00] Resumo Top 5 enviado');
     notifyAdmin('DAILY_REPORT', 'Resumo diário enviado!\n\u2022 Cliques hoje: ' + stats.totalClicks + '\n\u2022 Links ativos: ' + stats.totalLinks).catch(() => {});
@@ -2366,7 +2366,7 @@ async function startBot() {
     try {
       waSocket.ev.removeAllListeners();
       waSocket.end();
-    } catch (e) {}
+    } catch (e) { require('./silentError').ignorar('bot.js:2369', e); }
     waSocket = null;
   }
 
@@ -2532,7 +2532,7 @@ async function startBot() {
                 sourceGroupJids.push(jid);
                 logEntry('GROUP', '✅ Novo canal conectado: ' + jid);
               }
-            } catch (err) {}
+            } catch (err) { require('./silentError').ignorar('bot.js:2535', err); }
           }
         } catch (gErr) {
           logEntry('WARN', 'Aviso ao mapear canais dinamicamente: ' + gErr.message);
@@ -2555,7 +2555,7 @@ async function startBot() {
           waSocket.end();
           waSocket = null;
         }
-      } catch (cleanupErr) {}
+      } catch (cleanupErr) { require('./silentError').ignorar('bot.js:2558', cleanupErr); }
       const code  = lastDisconnect?.error?.output?.statusCode;
       const isLoggedOut = code === DisconnectReason.loggedOut;
       logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
@@ -2658,7 +2658,7 @@ async function startBot() {
                   }
                 }
               }
-            } catch (ogErr) {}
+            } catch (ogErr) { require('./silentError').ignorar('bot.js:2661', ogErr); }
           }
         }
 
@@ -2844,7 +2844,7 @@ async function startBot() {
             // Em caso de erro, deleta o link
             try {
               await waSocket.sendMessage(msg.key.remoteJid, { delete: msg.key });
-            } catch (e) {}
+            } catch (e) { require('./silentError').ignorar('bot.js:2847', e); }
             logEntry('WARN', `Erro ao processar link do membro: ${affiliateErr.message}`);
           }
         }

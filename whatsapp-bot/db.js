@@ -49,14 +49,14 @@ function createStore(name) {
       if (fs.existsSync(filePath)) {
         return JSON.parse(fs.readFileSync(filePath, 'utf8') || '{}');
       }
-    } catch (e) {}
+    } catch (e) { require('./silentError').ignorar('db.js:52', e); }
     return null;
   }
 
   function saveLocal(data) {
     try {
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-    } catch (e) {}
+    } catch (e) { require('./silentError').ignorar('db.js:59', e); }
   }
 
   return {
@@ -65,7 +65,7 @@ function createStore(name) {
         try {
           const doc = await mongoDb.collection(safeName).findOne({ _id: String(id) });
           return doc ? doc.value : defaultVal;
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('db.js:68', e); }
       }
       if (localCache === null) localCache = loadLocal() || {};
       if (localCache && typeof localCache === 'object' && id in localCache) {
@@ -90,7 +90,7 @@ function createStore(name) {
             { $set: { value: val, updatedAt: new Date() } },
             { upsert: true }
           );
-        } catch (e) {}
+        } catch (e) { require('./silentError').ignorar('db.js:93', e); }
       }
     },
 

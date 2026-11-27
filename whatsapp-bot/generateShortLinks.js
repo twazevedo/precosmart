@@ -75,7 +75,7 @@ async function shortenUrl(longUrl, advertiserId = null, clickRef = 'DIVULGACAO')
       cache.set(clean, tiny);
       return tiny;
     }
-  } catch {}
+  } catch (_e) { require('./silentError').ignorar('generateShortLinks.js:78', _e); }
 
   cache.set(clean, clean);
   return clean;
@@ -105,7 +105,7 @@ function callAwinLinkBuilder(advertiserId, destinationUrl, clickRef) {
           try {
             const json = JSON.parse(data);
             if (json.shortUrl) return resolve(json.shortUrl);
-          } catch {}
+          } catch (_e) { require('./silentError').ignorar('generateShortLinks.js:108', _e); }
         }
         resolve(null);
       });

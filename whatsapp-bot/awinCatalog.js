@@ -141,7 +141,7 @@ try {
       if (b.id) brokenImageUrls.add(String(b.id));
     });
   }
-} catch (e) {}
+} catch (e) { require('./silentError').ignorar('awinCatalog.js:144', e); }
 
 // ── Pools por Marca para ROTAÇÃO JUSTA & EQUITATIVA (Brand-Fair Round Robin) ──
 // Garante que TODAS as marcas parceiras sejam divulgadas ciclicamente sem monopólio de uma única loja!
@@ -372,7 +372,7 @@ function getUniquePool(brandKey) {
 async function resolveImage(item) {
   let img = upgradeToHdImage(item.imageUrl);
   if (!img && item.deeplink) {
-    try { img = await fetchOgImage(item.deeplink); } catch (e) {}
+    try { img = await fetchOgImage(item.deeplink); } catch (e) { require('./silentError').ignorar('awinCatalog.js:375', e); }
   }
   return img || null;
 }
@@ -638,7 +638,7 @@ async function getSpecificKabumDeal(index = 0) {
   if (!imageUrl && targetUrl) {
     try {
       imageUrl = await fetchOgImage(targetUrl);
-    } catch (e) {}
+    } catch (e) { require('./silentError').ignorar('awinCatalog.js:641', e); }
   }
   const badge = getProductBadge(p.title);
   const priceSection = p.priceOriginal && p.priceCurrent
@@ -682,7 +682,7 @@ function nextNikeRotationIndex() {
   }
   try {
     fs.writeFileSync(NIKE_ROTATION_PATH, JSON.stringify({ index: idx + 1 }));
-  } catch (_) {}
+  } catch (_) { require('./silentError').ignorar('awinCatalog.js:685', _); }
   return idx;
 }
 
@@ -1140,7 +1140,7 @@ async function getSpecificAliExpressDeal(index = 0) {
   const shortUrl = resolveSafeDealUrl(p) || await shortenUrl(p.deeplinkTracking || p.deeplink);
   let imageUrl = upgradeToHdImage(p.imageUrl);
   if (!imageUrl && p.deeplink) {
-    try { imageUrl = await fetchOgImage(p.deeplink); } catch (e) {}
+    try { imageUrl = await fetchOgImage(p.deeplink); } catch (e) { require('./silentError').ignorar('awinCatalog.js:1143', e); }
   }
 
   const priceSection = p.priceCurrent ? `💵 *Preço Especial:* *${p.priceCurrent}*\n` : '';

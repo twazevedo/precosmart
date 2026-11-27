@@ -240,7 +240,7 @@ function demoteToStandby(reason) {
       clusterState.childBot.kill('SIGINT');
       setTimeout(() => {
         if (clusterState.childBot) {
-          try { clusterState.childBot.kill('SIGKILL'); } catch (e) {}
+          try { clusterState.childBot.kill('SIGKILL'); } catch (e) { require('./silentError').ignorar('backup-server.js:243', e); }
           clusterState.childBot = null;
         }
       }, 4000);
@@ -493,7 +493,7 @@ function startBackupServer(cfg = loadBackupConfig()) {
   const shutdown = () => {
     clearInterval(heartbeatTimer);
     if (clusterState.childBot) {
-      try { clusterState.childBot.kill('SIGTERM'); } catch (e) {}
+      try { clusterState.childBot.kill('SIGTERM'); } catch (e) { require('./silentError').ignorar('backup-server.js:496', e); }
     }
     server.close(() => process.exit(0));
   };

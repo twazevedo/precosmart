@@ -60,7 +60,7 @@ const CSV_PARSE_PATHS = [
   'csv-parse/sync',
 ];
 for (const csvPath of CSV_PARSE_PATHS) {
-  try { csv = require(csvPath); break; } catch (_) {}
+  try { csv = require(csvPath); break; } catch (_) { require('../silentError').ignorar('scripts/awin_feed_sync.js:63', _); }
 }
 if (!csv) {
   console.error('[ERRO] Módulo csv-parse não encontrado.');

@@ -123,7 +123,7 @@ async function syncAwinPromotions() {
     if (fs.existsSync(DATA_PATH)) {
       try {
         currentData = JSON.parse(fs.readFileSync(DATA_PATH, 'utf8'));
-      } catch (e) {}
+      } catch (e) { require('./silentError').ignorar('awinApiSync.js:126', e); }
     }
 
     let addedCount = 0;

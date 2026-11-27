@@ -22,9 +22,9 @@ async function load() {
   if (state) return state;
   if (!loading) {
     loading = (async () => {
-      try { await initDatabase(); } catch (e) {}
+      try { await initDatabase(); } catch (e) { require('./silentError').ignorar('rotationState.js:25', e); }
       let saved = null;
-      try { saved = await store.get(STATE_ID, null); } catch (e) {}
+      try { saved = await store.get(STATE_ID, null); } catch (e) { require('./silentError').ignorar('rotationState.js:27', e); }
       const valid = saved && typeof saved === 'object' && saved.v === 1 && saved.sent && typeof saved.sent === 'object';
       state = valid ? { ...emptyState(), ...saved } : emptyState();
       return state;

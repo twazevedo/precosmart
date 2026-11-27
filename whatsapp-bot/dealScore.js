@@ -31,14 +31,14 @@ function saveHistory() {
   saveTimeout = setTimeout(async () => {
     try {
       await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
-    } catch (err) {}
+    } catch (err) { require('./silentError').ignorar('dealScore.js:34', err); }
   }, 1000);
 }
 
 function saveHistorySync() {
   try {
     fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('dealScore.js:41', e); }
 }
 
 process.once('SIGTERM', saveHistorySync);

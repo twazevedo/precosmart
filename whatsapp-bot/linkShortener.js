@@ -125,7 +125,7 @@ async function shortenUrl(longUrl) {
                   if (json.shortUrl && typeof json.shortUrl === 'string') {
                     return resolve(json.shortUrl);
                   }
-                } catch (err) {}
+                } catch (err) { require('./silentError').ignorar('linkShortener.js:128', err); }
               }
               resolve(null);
             });
@@ -145,7 +145,7 @@ async function shortenUrl(longUrl) {
           shortLinkCache.set(cleanUrl, awinShort);
           return awinShort;
         }
-      } catch (err) {}
+      } catch (err) { require('./silentError').ignorar('linkShortener.js:148', err); }
     }
   }
 
@@ -157,7 +157,7 @@ async function shortenUrl(longUrl) {
         shortLinkCache.set(cleanUrl, isgdShort);
         return isgdShort;
       }
-    } catch (err) {}
+    } catch (err) { require('./silentError').ignorar('linkShortener.js:160', err); }
   }
 
   return cleanUrl;

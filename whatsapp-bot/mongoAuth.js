@@ -39,7 +39,7 @@ async function useMongoDBAuthState(collection) {
     const removeData = async (id) => {
         try {
             await collection.deleteOne({ _id: id });
-        } catch (error) {}
+        } catch (error) { require('./silentError').ignorar('mongoAuth.js:42', error); }
     };
 
     const creds = await readData('creds') || initAuthCreds();

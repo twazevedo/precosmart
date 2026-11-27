@@ -71,7 +71,7 @@ async function expandUrl(url) {
     const resHead = await axios.head(url, options);
     const finalUrl = resHead.request?.res?.responseUrl || resHead.headers?.location || url;
     if (finalUrl !== url && isSafePublicUrl(finalUrl)) return finalUrl;
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('mirror.js:74', e); }
 
   try {
     const res = await axios.get(url, { ...options, responseType: 'stream' });
@@ -111,7 +111,7 @@ async function resolveMLSocialToDirect(socialUrl, keyword) {
       }
       return best.split('&amp;')[0].split('?')[0].split('#')[0];
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('mirror.js:114', e); }
   return null;
 }
 
@@ -801,12 +801,12 @@ function fetchOgImage(urlStr) {
   if (cleanUrl.includes('ued=')) {
     const m = cleanUrl.match(/[?&]ued=([^&]+)/);
     if (m) {
-      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) {}
+      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) { require('./silentError').ignorar('mirror.js:804', e); }
     }
   } else if (cleanUrl.includes('awin1.com') && cleanUrl.includes('url=')) {
     const m = cleanUrl.match(/[?&]url=([^&]+)/);
     if (m) {
-      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) {}
+      try { cleanUrl = decodeURIComponent(m[1]); } catch (e) { require('./silentError').ignorar('mirror.js:809', e); }
     }
   }
 

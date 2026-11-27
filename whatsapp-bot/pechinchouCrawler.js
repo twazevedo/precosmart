@@ -52,7 +52,7 @@ function convertAwinLink(rawUrl) {
       u.searchParams.set('clickref', 'precosmart');
       return u.toString();
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('pechinchouCrawler.js:55', e); }
   return rawUrl;
 }
 
@@ -66,7 +66,7 @@ function convertMagaluLink(rawUrl) {
         return `https://www.magazinevoce.com.br/${parts.join('/')}`;
       }
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('pechinchouCrawler.js:69', e); }
   return rawUrl;
 }
 
@@ -92,7 +92,7 @@ async function formatSinglePromo(p, storeOverride) {
     if (cleanUrl.includes('meli.la/') || cleanUrl.includes('bit.ly/') || cleanUrl.includes('amzn.to/')) {
       cleanUrl = await expandUrl(cleanUrl);
     }
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('pechinchouCrawler.js:95', e); }
 
   // Injeta tag oficial PreçoSmart
   let affiliateUrl = cleanUrl;
@@ -113,7 +113,7 @@ async function formatSinglePromo(p, storeOverride) {
     try {
       const short = await shortenUrl(affiliateUrl);
       if (short) affiliateUrl = short;
-    } catch (e) {}
+    } catch (e) { require('./silentError').ignorar('pechinchouCrawler.js:116', e); }
   }
 
   // Preços devidamente formatados em padrão BRL (R$ 1.299,00)

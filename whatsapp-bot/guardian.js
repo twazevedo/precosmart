@@ -130,7 +130,7 @@ class RotatingLog {
   rotate() {
     for (let i = this.keep; i >= 1; i--) {
       const from = i === 1 ? this.file : `${this.file}.${i - 1}`;
-      try { if (fs.existsSync(from)) fs.renameSync(from, `${this.file}.${i}`); } catch (e) {}
+      try { if (fs.existsSync(from)) fs.renameSync(from, `${this.file}.${i}`); } catch (e) { require('./silentError').ignorar('guardian.js:133', e); }
     }
   }
 }
@@ -179,7 +179,7 @@ function snapshot() {
 }
 
 function writeStatus() {
-  try { fs.writeFileSync(STATUS_FILE, JSON.stringify(snapshot(), null, 2)); } catch (e) {}
+  try { fs.writeFileSync(STATUS_FILE, JSON.stringify(snapshot(), null, 2)); } catch (e) { require('./silentError').ignorar('guardian.js:182', e); }
 }
 
 function httpGetJson(port, urlPath, timeoutMs = 8000) {
@@ -212,7 +212,7 @@ function isValidCreds(file) {
 function backupCreds() {
   try {
     if (fs.existsSync(CREDS) && isValidCreds(CREDS)) fs.copyFileSync(CREDS, CREDS_BACKUP);
-  } catch (e) {}
+  } catch (e) { require('./silentError').ignorar('guardian.js:215', e); }
 }
 
 /** Só restaura se o creds.json EXISTE e está corrompido (não restaura após logout, que apaga a pasta). */
@@ -293,7 +293,7 @@ function killChild(child) {
     if (!child) return resolve();
     if (child.adopted) return killAdopted(child.pid).then(resolve);
     if (child.exitCode !== null) return resolve();
-    const hard = setTimeout(() => { try { child.kill('SIGKILL'); } catch (e) {} }, 5000);
+    const hard = setTimeout(() => { try { child.kill('SIGKILL'); } catch (e) { require('./silentError').ignorar('guardian.js:296', e); } }, 5000);
     child.once('exit', () => { clearTimeout(hard); resolve(); });
     try { child.kill('SIGTERM'); } catch (e) { clearTimeout(hard); resolve(); }
   });
@@ -309,7 +309,7 @@ async function killAdopted(pid) {
     await new Promise((r) => setTimeout(r, 500));
     if (!isAlive(pid)) return;
   }
-  try { process.kill(pid, 'SIGKILL'); } catch (e) {}
+  try { process.kill(pid, 'SIGKILL'); } catch (e) { require('./silentError').ignorar('guardian.js:312', e); }
 }
 
 async function restartBot(reason) {
@@ -421,8 +421,8 @@ async function shutdown(code = 0) {
   state.stopping = true;
   log('Encerrando guardião e bot...');
   await killChild(state.child);
-  try { if (keepAwakeProc) keepAwakeProc.kill(); } catch (e) {}
-  try { if (controlServer) controlServer.close(); } catch (e) {}
+  try { if (keepAwakeProc) keepAwakeProc.kill(); } catch (e) { require('./silentError').ignorar('guardian.js:424', e); }
+  try { if (controlServer) controlServer.close(); } catch (e) { require('./silentError').ignorar('guardian.js:425', e); }
   writeStatus();
   if (guardianLog) guardianLog.flush();
   if (botLog) botLog.flush();
