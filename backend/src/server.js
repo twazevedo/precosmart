@@ -76,7 +76,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: ['https://precosmart.onrender.com', 'http://localhost:3000', 'http://localhost:5173'] }));
+// CORS_ORIGINS (separado por virgula) substitui a lista padrao, util quando o front muda de dominio.
+const corsOrigins = (process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: corsOrigins.length ? corsOrigins : ['https://precosmart.onrender.com', 'http://localhost:3000', 'http://localhost:5173']
+}));
 app.use(express.json({ limit: '1mb' }));
 
 // 🛡️ Função Sanitizadora de Entradas do Usuário (Anti-XSS / Limite de Tamanho)

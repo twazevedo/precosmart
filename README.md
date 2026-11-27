@@ -96,6 +96,34 @@ flowchart TD
 
 ---
 
+## 🚀 Como rodar localmente
+
+Requisitos: Node.js 22.5 ou superior (o backend usa `node:sqlite`).
+
+```bash
+# 1) Bot do WhatsApp
+cd whatsapp-bot
+cp .env.example .env      # preencha API_SECRET_KEY, ENCRYPTION_KEY e os IDs de afiliado
+npm ci
+npm start                 # painel em http://localhost:<PORT>/dashboard
+
+# 2) Backend (comparador de preços)
+cd ../backend
+npm ci
+API_SECRET_KEY=troque-esta-chave npm start     # http://localhost:3001
+
+# 3) Frontend
+cd ../frontend
+npm ci
+npm run dev
+```
+
+Variáveis úteis do backend: `DATA_DIR` (pasta do banco SQLite, para usar disco persistente) e `CORS_ORIGINS` (domínios permitidos, separados por vírgula). A lista completa de variáveis do bot está em `whatsapp-bot/.env.example`.
+
+Testes: `cd whatsapp-bot && npm test` (offline) e `cd backend && npm test`.
+
+---
+
 ## 🧪 Suíte de Testes Automatizados (30/30 Passando)
 
 ```bash
