@@ -292,7 +292,7 @@
 
   async function fetchStatus() {
     try {
-      const r = await fetch('/api/status');
+      const r = await fetch('/api/status', { headers: authHeaders() });
       const d = await r.json();
 
       // Status pill

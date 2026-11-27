@@ -171,3 +171,11 @@ test('9. extractApiKey: aceita header X-API-Key e Bearer; ignora query string', 
   assert.equal(extractApiKey({ headers: {}, query: { token: 'naoDeveValer', key: 'naoDeveValer' } }), null);
   assert.equal(extractApiKey({}), null);
 });
+
+test('10. isLocalRequest só aceita loopback (base da proteção de /api/status e /api/analytics)', () => {
+  const { isLocalRequest } = require('../security');
+  assert.equal(isLocalRequest({ ip: '127.0.0.1' }), true);
+  assert.equal(isLocalRequest({ ip: '::1' }), true);
+  assert.equal(isLocalRequest({ ip: '203.0.113.10' }), false);
+  assert.equal(isLocalRequest({ ip: '' }), false);
+});

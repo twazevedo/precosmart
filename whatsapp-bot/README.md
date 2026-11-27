@@ -17,7 +17,7 @@ Microsserviço 100% autônomo de alta performance para curadoria inteligente de 
 - **Sanitizador Universal (`textSanitizer.js`):**
   - Decodifica entidades HTML (`&#199;`, `&amp;`), corrige acentuação UTF-8 e padroniza preços `BRL` para `R$ XX,XX`.
 - **Modo Noturno (Quiet Hours):** Pausa silenciosa automática entre `23:30` e `07:30` (horário de Brasília).
-- **Persistência MongoDB Atlas + Keep-Alive 24/7:** Sessão Baileys salva no MongoDB e monitoramento contínuo via UptimeRobot em `/api/status`.
+- **Persistência MongoDB Atlas + Keep-Alive 24/7:** Sessão Baileys salva no MongoDB e monitoramento contínuo via UptimeRobot em `/api/health` (o `/api/status` completo exige `X-API-Key`).
 
 ---
 

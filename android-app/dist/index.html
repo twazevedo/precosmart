@@ -220,7 +220,7 @@
     async function checkStatus() {
       try {
         // 1. Consulta o status geral do bot e do WhatsApp
-        const statusRes = await fetch(`${apiUrl}/api/status`);
+        const statusRes = await fetch(`${apiUrl}/api/status`, { headers: { 'x-api-key': apiKey } });
         let isConnected = false;
         if (statusRes.ok) {
           const statusData = await statusRes.json();

@@ -53,7 +53,7 @@ const { extractOfferFromImage } = require('./geminiVision');
 function notifyAdmin(type, msg) { logEntry('ADMIN_NOTIFY', `[${type}] ${msg}`); return Promise.resolve(); }
 const { createShortLink, recordClick, getAnalyticsSummary } = require('./analytics');
 const { fetchCuratedDeals } = require('./crawler');
-const { requireApiAuth, isValidApiKey, extractApiKey, securityHeaders, maskSensitiveData } = require('./security');
+const { requireApiAuth, isValidApiKey, extractApiKey, isLocalRequest, securityHeaders, maskSensitiveData } = require('./security');
 const { 
   getNextAwinDeal,
   getNextBrandDeal, 
@@ -456,7 +456,13 @@ app.get('/dashboard', (req, res) => {
 
       async function loadDashboard() {
         try {
-          const res = await fetch('/api/analytics');
+          const apiKey = (function(){ try { return localStorage.getItem('precosmart_api_key') || ''; } catch(e) { return ''; } })();
+          const res = await fetch('/api/analytics', { headers: apiKey ? { 'X-API-KEY': apiKey } : {} });
+          if (res.status === 401) {
+            const k = prompt('🔒 Digite sua API_SECRET_KEY para ver o painel:');
+            if (k) { try { localStorage.setItem('precosmart_api_key', k.trim()); } catch(e) {} return loadDashboard(); }
+            return;
+          }
           const data = await res.json();
 
           document.getElementById('total-clicks').innerText = data.totalClicks || 0;
@@ -535,7 +541,19 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/status', (req, res) => res.json({
+// /api/status continua publico (UptimeRobot/painel), mas sem chave devolve so o minimo.
+// Dados sensiveis (conta do WhatsApp, JIDs, logs recentes) exigem X-API-Key ou acesso local.
+app.get('/api/status', (req, res) => {
+  const autorizado = isLocalRequest(req) || isValidApiKey(extractApiKey(req));
+  if (!autorizado) {
+    return res.json({
+      connected: isConnected,
+      qrReady: !!qrCodeDataUrl && !isConnected,
+      uptime: Math.floor(process.uptime()),
+      version: '2.2.0'
+    });
+  }
+  return res.json({
   connected:   isConnected,
   botUser:     waSocket?.user || null,
   groupName:   TARGET_GROUP,
@@ -556,7 +574,8 @@ app.get('/api/status', (req, res) => res.json({
   holidayTest: holidayTestState,
   lastMessage: messageLog[0] || null,
   version:     '2.2.0'
-}));
+  });
+});
 
 app.get('/api/alerts', requireApiAuth, (req, res) => res.json(getAllAlerts()));
 
@@ -568,7 +587,7 @@ app.get('/r/:code', (req, res) => {
   res.status(404).send('Link de oferta não encontrado ou expirado.');
 });
 
-app.get('/api/analytics', (req, res) => res.json(getAnalyticsSummary()));
+app.get('/api/analytics', requireApiAuth, (req, res) => res.json(getAnalyticsSummary()));
 
 app.post('/api/crawler/run', requireApiAuth, async (req, res) => {
   try {

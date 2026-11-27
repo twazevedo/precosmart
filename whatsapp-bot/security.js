@@ -181,6 +181,7 @@ module.exports = {
   requireApiAuth,
   isValidApiKey,
   extractApiKey,
+  isLocalRequest,
   securityHeaders,
   maskSensitiveData
 };
