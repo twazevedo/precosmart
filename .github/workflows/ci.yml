@@ -6,49 +6,99 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   bot-tests:
+    name: Bot — testes
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-    - name: Setup Node.js 22.x
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: 22.x
-    - name: Install and Test WhatsApp Bot
-      run: |
-        cd whatsapp-bot
-        npm install
-        npm test
-        node --test test/security.test.js
+        cache: npm
+        cache-dependency-path: whatsapp-bot/package-lock.json
+    - name: Instalar dependências
+      working-directory: whatsapp-bot
+      run: npm ci
+    - name: Rodar todos os testes offline
+      working-directory: whatsapp-bot
+      run: npm test
 
-  backend-lint:
+  bot-lint:
+    name: Bot — ESLint (informativo)
     runs-on: ubuntu-latest
+    # Não bloqueia o merge enquanto os avisos antigos (catch vazio etc.) são corrigidos.
+    continue-on-error: true
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-    - name: Setup Node.js 22.x
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: 22.x
-    - name: Install and Lint Backend
-      run: |
-        cd backend
-        npm install
-        npm audit --audit-level=high || true
+    - name: ESLint
+      working-directory: whatsapp-bot
+      run: npm run lint
+
+  backend-tests:
+    name: Backend — testes da API
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+        cache: npm
+        cache-dependency-path: backend/package-lock.json
+    - name: Instalar dependências
+      working-directory: backend
+      run: npm ci
+    - name: Testar a API (sobe o servidor e valida as rotas)
+      working-directory: backend
+      env:
+        NODE_ENV: test
+        API_SECRET_KEY: chave-somente-para-ci
+      run: npm test
 
   frontend-build:
+    name: Frontend — lint e build
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-    - name: Setup Node.js 22.x
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
       with:
         node-version: 22.x
-    - name: Install and Build Frontend
+        cache: npm
+        cache-dependency-path: frontend/package-lock.json
+    - name: Instalar dependências
+      working-directory: frontend
+      run: npm ci
+    - name: Lint (informativo)
+      working-directory: frontend
+      continue-on-error: true
+      run: npm run lint
+    - name: Build
+      working-directory: frontend
+      run: npm run build
+
+  audit:
+    name: Auditoria de dependências (informativo)
+    runs-on: ubuntu-latest
+    # Falha visível, mas sem bloquear: novas vulnerabilidades surgem todo dia.
+    continue-on-error: true
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+    - name: npm audit (produção)
       run: |
-        cd frontend
-        npm install
-        npm run build
+        for dir in whatsapp-bot backend frontend; do
+          echo "== $dir =="
+          (cd "$dir" && npm audit --omit=dev --audit-level=high)
+        done
