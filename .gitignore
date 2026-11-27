@@ -74,3 +74,5 @@ whatsapp-bot/logs/
 HISTORICO_COMPLETO_CONVERSAS.md
 *HISTORICO*
 
+# Capturas de tela soltas na raiz do bot (use docs/ para imagens de documentacao)
+whatsapp-bot/*.png
