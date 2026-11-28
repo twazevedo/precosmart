@@ -820,14 +820,14 @@ app.post('/api/send-boticario', requireApiAuth, async (req, res) => {
 
 app.all(['/api/pause'], requireApiAuth, async (req, res) => {
   isAutoPilotActive = false;
-  dealQueue.length = 0;
+  // Ofertas pendentes são preservadas durante a pausa.
   try {
     const st = await rotationState.load();
     st.isAutoPilotActive = false;
     await rotationState.save();
   } catch (e) {}
-  logEntry('API', 'Piloto automático PAUSADO via API / App');
-  res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado e fila limpa.' });
+  logEntry('API', 'Piloto automático PAUSADO via API / App; ofertas pendentes preservadas');
+  res.json({ ok: true, isAutoPilotActive: false, message: 'Envio automático pausado; ofertas pendentes preservadas.' });
 });
 
 app.all(['/api/resume'], requireApiAuth, async (req, res) => {
@@ -2561,19 +2561,11 @@ async function startBot() {
       logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
       notifyAdmin('DISCONNECTED', 'Bot desconectado! Código: ' + code).catch(() => {});
       if (isLoggedOut) {
-        // Proteção de dados: nunca apagar auth_info nem a sessão local
-        // automaticamente. A recuperação deve ser explícita após backup e diagnóstico.
+        // Proteção de dados: nunca apagar auth_info nem a sessão local automaticamente.
+        // A recuperação deve ser explícita após backup e diagnóstico.
         logEntry('ERROR', 'WhatsApp informou loggedOut (401). Sessão preservada sem limpeza automática; intervenção manual será necessária.');
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = null;
-      } else {
-            logEntry('BOOT', 'Pasta session limpa após logout 401. Gerando novo QR Code...');
-          }
-        } catch(e) {
-          logEntry('WARN', 'Erro ao limpar sessão: ' + e.message);
-        }
-        if (reconnectTimer) clearTimeout(reconnectTimer);
-        reconnectTimer = setTimeout(startBot, 2000);
       } else {
         if (reconnectTimer) clearTimeout(reconnectTimer);
         reconnectTimer = setTimeout(startBot, 5000);
