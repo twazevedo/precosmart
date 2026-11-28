@@ -1967,33 +1967,14 @@ app.get('/api/auth-debug', requireApiAuth, async (req, res) => {
 });
 
 // Endpoint administrativo para resetar a sessão com autenticação obrigatória (Apenas POST)
+// Reset destrutivo desativado: preservar auth_info e a sessão local é requisito do projeto.
 app.post('/api/reset-session', requireApiAuth, async (req, res) => {
-  try {
-    logEntry('AUTH', '⚠️ Reset manual de sessão solicitado via API protegida...');
-    if (mongoClient) {
-      await mongoClient.db('precosmart').collection('auth_info').deleteMany({});
-      logEntry('AUTH', '🗑️ Coleção auth_info apagada do MongoDB com sucesso!');
-    }
-    if (fs.existsSync(SESSION_DIR)) {
-      fs.rmSync(SESSION_DIR, { recursive: true, force: true });
-      logEntry('AUTH', '🗑️ Pasta de sessão local removida!');
-    }
-    isConnected = false;
-    qrCodeDataUrl = null;
-    if (waSocket) {
-      try { waSocket.end(); } catch(e) {}
-    }
-    setTimeout(() => {
-      startBot().catch(e => logEntry('FATAL', e.message));
-    }, 1500);
-    res.json({
-      ok: true,
-      message: 'Sessão resetada com sucesso! Conecte-se novamente via QR Code.'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  logEntry('SECURITY', 'Tentativa de reset de sessão bloqueada para proteger auth_info.');
+  return res.status(403).json({
+    ok: false,
+    error: 'Reset automático/destrutivo de sessão está desativado. A sessão foi preservada.'
+  });
+});;
 
 app.listen(PORT, '0.0.0.0', () => logEntry('SERVER', `Dashboard rodando na porta ${PORT}`));
 
