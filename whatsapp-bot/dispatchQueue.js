@@ -163,8 +163,27 @@ class PersistentDispatchQueue {
       : { updated: false, status: null, retryInMs: 0 };
   }
 
+
+  async markUncertain(job, error) {
+    if (!job?._id || !job.leaseToken) throw new TypeError('A claimed job is required');
+    const now = this.now();
+    const result = await this.collection.updateOne(
+      { _id: job._id, status: 'processing', leaseToken: job.leaseToken },
+      {
+        $set: {
+          status: 'uncertain',
+          updatedAt: now,
+          uncertainAt: now,
+          lastError: String(error?.message || error || 'Ambiguous WhatsApp send result').slice(0, 2000)
+        },
+        $unset: { workerId: '', leaseToken: '', lockedUntil: '' }
+      }
+    );
+    return result.modifiedCount === 1;
+  }
+
   async getStats() {
-    const statuses = ['pending', 'processing', 'sent', 'failed'];
+    const statuses = ['pending', 'processing', 'sent', 'failed', 'uncertain'];
     const entries = await Promise.all(statuses.map(async (status) => [
       status, await this.collection.countDocuments({ status })
     ]));
