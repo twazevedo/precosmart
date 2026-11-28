@@ -2561,13 +2561,12 @@ async function startBot() {
       logEntry('DISCONNECTED', `Desconectado (código ${code}). LoggedOut: ${isLoggedOut}`);
       notifyAdmin('DISCONNECTED', 'Bot desconectado! Código: ' + code).catch(() => {});
       if (isLoggedOut) {
-        try {
-          fs.rmSync(SESSION_DIR, { recursive: true, force: true });
-          // Limpa sessão corrompida do MongoDB para evitar loop infinito de 401
-          if (mongoClient) {
-            await mongoClient.db('precosmart').collection('auth_info').deleteMany({});
-            logEntry('BOOT', 'Sessão limpa do MongoDB e pasta local após logout 401. Gerando novo QR Code...');
-          } else {
+        // Proteção de dados: nunca apagar auth_info nem a sessão local
+        // automaticamente. A recuperação deve ser explícita após backup e diagnóstico.
+        logEntry('ERROR', 'WhatsApp informou loggedOut (401). Sessão preservada sem limpeza automática; intervenção manual será necessária.');
+        if (reconnectTimer) clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      } else {
             logEntry('BOOT', 'Pasta session limpa após logout 401. Gerando novo QR Code...');
           }
         } catch(e) {
