@@ -115,5 +115,5 @@ test('marks sent only when the active lease token matches', async () => {
   const claimed = await queue.claimNext('worker-a');
   assert.equal(await queue.markSent({ ...claimed, leaseToken: 'stale-token' }), false);
   assert.equal(await queue.markSent(claimed, [{ target: 'g@g.us', ok: true }]), true);
-  assert.deepEqual(await queue.getStats(), { pending: 0, processing: 0, sent: 1, failed: 0 });
+  assert.deepEqual(await queue.getStats(), { pending: 0, processing: 0, sent: 1, failed: 0, uncertain: 0 });
 });
